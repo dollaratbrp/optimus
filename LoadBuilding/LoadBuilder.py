@@ -152,7 +152,7 @@ class LoadBuilder:
             if len(self.remaining_crates.stand_by_crates) > 0:
                 self.remaining_crates.create_incomplete_stacks(self.warehouse)
 
-    def trailer_packing(self, plot_enabled=False):
+    def __trailer_packing(self, plot_enabled=False):
 
         """
 
@@ -249,3 +249,32 @@ class LoadBuilder:
 
         # We save unused stacks
         self.warehouse.save_unused_crates()
+
+    def select_best_packer(self, packers_list):
+
+        """
+        Pick the best loading configuration done (the best packer) among the list according to the number of units
+        placed in the trailer.
+
+        :param packers_list: List containing packers object
+        :return: Index of the location of the best packer
+        """
+
+        i = 0
+        best_packer_index = None
+        best_nb_items_used = 0
+
+        for packer in packers_list:
+
+            # We check if packing respect plc lower bound and how many items it contains
+            qualified, items_used = self.validate_packing(packer)
+
+            # If the packing respect constraints and has more items than the best one yet,
+            # we change our best packer for this one.
+            if qualified and items_used > best_nb_items_used:
+                best_nb_items_used = items_used
+                best_packer_index = i
+
+            i += 1
+
+        return best_packer_index
