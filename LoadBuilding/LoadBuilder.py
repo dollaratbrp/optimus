@@ -15,7 +15,7 @@ import numpy as np
 class LoadBuilder:
 
     def __init__(self, plant_from, plant_to, models_data, trailers_data, minimum_trailer, maximum_trailer,
-                 overhang_authorized=72, maximum_trailer_length=636):
+                 overhang_authorized=72, maximum_trailer_length=636, plc_lb=0.75):
 
         """
         :param plant_from: name of the plant from where the item are shipped
@@ -26,19 +26,21 @@ class LoadBuilder:
         :param maximum_trailer: maximum number of trailer
         :param overhang_authorized: maximum overhanging measure authorized by law for a trailer
         :param maximum_trailer_length: maximum length authorized by law for a trailer
+        :param plc_lb: lower bound of length percentage covered that must be satisfied for all trailer
         """
         self.overhang_authorized = overhang_authorized  # In inches
         self.max_trailer_length = maximum_trailer_length  # In inches
+        self.plc_lb = plc_lb
         self.plant_from = plant_from
         self.plant_to = plant_to
-        self.model_names, self.warehouse, self.remaining_crates = self.warehouse_ignition(models_data)
-        self.trailers = self.trailers_ignition(trailers_data, overhang_authorized, maximum_trailer_length)
+        self.model_names, self.warehouse, self.remaining_crates = self.warehouse_init(models_data)
+        self.trailers = self.trailers_init(trailers_data, overhang_authorized, maximum_trailer_length)
         self.minimum_trailer = minimum_trailer
         self.maximum_trailer = maximum_trailer
         self.second_phase_activated = False
 
     @staticmethod
-    def warehouse_ignition(models_data):
+    def warehouse_init(models_data):
 
         """
         Initializes a warehouse according to the models available in model data
@@ -102,7 +104,7 @@ class LoadBuilder:
         return model_names, warehouse, remaining_crates
 
     @staticmethod
-    def trailers_ignition(trailers_data, overhang_authorized, maximum_trailer_length):
+    def trailers_init(trailers_data, overhang_authorized, maximum_trailer_length):
 
         """
         Initializes a list with all the trailers available for the loading
@@ -135,3 +137,16 @@ class LoadBuilder:
                                                     trailers_data['WIDTH'][i], trailers_data['HEIGHT'][i],
                                                     trailers_data['PRIORITY_RANK'][i], trailer_oh))
         return trailers
+
+    def __prepare_warehouse(self):
+
+        """
+        Finishes stacking procedure with crates that weren't stacked at first
+        """
+
+        if len(self.remaining_crates.crates) > 0:
+            self.remaining_crates.create_stacks(self.warehouse)
+
+            if len(self.remaining_crates.stand_by_crates) > 0:
+                self.remaining_crates.create_incomplete_stacks(self.warehouse)
+
