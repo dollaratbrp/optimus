@@ -180,7 +180,7 @@ class LoadBuilder:
             # We compute all possible configurations of loading (efficiently) if there's still stacks available
             if len(self.warehouse) != 0:
                 self.warehouse.sort_by_volume()
-                all_configs = self.create_all_configs(t)
+                all_configs = self.__create_all_configs(t)
 
             else:
                 all_configs = []
@@ -213,13 +213,13 @@ class LoadBuilder:
                     packer.pack()
 
                     # We complete the packing (look if some unconsidered rectangles could enter at the end)
-                    self.complete_packing(t, packer, len(config))
+                    self.__complete_packing(t, packer, len(config))
 
                     # We save the loading configuration (the packer)
                     packers.append(packer)
 
                 # We save the index of the best loading configuration that respected the constraint of plc_lb
-                best_packer_index = self.select_best_packer(packers)
+                best_packer_index = self.__select_best_packer(packers)
 
                 # If an index is found (at least one load satisfies the constraint)
                 if best_packer_index is not None:
@@ -242,15 +242,15 @@ class LoadBuilder:
 
                     # We print the loading configuration of the trailer to visualize the result
                     if plot_enabled:
-                        self.print_load(best_packer[0])
+                        self.__print_load(best_packer[0])
 
         # We remove trailer that we're not used during the loading process
-        self.remove_leftover_trailers()
+        self.__remove_leftover_trailers()
 
         # We save unused stacks
         self.warehouse.save_unused_crates()
 
-    def select_best_packer(self, packers_list):
+    def __select_best_packer(self, packers_list):
 
         """
         Pick the best loading configuration done (the best packer) among the list according to the number of units
@@ -267,7 +267,7 @@ class LoadBuilder:
         for packer in packers_list:
 
             # We check if packing respect plc lower bound and how many items it contains
-            qualified, items_used = self.validate_packing(packer)
+            qualified, items_used = self.__validate_packing(packer)
 
             # If the packing respect constraints and has more items than the best one yet,
             # we change our best packer for this one.
@@ -278,3 +278,80 @@ class LoadBuilder:
             i += 1
 
         return best_packer_index
+
+    def __validate_packing(self, packer):
+
+        """
+        Verifies if the packing satisfies plc_lb constraint (Lower bound of percentage of length that must be covered)
+
+        :param packer: Packer object
+        :returns: Boolean indicating if the loading satisfies constraint and number of units in the load
+        """
+
+        items_used = 0
+        qualified = True
+        trailer = packer[0]
+
+        if max([rect.top for rect in trailer]) / trailer.height < self.plc_lb:
+            qualified = False
+        else:
+            items_used += sum([self.warehouse[rect.rid].nbr_of_models() for rect in trailer])
+
+        return qualified, items_used
+
+    def __max_rect_upperbound(self, trailer, last_upper_bound):
+
+        """
+        Recursive function that approximates a maximum number of rectangle that can fit in the trailer,
+        according to rectangles available that are going to enter in the trailer.
+
+        :param trailer: Object of class Trailer
+        :param last_upper_bound: Last upper bound found (int)
+        :return: Approximation of the maximal number (int)
+        """
+
+        # We build a set containing all pairs of objects' width and length in a certain range in the warehouse
+        unique_tuples = set((self.warehouse[i].width, self.warehouse[i].length)
+                            for i in range(min(last_upper_bound, len(self.warehouse))))
+
+        # We initialize the shortest length found with the maximal length found
+        shortest_length = max(max(dimensions) for dimensions in unique_tuples)
+
+        # We find the real minimum height looking at all item in a certain range in the warehouse
+        for dimensions in unique_tuples:
+
+            # We pretend that the item doesn't fit in the trailer
+            fit = False
+
+            # We initialize two variables "length" and "length_if_rotated"
+            length_if_rotated, length = None, None
+
+            # We create two variables containing width and length of item to facilitate comprehension of code
+            item_width, item_length = dimensions[0], dimensions[1]
+
+            # If the item is less large than long and it's possible to rotate it
+            if item_width < item_length <= trailer.width:
+                # We save his width divided by the number of times it fits side by side once rotated
+                length_if_rotated = item_width / (np.floor(trailer.width / item_length))
+                fit = True
+
+            # If the item fits with the original positioning
+            if item_length <= trailer.length and item_width <= trailer.width:
+                # We save is length divided by the number of times it fits side by side
+                length = item_length / (np.floor(trailer.width / item_width))
+                fit = True
+
+            # We update min_shortest_length value
+            if fit:
+                lengths_list = [l for l in [length_if_rotated, length] if l is not None]
+                shortest_length = min([shortest_length] + lengths_list)
+
+        # We compute the upper bound
+        new_upper_bound = np.floor((trailer.length + trailer.oh) / shortest_length)
+
+        # If the upper bound found equals the upper bound found in the last iteration we stop the process
+        if new_upper_bound == last_upper_bound:
+            return new_upper_bound
+
+        else:
+            return self.max_rect_upperbound(trailer, new_upper_bound)
