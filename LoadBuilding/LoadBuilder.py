@@ -186,7 +186,7 @@ class LoadBuilder:
         plt.show()
         plt.close()
 
-    def build(self):
+    def build(self, plot_load_done=False):
 
         """
         This is the core of the object.
@@ -199,7 +199,7 @@ class LoadBuilder:
         self.__prepare_warehouse()
 
         # We execute the loading of the trailers
-        self.__trailer_packing()
+        self.__trailer_packing(plot_enabled=plot_load_done)
 
         return self.unused_models
 
