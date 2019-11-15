@@ -8,9 +8,13 @@ Last update : 2019-10-31
 By : Nicolas Raymond
 
 """
-import LoadBuilding.LoadingObjects as LoadObj
 import numpy as np
+import LoadBuilding.LoadingObjects as LoadObj
 from LoadBuilding.packer import newPacker
+import matplotlib.pyplot as plt
+from matplotlib.path import Path
+import matplotlib.patches as patches
+from math import floor
 
 
 class LoadBuilder:
@@ -332,13 +336,13 @@ class LoadBuilder:
             # If the item is less large than long and it's possible to rotate it
             if item_width < item_length <= trailer.width:
                 # We save his width divided by the number of times it fits side by side once rotated
-                length_if_rotated = item_width / (np.floor(trailer.width / item_length))
+                length_if_rotated = item_width / (floor(trailer.width / item_length))
                 fit = True
 
             # If the item fits with the original positioning
             if item_length <= trailer.length and item_width <= trailer.width:
                 # We save is length divided by the number of times it fits side by side
-                length = item_length / (np.floor(trailer.width / item_width))
+                length = item_length / (floor(trailer.width / item_width))
                 fit = True
 
             # We update min_shortest_length value
@@ -347,7 +351,7 @@ class LoadBuilder:
                 shortest_length = min([shortest_length] + lengths_list)
 
         # We compute the upper bound
-        new_upper_bound = np.floor((trailer.length + trailer.oh) / shortest_length)
+        new_upper_bound = floor((trailer.length + trailer.oh) / shortest_length)
 
         # If the upper bound found equals the upper bound found in the last iteration we stop the process
         if new_upper_bound == last_upper_bound:
@@ -509,4 +513,40 @@ class LoadBuilder:
                 self.trailers[i].unload_trailer(self.unused_models)
                 self.trailers.pop(i)
                 i -= 1
+
+    @staticmethod
+    def print_load(trailer):
+
+        """
+        Plot a the loading configuration of the trailer
+
+        :param trailer: Object of class Trailer
+        """
+
+        fig, ax = plt.subplots()
+        codes = [Path.MOVETO, Path.LINETO, Path.LINETO, Path.LINETO, Path.CLOSEPOLY]
+        rect_list = [trailer[i] for i in range(len(trailer))]
+
+        for rect in rect_list:
+            vertices = [
+                (rect.left, rect.bottom),  # Left, bottom
+                (rect.left, rect.top),  # Left, top
+                (rect.right, rect.top),  # Right, top
+                (rect.right, rect.bottom),  # Right, bottom
+                (rect.left, rect.bottom),  # Ignored
+            ]
+
+            path = Path(vertices, codes)
+            patch = patches.PathPatch(path, facecolor="yellow", lw=2)
+            ax.add_patch(patch)
+
+        plt.axis('scaled')
+        ax.set_xlim(0, trailer.width)
+        ax.set_ylim(0, trailer.height + trailer.overhang_measure)
+
+        if trailer.overhang_measure != 0:
+            line = plt.axhline(trailer.height, color='black', ls='--')
+
+        plt.show()
+        plt.close
 
