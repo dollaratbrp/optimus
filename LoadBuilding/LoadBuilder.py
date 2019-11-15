@@ -354,7 +354,7 @@ class LoadBuilder:
             return new_upper_bound
 
         else:
-            return self.max_rect_upperbound(trailer, new_upper_bound)
+            return self.__max_rect_upperbound(trailer, new_upper_bound)
 
     def __create_all_configs(self, trailer):
 
@@ -432,3 +432,60 @@ class LoadBuilder:
             self.warehouse.remove_stacks(leftover)
 
         return configs
+
+    def __complete_packing(self, trailer, packer, start_index):
+
+        """
+        Verifies if one (or multiple) item unconsidered in the first part of packing fits at the end of the trailer
+
+        :param trailer: Object of class Trailer
+        :param packer: Packer object
+        :param start_index: If i is the index of the last item we considered in first part, then start_index = i + 1
+        """
+
+        # We look if there are items remaining in the warehouse (that were not considered in the first phase of packing)
+        # and if there's still place in the trailer.
+        if len(self.warehouse) != start_index and max([rect.top for rect in packer[0]]) < trailer.length:
+
+            # We save the current number of stack in the trailer
+            last_res = len(packer[0])
+
+            # We initialize a new packer with rotation not allowed to simply computation and save time
+            new_packer = newPacker(rotation=False)
+
+            # We add rectangles unconsidered in the first phase of packing
+            for i in range(start_index, len(self.warehouse)):
+                new_packer.add_rect(self.warehouse[i].width, self.warehouse[i].length, rid=i, overhang=self.warehouse[i].overhang)
+
+            # We add a large number of dummy bins
+            for j in range(len(self.warehouse) - start_index + 1):
+                new_packer.add_bin(trailer.width, trailer.length, overhang=packer[0].overhang_measure)
+
+            # We open the first bin
+            new_packer._open_bins.append(packer[0])
+
+            # We allow unlock rotation in this first bin.
+            new_packer[0].rot = True
+
+            # We pack the new packer
+            new_packer.pack(reset_opened_bins=False)
+
+            # We send a message if the second phase of packing was effective
+            if last_res < len(new_packer[0]):
+                print('COMPLETION EFFECTIVE')
+
+    def __remove_leftover_trailers(self):
+
+        """
+        Removes trailers that contain no units after the loading
+        """
+
+        # We initialize an index at the end of the list containing trailers
+        i = len(self.trailers) - 1
+
+        # We remove trailer that we're not used during the loading process
+        while i >= 0:
+            if self.trailers[i].nbr_of_units() == 0:
+                self.trailers.pop(i)
+            i -= 1
+
