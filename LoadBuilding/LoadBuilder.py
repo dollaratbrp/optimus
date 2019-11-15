@@ -11,11 +11,11 @@ By : Nicolas Raymond
 import numpy as np
 import matplotlib.pyplot as plt
 import matplotlib.patches as patches
-import LoadBuilding.LoadingObjects as LoadObj
+import LoadingObjects as LoadObj
 import pandas as pd
 import os
 from collections import Counter
-from LoadBuilding.packer import newPacker
+from packer import newPacker
 from matplotlib.path import Path
 from math import floor
 from datetime import date
