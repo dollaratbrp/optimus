@@ -9,18 +9,22 @@ By : Nicolas Raymond
 
 """
 import numpy as np
-import LoadBuilding.LoadingObjects as LoadObj
-from LoadBuilding.packer import newPacker
 import matplotlib.pyplot as plt
-from matplotlib.path import Path
 import matplotlib.patches as patches
+import LoadBuilding.LoadingObjects as LoadObj
+import pandas as pd
+import os
+from collections import Counter
+from LoadBuilding.packer import newPacker
+from matplotlib.path import Path
 from math import floor
+from datetime import date
 
 
 class LoadBuilder:
 
     def __init__(self, plant_from, plant_to, models_data, trailers_data, minimum_trailer, maximum_trailer,
-                 overhang_authorized=72, maximum_trailer_length=636, plc_lb=0.75):
+                 shipping_date, overhang_authorized=72, maximum_trailer_length=636, plc_lb=0.75):
 
         """
         :param plant_from: name of the plant from where the item are shipped
@@ -29,6 +33,7 @@ class LoadBuilder:
         :param trailers_data: Pandas data frame containing details on trailers available
         :param minimum_trailer: minimum number of trailer
         :param maximum_trailer: maximum number of trailer
+        :param shipping_date: date associated to the shipping of the load that will be built
         :param overhang_authorized: maximum overhanging measure authorized by law for a trailer
         :param maximum_trailer_length: maximum length authorized by law for a trailer
         :param plc_lb: lower bound of length percentage covered that must be satisfied for all trailer
@@ -38,15 +43,16 @@ class LoadBuilder:
         self.plc_lb = plc_lb
         self.plant_from = plant_from
         self.plant_to = plant_to
-        self.model_names, self.warehouse, self.remaining_crates = self.warehouse_init(models_data)
-        self.trailers = self.trailers_init(trailers_data, overhang_authorized, maximum_trailer_length)
+        self.model_names, self.warehouse, self.remaining_crates = self.__warehouse_init(models_data)
+        self.trailers = self.__trailers_init(trailers_data, overhang_authorized, maximum_trailer_length)
         self.minimum_trailer = minimum_trailer
         self.maximum_trailer = maximum_trailer
+        self.shipping_date = shipping_date
         self.unused_models = []
         self.second_phase_activated = False
 
     @staticmethod
-    def warehouse_init(models_data):
+    def __warehouse_init(models_data):
 
         """
         Initializes a warehouse according to the models available in model data
@@ -110,7 +116,7 @@ class LoadBuilder:
         return model_names, warehouse, remaining_crates
 
     @staticmethod
-    def trailers_init(trailers_data, overhang_authorized, maximum_trailer_length):
+    def __trailers_init(trailers_data, overhang_authorized, maximum_trailer_length):
 
         """
         Initializes a list with all the trailers available for the loading
@@ -143,6 +149,59 @@ class LoadBuilder:
                                                     trailers_data['WIDTH'][i], trailers_data['HEIGHT'][i],
                                                     trailers_data['PRIORITY_RANK'][i], trailer_oh))
         return trailers
+
+    @staticmethod
+    def __print_load(trailer):
+
+        """
+        Plots a the loading configuration of the trailer
+
+        :param trailer: Object of class Trailer
+        """
+
+        fig, ax = plt.subplots()
+        codes = [Path.MOVETO, Path.LINETO, Path.LINETO, Path.LINETO, Path.CLOSEPOLY]
+        rect_list = [trailer[i] for i in range(len(trailer))]
+
+        for rect in rect_list:
+            vertices = [
+                (rect.left, rect.bottom),  # Left, bottom
+                (rect.left, rect.top),  # Left, top
+                (rect.right, rect.top),  # Right, top
+                (rect.right, rect.bottom),  # Right, bottom
+                (rect.left, rect.bottom),  # Ignored
+            ]
+
+            path = Path(vertices, codes)
+            patch = patches.PathPatch(path, facecolor="yellow", lw=2)
+            ax.add_patch(patch)
+
+        plt.axis('scaled')
+        ax.set_xlim(0, trailer.width)
+        ax.set_ylim(0, trailer.height + trailer.overhang_measure)
+
+        if trailer.overhang_measure != 0:
+            line = plt.axhline(trailer.height, color='black', ls='--')
+
+        plt.show()
+        plt.close()
+
+    def build(self):
+
+        """
+        This is the core of the object.
+        It contains the two principal steps of the loading process.
+
+        :return: list of the models unused
+        """
+
+        # We finish stacking process with leftover crates
+        self.__prepare_warehouse()
+
+        # We execute the loading of the trailers
+        self.__trailer_packing()
+
+        return self.unused_models
 
     def __prepare_warehouse(self):
 
@@ -251,8 +310,8 @@ class LoadBuilder:
         # We remove trailer that we're not used during the loading process
         self.__remove_leftover_trailers()
 
-        # We save unused stacks
-        self.warehouse.save_unused_crates()
+        # We save unused models
+        self.warehouse.save_unused_crates(self.unused_models)
 
     def __select_best_packer(self, packers_list):
 
@@ -459,7 +518,8 @@ class LoadBuilder:
 
             # We add rectangles unconsidered in the first phase of packing
             for i in range(start_index, len(self.warehouse)):
-                new_packer.add_rect(self.warehouse[i].width, self.warehouse[i].length, rid=i, overhang=self.warehouse[i].overhang)
+                new_packer.add_rect(self.warehouse[i].width, self.warehouse[i].length,
+                                    rid=i, overhang=self.warehouse[i].overhang)
 
             # We add a large number of dummy bins
             for j in range(len(self.warehouse) - start_index + 1):
@@ -514,39 +574,102 @@ class LoadBuilder:
                 self.trailers.pop(i)
                 i -= 1
 
-    @staticmethod
-    def print_load(trailer):
+    def write_summarized_data(self, directory):
 
         """
-        Plot a the loading configuration of the trailer
+        Writes a loading summary in a .xlsx file and create a folder named "P2P - <date>"
+        at the directory mentioned and save the file in it.
 
-        :param trailer: Object of class Trailer
+        :param directory: String that mention path where the created folder is going to be saved
+
         """
 
-        fig, ax = plt.subplots()
-        codes = [Path.MOVETO, Path.LINETO, Path.LINETO, Path.LINETO, Path.CLOSEPOLY]
-        rect_list = [trailer[i] for i in range(len(trailer))]
+        # We initialize a data frame with column names needed
+        data_frame = pd.DataFrame(columns=(["TRAILER", "TRAILER LENGTH", "LOAD LENGTH"] + self.model_names))
 
-        for rect in rect_list:
-            vertices = [
-                (rect.left, rect.bottom),  # Left, bottom
-                (rect.left, rect.top),  # Left, top
-                (rect.right, rect.top),  # Right, top
-                (rect.right, rect.bottom),  # Right, bottom
-                (rect.left, rect.bottom),  # Ignored
-            ]
+        # We initialize an index
+        i = 0
 
-            path = Path(vertices, codes)
-            patch = patches.PathPatch(path, facecolor="yellow", lw=2)
-            ax.add_patch(patch)
+        # We add a line in the dataframe for every trailer used
+        for trailer in self.trailers:
 
-        plt.axis('scaled')
-        ax.set_xlim(0, trailer.width)
-        ax.set_ylim(0, trailer.height + trailer.overhang_measure)
+            # We save the quantities of every models inside the trailer
+            s = trailer.load_summary()
 
-        if trailer.overhang_measure != 0:
-            line = plt.axhline(trailer.height, color='black', ls='--')
+            # Every line of data frame has the category of trailer, his length, his remaining_length (in feets)
+            # and the quantities of every models in it.
+            data_frame.loc[i] = [trailer.category] + [round(trailer.length / 12, 1)] + \
+                                [round(trailer.length_used / 12, 1)] + \
+                                [s[model] if s[model] > 0 else '' for model in self.model_names]
+            i += 1
 
-        plt.show()
-        plt.close
+        # We add a line for unused model
+        unused_summary = Counter(self.unused_models)
+        data_frame.loc[i] = ["REMAINING", '', ''] + \
+                            [unused_summary[model] if unused_summary[model] > 0 else '' for model in self.model_names]
+
+        # We execute a groupby with trailer in the same category
+        data_frame = data_frame.groupby(data_frame.columns.tolist()).size().to_frame('QTY').reset_index()
+
+        # We rearrange columns
+        cols = data_frame.columns.tolist()
+        cols = cols[0:1] + cols[-1:] + cols[1:-1]
+        data_frame = data_frame[cols]
+
+        # We set indexes
+        data_frame.set_index("TRAILER", inplace=True)
+
+        # We erase the quantity of the QTY column
+        data_frame.loc[["REMAINING"], ['QTY']] = ''
+
+        # We generate today's date
+        folder_date = date.today()
+        folder_date = str(folder_date.strftime("%m-%d-%y"))
+
+        # We save the folder name
+        folder = folder_date + '/'
+
+        # We save the path
+        path = directory + folder
+
+        # We create the folder in which the file will be stored (if the folder doesn't exist)
+        create_folder(path)
+
+        # We save the complete title of our future file
+        title = path + "P2P from " + self.plant_from + " to " + self.plant_to + " " + self.shipping_date + ".xlsx"
+
+        # We initialize a "writer"
+        writer = pd.ExcelWriter(title, engine='xlsxwriter')
+
+        # We export results in the file created
+        data_frame.to_excel(writer, sheet_name='Loads', index=True)
+
+        # We initialize a workbook
+        workbook = writer.book
+
+        # We initialize a worksheet
+        worksheet = writer.sheets['Loads']
+
+        # We set the widths of the columns
+        worksheet.set_column('A:B', 15)
+        worksheet.set_column('B:C', 4.5)
+        worksheet.set_column('C:D', 15)
+        worksheet.set_column('E:AK', 4.5)
+
+        writer.save()
+
+
+def create_folder(directory):
+
+    """
+    Creates a folder with the directory mentioned
+
+    :param directory: String that mention path where the folder is going to be created
+    """
+    try:
+        if not os.path.exists(directory):
+            os.makedirs(directory)
+
+    except OSError:
+        print('Error while creating directory : ' + directory)
 
