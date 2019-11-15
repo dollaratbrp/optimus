@@ -355,3 +355,80 @@ class LoadBuilder:
 
         else:
             return self.max_rect_upperbound(trailer, new_upper_bound)
+
+    def __create_all_configs(self, trailer):
+
+        """
+        Creates all configurations of loading that can be done for the trailer. To avoid considering
+        a large number of bad configurations and enhance the efficiency of the algorithm, we will pre-set
+        wisely the positions of rectangles for a certain range of the trailer and THEN consider
+        all possible configurations for the end of the loading of the trailer.
+
+        :param trailer: Object of class Trailer
+        :return: List of list of boolean indicating permission of rotation
+        """
+
+        # We initialize a numpy array of configurations (only one configuration for now)
+        configs, nb_oversize = self.warehouse.merge_for_trailer(trailer)
+        configs = np.array([configs])
+
+        # We compute an upper bound for the maximal number of rectangles that can fit in our trailer
+        ub = self.__max_rect_upperbound(trailer, len(self.warehouse) - nb_oversize)
+
+        # We save the number of stack pre-rotated
+        nb_of_pre_rotated = configs.shape[1]
+
+        # Initialization of list that will contain index of stack that cannot fit in the trailer
+        leftover = []
+
+        # We set the start index and the end index of research to build possible configurations
+        i = nb_of_pre_rotated
+        end_index = min(len(self.warehouse), ub)
+
+        while i < end_index:
+
+            # We pretend that the item doesn't fit in the trailer
+            fit = False
+
+            # We initialize an empty numpy array of new configurations
+            new_configs = np.array([[]])
+
+            # If it's possible to rotate the i-th item in the warehouse for this trailer
+            if trailer.fit(self.warehouse[i], rotated=True):
+                # We add the rotated rectangle indicator (True) to all configs found until now
+                true_vec = [[True]] * len(configs)
+                new_configs = np.append(np.copy(configs), true_vec, axis=1)
+                fit = True
+
+            # If the i-th item fit not rotated in this trailer
+            if trailer.fit(self.warehouse[i]):
+                # We add the rotated rectangle indicator (False) to all configs found until now
+                false_vec = [[False]] * len(configs)
+                configs = np.append(configs, false_vec, axis=1)
+                fit = True
+
+            if not fit:
+
+                # We add the stack index in the leftover list
+                leftover.append(i)
+
+                # (If possible) We extend our research space cause we didn't enter the current stack in our configs
+                end_index = min(len(self.warehouse), end_index + 1)
+
+            else:
+                # We update configurations
+                if new_configs.shape[1] == configs.shape[1]:
+                    configs = np.append(configs, new_configs, axis=0)
+
+                elif new_configs.shape[1] > configs.shape[1]:
+                    configs = new_configs
+
+            i += 1
+
+        # We push leftover at the end of the warehouse to avoid conflict during loading process
+        if len(leftover) > 0:
+            for j in leftover:
+                self.warehouse.add_stack(self.warehouse[j])
+            self.warehouse.remove_stacks(leftover)
+
+        return configs
