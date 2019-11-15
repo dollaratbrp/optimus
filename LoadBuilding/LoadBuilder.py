@@ -14,21 +14,25 @@ import numpy as np
 
 class LoadBuilder:
 
-    def __init__(self, plant_from, plant_to, models_data, trailer_data, minimum_trailer, maximum_trailer):
+    def __init__(self, plant_from, plant_to, models_data, trailers_data, minimum_trailer, maximum_trailer,
+                 overhang_authorized=72, maximum_trailer_length=636):
 
         """
         :param plant_from: name of the plant from where the item are shipped
         :param plant_to: name of the plant where the item are shipped
         :param models_data: Pandas data frame containing details on models to load
-        :param trailer_data: Pandas data frame containing details on trailers available
+        :param trailers_data: Pandas data frame containing details on trailers available
         :param minimum_trailer: minimum number of trailer
         :param maximum_trailer: maximum number of trailer
+        :param overhang_authorized: maximum overhanging measure authorized by law for a trailer
+        :param maximum_trailer_length: maximum length authorized by law for a trailer
         """
-
+        self.overhang_authorized = overhang_authorized  # In inches
+        self.max_trailer_length = maximum_trailer_length  # In inches
         self.plant_from = plant_from
         self.plant_to = plant_to
         self.model_names, self.warehouse, self.remaining_crates = self.warehouse_ignition(models_data)
-        self.trailer_df = trailer_data
+        self.trailers = self.trailers_ignition(trailers_data, overhang_authorized, maximum_trailer_length)
         self.minimum_trailer = minimum_trailer
         self.maximum_trailer = maximum_trailer
         self.second_phase_activated = False
@@ -37,7 +41,7 @@ class LoadBuilder:
     def warehouse_ignition(models_data):
 
         """
-        Init a warehouse according to the models available in model data
+        Initializes a warehouse according to the models available in model data
 
         :param models_data: Pandas data frame containing details on models to load
         :return: List of all the model names, Warehouse with the stacks created and a CratesManager with leftover crates
@@ -96,3 +100,38 @@ class LoadBuilder:
                                                              models_data['HEIGHT'][i], stack_limit, overhang))
 
         return model_names, warehouse, remaining_crates
+
+    @staticmethod
+    def trailers_ignition(trailers_data, overhang_authorized, maximum_trailer_length):
+
+        """
+        Initializes a list with all the trailers available for the loading
+
+        :param trailers_data: Pandas data frame containing details on trailers available
+        :param overhang_authorized: maximum overhanging measure authorized by law for a trailer
+        :param maximum_trailer_length: maximum length authorized by law for a trailer
+        :return:List with all the trailers
+        """
+        # We initialize a list of trailers
+        trailers = []
+
+        # For every lines of the data frame
+        for i in trailers_data.index:
+
+            # We save the quantity
+            qty = trailers_data['QTY'][i]
+
+            if qty > 0:
+
+                # We save trailer's length
+                t_length = trailers_data['LENGTH'][i]
+
+                # We compute overhanging measure allowed for the trailer
+                trailer_oh = min(maximum_trailer_length - t_length, overhang_authorized )
+
+                # We build "qty" trailer that we add to the trailers list
+                for j in range(0, qty):
+                    trailers.append(LoadObj.Trailer(trailers_data['CATEGORY'][i], t_length,
+                                                    trailers_data['WIDTH'][i], trailers_data['HEIGHT'][i],
+                                                    trailers_data['PRIORITY_RANK'][i], trailer_oh))
+        return trailers
