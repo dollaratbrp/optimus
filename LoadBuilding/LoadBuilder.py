@@ -489,3 +489,24 @@ class LoadBuilder:
                 self.trailers.pop(i)
             i -= 1
 
+    def __select_top_n(self):
+
+        """
+        Selects the n best trailers in terms of units in the load
+        """
+
+        # If n is smaller then the number of trailers that we loaded
+        if self.maximum_trailer < len(self.trailers):
+
+            # We sort trailer in decreasing order with their number of units
+            self.trailers.sort(key=lambda t: t.nbr_of_units(), reverse=True)
+
+            # We initialize an index at the end of the list containing trailers
+            i = len(self.trailers) - 1
+
+            # We unload all trailers that exceed maximum number of trailer
+            while i >= self.maximum_trailer:
+                self.trailers[i].unload_trailer(self.unused_models)
+                self.trailers.pop(i)
+                i -= 1
+
