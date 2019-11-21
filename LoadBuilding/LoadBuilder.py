@@ -38,6 +38,8 @@ class LoadBuilder:
         :param maximum_trailer_length: maximum length authorized by law for a trailer
         :param plc_lb: lower bound of length percentage covered that must be satisfied for all trailer
         """
+        self.models_data = models_data
+        self.trailers_data = trailers_data
         self.overhang_authorized = overhang_authorized  # In inches
         self.max_trailer_length = maximum_trailer_length  # In inches
         self.plc_lb = plc_lb
@@ -141,7 +143,7 @@ class LoadBuilder:
                 t_length = trailers_data['LENGTH'][i]
 
                 # We compute overhanging measure allowed for the trailer
-                trailer_oh = min(maximum_trailer_length - t_length, overhang_authorized )
+                trailer_oh = min(maximum_trailer_length - t_length, overhang_authorized)
 
                 # We build "qty" trailer that we add to the trailers list
                 for j in range(0, qty):
