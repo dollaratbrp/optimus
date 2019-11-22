@@ -33,6 +33,8 @@ class ligne:
     transit=[]
     skip=[]
     delete=[]
+    drybox=[]
+    flatbed=[]
     parent=''
     lineToSKip=''
     root=''
@@ -40,13 +42,18 @@ class ligne:
     columnLength=0
     side = ''
     
-    def __init__(self,parent,root, side,PF='',PT='',LMIN=0,LMAX=0,PTY=0,TRANS=0,SKIP=0,largeurColonne=12):
+    def __init__(self,parent,root, side,PF='',PT='',LMIN=0,LMAX=0,DRYBOX=None,FLATBED=None,PTY=0,TRANS=0,SKIP=0,largeurColonne=12):
         if SKIP ==1:
             IsToSkip = True
         else:
             IsToSkip = False
-        if LMAX == None:
+        if LMAX is None:
             LMAX = ''
+        if DRYBOX is None:
+            DRYBOX=''
+        if FLATBED is None:
+            FLATBED = ''
+
         self.lineToSKip=BooleanVar()#IntVar()
         self.lineToSKip.set(IsToSkip)
         self.root = root
@@ -59,6 +66,8 @@ class ligne:
         self.plantTo = self.entryObj(PT)
         self.loadMin =self.entryObj(LMIN) 
         self.loadMax = self.entryObj(LMAX)
+        self.drybox = self.entryObj(DRYBOX)
+        self.flatbed =  self.entryObj(FLATBED)
         self.priority = self.entryObj(PTY)
         self.transit = self.entryObj(TRANS)
 
@@ -87,6 +96,8 @@ class ligne:
             self.plantTo.forget()
             self.loadMin.forget()
             self.loadMax.forget()
+            self.drybox.forget()
+            self.flatbed.forget()
             self.priority.forget()
             self.transit.forget()
             self.skip.forget()
@@ -115,6 +126,8 @@ class ligne:
         self.plantTo.config(bg=color)
         self.loadMin.config(bg=color)
         self.loadMax.config(bg=color)
+        self.drybox.config(bg=color)
+        self.flatbed.config(bg=color)
         self.priority.config(bg=color)
         self.transit.config(bg=color)
         self.skip.config(bg=color)
@@ -170,7 +183,9 @@ class Box(Frame):
     SQL = ''
     def __init__(self,largeurColonne):
         Frame.__init__(self)
-        self.headers='PLANT_FROM,PLANT_TO,LOAD_MIN,LOAD_MAX,PRIORITY_ORDER,TRANSIT,SKIP,IMPORT_DATE'
+        self.headers='PLANT_FROM,PLANT_TO,LOAD_MIN,LOAD_MAX,DRYBOX,FLATBED,PRIORITY_ORDER,TRANSIT,SKIP,IMPORT_DATE'
+        headers= ['Plant from','Plant to','Load min','Load max','DRYBOX','FLATBED','Priority Order','Transit','Skip' ,''] #Only for the box, not sql
+
 
         self.SQL = SQLConnection('CAVLSQLPD2\pbi2', 'Business_Planning','OTD_1_P2P_F_PARAMETERS',self.headers)
 
@@ -183,7 +198,6 @@ class Box(Frame):
 
         ##Section pour les headers
         option=["raised", "sunken",  "solid"] # choices for header's layout
-        headers=['Plant from','Plant to','Load min','Load max','Priority Order','Transit','Skip' ,''] #Only for the box, not sql
         keyF = frame(self, TOP)
         for i, titre in enumerate(headers[0:-1]):
             tk.Label(keyF, text=titre, width=largeurColonne,bg='#ABA3A3',anchor='w', borderwidth=2, relief=option[0],pady=10 ).pack(side=LEFT)#, expand=YES, fill=BOTH)#Label(keyF, text=titre, width=15).pack(side=LEFT)
@@ -205,9 +219,12 @@ class Box(Frame):
       ,[PLANT_TO]
       ,[LOAD_MIN]
       ,[LOAD_MAX]
+      ,[DRYBOX]
+      ,[FLATBED]
       ,[PRIORITY_ORDER]
       ,[TRANSIT]
       ,[SKIP]
+
   FROM [Business_Planning].[dbo].[OTD_1_P2P_F_PARAMETERS]
   where IMPORT_DATE = (select max(IMPORT_DATE) from [Business_Planning].[dbo].[OTD_1_P2P_F_PARAMETERS])
   order by [PLANT_FROM]
@@ -218,7 +235,7 @@ class Box(Frame):
 
         for values in ValuesParams:
             keyF = frame(self.verticalBar, TOP)
-            self.lignes.append(ligne(self,keyF,LEFT,values[0],values[1],values[2],values[3],values[4],values[5],values[6],largeurColonne))
+            self.lignes.append(ligne(self,keyF,LEFT,*values,largeurColonne))
   
 
         keyF = frame(self, BOTTOM)
@@ -255,7 +272,7 @@ class Box(Frame):
                 if not IsInt(ligne.plantTo.get()) :
                     ligne.plantTo.config(bg=WarningColor)
                     errors=True
-                    
+                i
                     
                 if not IsInt(ligne.loadMin.get()) :
                     ligne.loadMin.config(bg=WarningColor)
@@ -265,12 +282,26 @@ class Box(Frame):
                     ligne.loadMax.config(bg=WarningColor)
                     errors=True
 
+                if not ( IsInt(ligne.drybox.get())  or ligne.drybox.get()=='' ):
+                    ligne.drybox.config(bg=WarningColor)
+                    errors=True
+
+                if not ( IsInt(ligne.flatbed.get())  or ligne.flatbed.get()=='' ):
+                    ligne.flatbed.config(bg=WarningColor)
+                    errors=True
+                if ligne.flatbed.get() != '' and ligne.drybox.get() != '' and ligne.loadMax.get()!='':
+                    if int(ligne.flatbed.get()) + int(ligne.drybox.get()) < int(ligne.loadMax.get()):
+                        errors = True
+                        ligne.loadMax.config(bg=WarningColor)
+                        ligne.drybox.config(bg=WarningColor)
+                        ligne.flatbed.config(bg=WarningColor)
+
+
                 if  IsInt(ligne.loadMin.get()) and IsInt(ligne.loadMax.get()):
                     if int(ligne.loadMin.get()) > int(ligne.loadMax.get()):
                         ligne.loadMin.config(bg=WarningColor)
                         ligne.loadMax.config(bg=WarningColor)
                         errors=True
-
 
                 if not IsInt(ligne.priority.get()) :
                     ligne.priority.config(bg=WarningColor)
@@ -281,7 +312,7 @@ class Box(Frame):
                     errors=True
 
 
-                DATA_TO_SEND.append([ligne.plantFrom.get(),ligne.plantTo.get(),ligne.loadMin.get(),ligne.loadMax.get(),ligne.priority.get(),ligne.transit.get(),ligne.lineToSKip.get()])
+                DATA_TO_SEND.append([ligne.plantFrom.get(),ligne.plantTo.get(),ligne.loadMin.get(),ligne.loadMax.get(),ligne.drybox.get(),ligne.flatbed.get(),ligne.priority.get(),ligne.transit.get(),ligne.lineToSKip.get()])
 
 
         if not errors:
@@ -317,7 +348,7 @@ class Box(Frame):
     def AddNew(self,largeurColonne):
         "To add a new line of values"
         keyF =frame(self.verticalBar, TOP) 
-        self.lignes.append(ligne(self,keyF,LEFT,'0000','0000',0,'',0,0,False,largeurColonne))
+        self.lignes.append(ligne(self,keyF,LEFT,'0000','0000',0,'','','',0,0,False,largeurColonne))
         
 
 
