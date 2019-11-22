@@ -23,16 +23,14 @@ from datetime import date
 
 class LoadBuilder:
 
-    def __init__(self, plant_from, plant_to, models_data, trailers_data, minimum_trailer, maximum_trailer,
-                 shipping_date, overhang_authorized=40, maximum_trailer_length=636, plc_lb=0.75):
+    def __init__(self, plant_from, plant_to, models_data, trailers_data, shipping_date,
+                 overhang_authorized=40, maximum_trailer_length=636, plc_lb=0.75):
 
         """
         :param plant_from: name of the plant from where the item are shipped
         :param plant_to: name of the plant where the item are shipped
         :param models_data: Pandas data frame containing details on models to load
         :param trailers_data: Pandas data frame containing details on trailers available
-        :param minimum_trailer: minimum number of trailer
-        :param maximum_trailer: maximum number of trailer
         :param shipping_date: date associated to the shipping of the load that will be built
         :param overhang_authorized: maximum overhanging measure authorized by law for a trailer
         :param maximum_trailer_length: maximum length authorized by law for a trailer
@@ -47,8 +45,6 @@ class LoadBuilder:
         self.plant_to = plant_to
         self.model_names, self.warehouse, self.remaining_crates = [], LoadObj.Warehouse(), LoadObj.CratesManager()
         self.trailers = []
-        self.minimum_trailer = minimum_trailer
-        self.maximum_trailer = maximum_trailer
         self.shipping_date = shipping_date
         self.unused_models = []
         self.second_phase_activated = False
@@ -491,26 +487,30 @@ class LoadBuilder:
                 self.trailers.pop(i)
             i -= 1
 
-    def __select_top_n(self):
+    def __select_top_n(self, n):
 
         """
         Selects the n best trailers in terms of units in the load
         """
+        # We sort trailer in decreasing order with their number of units
+        self.trailers.sort(key=lambda t: t.nbr_of_units(), reverse=True)
 
-        # If n is smaller then the number of trailers that we loaded
-        if self.maximum_trailer < len(self.trailers):
+        # We initialize an index at the end of the list containing trailers
+        i = len(self.trailers) - 1
 
-            # We sort trailer in decreasing order with their number of units
-            self.trailers.sort(key=lambda t: t.nbr_of_units(), reverse=True)
+        # We unload all trailers that exceed maximum number of trailer
+        while i >= n:
+            self.trailers[i].unload_trailer(self.unused_models)
+            self.trailers.pop(i)
+            i -= 1
 
-            # We initialize an index at the end of the list containing trailers
-            i = len(self.trailers) - 1
+    def __unpack_trailers(self):
 
-            # We unload all trailers that exceed maximum number of trailer
-            while i >= self.maximum_trailer:
-                self.trailers[i].unload_trailer(self.unused_models)
-                self.trailers.pop(i)
-                i -= 1
+        """
+        Unpack all trailer while saving their contents
+
+        """
+        self.__select_top_n(0)
 
     @staticmethod
     def __print_load(trailer):
@@ -632,12 +632,15 @@ class LoadBuilder:
 
         writer.save()
 
-    def build(self, plot_load_done=False):
+    def build(self, max_load, min_load, plot_load_done=False):
 
         """
         This is the core of the object.
         It contains the principal steps of the loading process.
 
+        :param max_load: maximum number of loads
+        :param min_load: minimum number of loads
+        :param plot_load_done: boolean that indicates if plots of load are going to be shown
         :return: list of the models unused
         """
         # We init the warehouse
@@ -651,6 +654,18 @@ class LoadBuilder:
 
         # We execute the loading of the trailers
         self.__trailer_packing(plot_enabled=plot_load_done)
+
+        # We consider the min and the max
+        nbr_of_load = len(self.trailers)
+
+        if min_load > nbr_of_load:
+            self.__unpack_trailers()
+            return self.unused_models
+
+        else:
+            if max_load < nbr_of_load:
+                self.__select_top_n(max_load)
+
 
         return self.unused_models
 
