@@ -568,7 +568,7 @@ class LoadBuilder:
         for trailer in self.trailers:
 
             # We save the quantities of every models inside the trailer
-            s = trailer.load_summary()
+            s = Counter(trailer.load_summary())
 
             # Every line of data frame has the category of trailer, his length, his remaining_length (in feets)
             # and the quantities of every models in it.
@@ -665,7 +665,6 @@ class LoadBuilder:
         else:
             if max_load < nbr_of_load:
                 self.__select_top_n(max_load)
-
 
         return self.unused_models
 
