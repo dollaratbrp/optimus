@@ -12,6 +12,7 @@ By : Nicolas Raymond
 """
 
 import pandas as pd
+import matplotlib.pyplot as plt
 from collections import Counter
 
 
@@ -100,3 +101,26 @@ def build_dataframe(ws):
         data_rows.append(data_cols)
 
     return pd.DataFrame(data=data_rows[1:], columns=data_rows[0])
+
+
+def display_df(dataframe):
+
+    """
+    Displays data frame
+
+    :param dataframe: Pandas data frame to display
+    """
+
+    fig, ax = plt.subplots()
+
+    # hide axes
+    fig.patch.set_visible(False)
+    ax.axis('off')
+    ax.axis('tight')
+
+    # Create the table and set fontsize
+    the_table = ax.table(cellText=dataframe.values, colLabels=dataframe.columns, loc='center')
+    the_table.auto_set_font_size(False)
+    the_table.set_fontsize(6)
+
+    plt.show()
