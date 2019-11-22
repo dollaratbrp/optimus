@@ -46,7 +46,7 @@ class LoadBuilder:
         self.plant_from = plant_from
         self.plant_to = plant_to
         self.model_names, self.warehouse, self.remaining_crates = [], LoadObj.Warehouse(), LoadObj.CratesManager()
-        self.trailers = self.__trailers_init(trailers_data, overhang_authorized, maximum_trailer_length)
+        self.trailers = []
         self.minimum_trailer = minimum_trailer
         self.maximum_trailer = maximum_trailer
         self.shipping_date = shipping_date
@@ -108,39 +108,38 @@ class LoadBuilder:
                                                                   self.models_data['HEIGHT'][i],
                                                                   stack_limit, overhang))
 
-    def __trailers_init(self, overhang_authorized, maximum_trailer_length):
+    def __trailers_init(self):
 
         """
-        Initializes a list with all the trailers available for the loading
+        Initializes the list with all the trailers available for the loading
 
-        :param trailers_data: Pandas data frame containing details on trailers available
-        :param overhang_authorized: maximum overhanging measure authorized by law for a trailer
-        :param maximum_trailer_length: maximum length authorized by law for a trailer
-        :return:List with all the trailers
         """
-        # We initialize a list of trailers
-        trailers = []
 
         # For every lines of the data frame
-        for i in trailers_data.index:
+        for i in self.trailers_data.index:
 
-            # We save the quantity
-            qty = trailers_data['QTY'][i]
+            # We save the quantity, the plant_from and the plant _to
+            qty = self.trailers_data['QTY'][i]
+            plant_from = self.trailers_data['PLANT_FROM']
+            plant_to = self.trailers_data['PLANT_TO']
 
-            if qty > 0:
+            if qty > 0 and plant_from == self.plant_from and plant_to == self.plant_to:
 
                 # We save trailer's length
-                t_length = trailers_data['LENGTH'][i]
+                t_length = self.trailers_data['LENGTH'][i]
 
                 # We compute overhanging measure allowed for the trailer
-                trailer_oh = min(maximum_trailer_length - t_length, overhang_authorized)
+                if bool(self.trailers_data['OVERHANG']):
+                    trailer_oh = min(self.max_trailer_length - t_length, self.overhang_authorized)
+                else:
+                    trailer_oh = 0
 
                 # We build "qty" trailer that we add to the trailers list
                 for j in range(0, qty):
-                    trailers.append(LoadObj.Trailer(trailers_data['CATEGORY'][i], t_length,
-                                                    trailers_data['WIDTH'][i], trailers_data['HEIGHT'][i],
-                                                    trailers_data['PRIORITY_RANK'][i], trailer_oh))
-        return trailers
+                    self.trailers.append(LoadObj.Trailer(self.trailers_data['CATEGORY'][i], t_length,
+                                                         self.trailers_data['WIDTH'][i],
+                                                         self.trailers_data['HEIGHT'][i],
+                                                         self.trailers_data['PRIORITY_RANK'][i], trailer_oh))
 
     @staticmethod
     def __print_load(trailer):
