@@ -63,10 +63,11 @@ class LoadBuilder:
         # For all lines of the data frame
         for i in self.models_data.index:
 
-            # We save the quantity of the model
+            # We save the quantity of the model and the plant_to
             qty = self.models_data['QTY'][i]
+            plant_to = self.models_data['PLANT_TO'][i]
 
-            if qty > 0:
+            if qty > 0 and plant_to == self.plant_to:
 
                 # We save the name of the model
                 self.model_names.append(self.models_data['MODEL'][i])
@@ -107,8 +108,7 @@ class LoadBuilder:
                                                                   self.models_data['HEIGHT'][i],
                                                                   stack_limit, overhang))
 
-    @staticmethod
-    def __trailers_init(trailers_data, overhang_authorized, maximum_trailer_length):
+    def __trailers_init(self, overhang_authorized, maximum_trailer_length):
 
         """
         Initializes a list with all the trailers available for the loading
