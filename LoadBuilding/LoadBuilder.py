@@ -38,8 +38,8 @@ class LoadBuilder:
         :param maximum_trailer_length: maximum length authorized by law for a trailer
         :param plc_lb: lower bound of length percentage covered that must be satisfied for all trailer
         """
-        self.models_data_pointer = models_data
-        self.trailers_data_pointer = trailers_data
+        self.models_data = models_data
+        self.trailers_data = trailers_data
         self.overhang_authorized = overhang_authorized  # In inches
         self.max_trailer_length = maximum_trailer_length  # In inches
         self.plc_lb = plc_lb
@@ -89,9 +89,9 @@ class LoadBuilder:
                 for j in range(nbr_stacks):
                     # We build the stack and send it into the warehouse
                     self.warehouse.add_stack(LoadObj.Stack(max(self.models_data['LENGTH'][i], self.models_data['WIDTH'][i]),
-                                                      min(self.models_data['WIDTH'][i], self.models_data['LENGTH'][i]),
-                                                      self.models_data['HEIGHT'][i] * stack_limit,
-                                                      [self.models_data['MODEL'][i]] * items_per_stack, overhang))
+                                                           min(self.models_data['WIDTH'][i], self.models_data['LENGTH'][i]),
+                                                           self.models_data['HEIGHT'][i] * stack_limit,
+                                                           [self.models_data['MODEL'][i]] * items_per_stack, overhang))
 
                 # We save the number of individual crates to build and convert it into
                 # integer to avoid conflict with range function
