@@ -6,11 +6,14 @@ Created by Nicolas Raymond on 2019-05-31.
 This file contains all functions used for the reading and the writing of data
 associated with the load automation. Note that all interactions with Excel are managed here.
 
-Last update : 2019-11-22
+Last update : 2019-11-23
 By : Nicolas Raymond
 
 """
 
+import os
+import sys
+import subprocess
 import pandas as pd
 import matplotlib.pyplot as plt
 from collections import Counter
@@ -55,19 +58,18 @@ def read_trailers_data(ws):
     return trailers_data
 
 
-def save_remaining(unused_list, nbr_trailers, execution_time):
+def show_summary(unused_list, nbr_trailers, execution_time):
 
     """
-    Saves the remaining models in a text file called "remaining_models.txt"
+    Show a summary of the build status
 
     :param unused_list: List of models unused
     :param nbr_trailers: Number of trailers used (int)
     :param execution_time: Time of execution (in seconds)
 
     """
-
     # We open the file text (or create it if it doesn't exist)
-    f = open("remaining_models.txt", "w+")
+    f = open("summary.txt", "w+")
 
     # We write a summary of the loading process on it
     f.write("LOADING DONE! YOU'RE AWESOME!\n\n")
@@ -81,6 +83,9 @@ def save_remaining(unused_list, nbr_trailers, execution_time):
     
     # We close the file
     f.close()
+
+    # We open the .txt file
+    open_file('summary.txt')
 
 
 def build_dataframe(ws):
@@ -101,6 +106,20 @@ def build_dataframe(ws):
         data_rows.append(data_cols)
 
     return pd.DataFrame(data=data_rows[1:], columns=data_rows[0])
+
+
+def open_file(filename):
+
+    """
+    Opens file according to the computer system
+
+    :param filename: name of the file
+    """
+    if sys.platform == "win32":
+        os.startfile(filename)
+    else:
+        opener = "open" if sys.platform == "darwin" else "xdg-open"
+        subprocess.call([opener, filename])
 
 
 def display_df(dataframe):
