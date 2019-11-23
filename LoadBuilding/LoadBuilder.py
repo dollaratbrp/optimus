@@ -51,6 +51,9 @@ class LoadBuilder:
         self.unused_models = []
         self.second_phase_activated = False
 
+    def __len__(self):
+        return len(self.trailers_done)
+
     def __warehouse_init(self):
 
         """
