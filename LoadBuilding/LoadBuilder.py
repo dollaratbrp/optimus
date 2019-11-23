@@ -14,6 +14,7 @@ import matplotlib.patches as patches
 import LoadingObjects as LoadObj
 import pandas as pd
 import os
+import time
 from collections import Counter
 from packer import newPacker
 from matplotlib.path import Path
@@ -45,6 +46,7 @@ class LoadBuilder:
         self.plant_to = plant_to
         self.model_names, self.warehouse, self.remaining_crates = [], LoadObj.Warehouse(), LoadObj.CratesManager()
         self.trailers = []
+        self.trailers_done = None
         self.shipping_date = shipping_date
         self.unused_models = []
         self.second_phase_activated = False
@@ -535,6 +537,32 @@ class LoadBuilder:
 
             self.models_data.loc[row_to_change[0], 'QTY'] -= item
 
+        # We erase model names in memory
+        self.model_names.clear()
+
+    def __update_trailers_data(self):
+
+        """
+        Updates quantities in original trailers data frame
+
+        """
+        # We counts all different trailers used
+        counts = Counter([(t.category, t.length, t.width) for t in self.trailers])
+
+        # We update the trailers data
+        for key, item in counts.items():
+            row_to_change = self.trailers_data.index[(self.trailers_data['CATEGORY'] == key[0]) &
+                                                     (self.trailers_data['LENGTH'] == key[1]) &
+                                                     (self.trailers_data['WIDTH'] == key[2]) &
+                                                     (self.trailers_data['PLANT_FROM'] == self.plant_from) &
+                                                     (self.trailers_data['PLANT_TO'] == self.plant_to)].tolist()
+
+            self.trailers_data.loc[row_to_change[0], 'QTY'] -= item
+
+        # We save trailers done and clear the current trailers list
+        self.trailers_done = self.trailers.copy()
+        self.trailers.clear()
+
     @staticmethod
     def __print_load(trailer):
 
@@ -588,7 +616,7 @@ class LoadBuilder:
         i = 0
 
         # We add a line in the dataframe for every trailer used
-        for trailer in self.trailers:
+        for trailer in self.trailers_done:
 
             # We save the quantities of every models inside the trailer
             s = Counter(trailer.load_summary())
@@ -655,7 +683,7 @@ class LoadBuilder:
 
         writer.save()
 
-    def build(self, max_load, min_load, plot_load_done=False):
+    def build(self, max_load, min_load=0, plot_load_done=False):
 
         """
         This is the core of the object.
@@ -663,9 +691,12 @@ class LoadBuilder:
 
         :param max_load: maximum number of loads
         :param min_load: minimum number of loads
-        :param plot_load_done: boolean that indicates if plots of load are going to be shown
-        :return: list of the models unused
+        :param plot_load_done: boolean that indicates if plots of loads are going to be shown
+        :return: list of the models unused and time of execution
         """
+        # We save start time
+        start_time = time.time()
+
         # We init the warehouse
         self.__warehouse_init()
 
@@ -689,9 +720,17 @@ class LoadBuilder:
             if max_load < nbr_of_load:
                 self.__select_top_n(max_load)
 
+        # We update all data
         self.__update_models_data()
+        self.__update_trailers_data()
 
-        return self.unused_models
+        # We activate phase 2
+        self.second_phase_activated = True
+
+        # We save the end of execution time
+        end_time = time.time()
+
+        return self.unused_models, end_time - start_time
 
 
 def create_folder(directory):
