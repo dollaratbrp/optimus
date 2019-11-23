@@ -11,7 +11,6 @@ By : Nicolas Raymond
 """
 
 import numpy as np
-from collections import Counter
 
 
 class Crate:
@@ -165,7 +164,7 @@ class Trailer:
             for model in stack.models:
                 models.append(model)
 
-        return Counter(models)
+        return models
 
     def unload_trailer(self, unused_crates_list):
 

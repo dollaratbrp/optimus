@@ -264,7 +264,6 @@ class GuillotineSas(Guillotine):
             return self._split_vertical(section, width, height)
         
 
-
 class GuillotineLas(Guillotine):
 
     """Implements Long Axis Split (LAS) selection rule for Guillotine 
@@ -275,7 +274,6 @@ class GuillotineLas(Guillotine):
             return self._split_horizontal(section, width, height)
         else:
             return self._split_vertical(section, width, height)
-
 
 
 class GuillotineSlas(Guillotine):
@@ -290,7 +288,6 @@ class GuillotineSlas(Guillotine):
             return self._split_vertical(section, width, height)
         
 
-
 class GuillotineLlas(Guillotine):
 
     """Implements Long Leftover Axis Split (LLAS) selection rule for 
@@ -301,7 +298,6 @@ class GuillotineLlas(Guillotine):
             return self._split_horizontal(section, width, height)
         else:
             return self._split_vertical(section, width, height)
-
 
 
 class GuillotineMaxas(Guillotine):
@@ -316,7 +312,6 @@ class GuillotineMaxas(Guillotine):
         else:
             return self._split_vertical(section, width, height)
         
-
 
 class GuillotineMinas(Guillotine):
 
@@ -403,6 +398,3 @@ class GuillotineBafMaxas(GuillotineBaf, GuillotineMaxas):
 
 class GuillotineBafMinas(GuillotineBaf, GuillotineMinas):
     pass
-
-
-

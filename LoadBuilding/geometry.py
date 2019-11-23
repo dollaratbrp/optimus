@@ -160,7 +160,7 @@ class Rectangle(object):
     @property
     def left(self):
         """
-        Rectangle left ednge x coordinate
+        Rectangle left edge x coordinate
         """
         return self.x
 
