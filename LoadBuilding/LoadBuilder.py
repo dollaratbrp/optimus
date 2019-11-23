@@ -66,7 +66,7 @@ class LoadBuilder:
             if qty > 0 and plant_to == self.plant_to:
 
                 # We save the name of the model
-                self.model_names.append(self.models_data['MODEL'][i])
+                self.model_names.append([self.models_data['MODEL'][i]]*qty)
 
                 # We save the stack limit
                 stack_limit = self.models_data['STACK_LIMIT'][i]
@@ -104,6 +104,9 @@ class LoadBuilder:
                                                                   self.models_data['HEIGHT'][i],
                                                                   stack_limit, overhang))
 
+        # We flatten the model_names list
+        self.model_names = [item for sublist in self.model_names for item in sublist]
+
     def __trailers_init(self):
 
         """
@@ -116,8 +119,8 @@ class LoadBuilder:
 
             # We save the quantity, the plant_from and the plant _to
             qty = self.trailers_data['QTY'][i]
-            plant_from = self.trailers_data['PLANT_FROM']
-            plant_to = self.trailers_data['PLANT_TO']
+            plant_from = self.trailers_data['PLANT_FROM'][i]
+            plant_to = self.trailers_data['PLANT_TO'][i]
 
             if qty > 0 and plant_from == self.plant_from and plant_to == self.plant_to:
 
@@ -125,7 +128,7 @@ class LoadBuilder:
                 t_length = self.trailers_data['LENGTH'][i]
 
                 # We compute overhanging measure allowed for the trailer
-                if bool(self.trailers_data['OVERHANG']):
+                if bool(self.trailers_data['OVERHANG'][i]):
                     trailer_oh = min(self.max_trailer_length - t_length, self.overhang_authorized)
                 else:
                     trailer_oh = 0
@@ -226,6 +229,7 @@ class LoadBuilder:
 
                     # For every stack concerned by this loading configuration of the trailer
                     for stack in best_packer[0]:
+
                         # We concretely assign the stack to the trailer and note his location (index) in the warehouse
                         t.add_stack(self.warehouse[stack.rid])
                         stacks_used.append(stack.rid)
@@ -512,6 +516,25 @@ class LoadBuilder:
         """
         self.__select_top_n(0)
 
+    def __update_models_data(self):
+
+        """
+        Updates quantities in original models data frame
+
+        """
+
+        # We counts all the models that were introduced in loads
+        counts = Counter(self.model_names)  # Initial counts
+        counts_of_unused = Counter(self.unused_models)
+        counts.subtract(counts_of_unused)
+
+        # We update the models data
+        for key, item in counts.items():
+            row_to_change = self.models_data.index[(self.models_data['MODEL'] == key) &
+                                                   (self.models_data['PLANT_TO'] == self.plant_to)].tolist()
+
+            self.models_data.loc[row_to_change[0], 'QTY'] -= item
+
     @staticmethod
     def __print_load(trailer):
 
@@ -559,7 +582,7 @@ class LoadBuilder:
         """
 
         # We initialize a data frame with column names needed
-        data_frame = pd.DataFrame(columns=(["TRAILER", "TRAILER LENGTH", "LOAD LENGTH"] + self.model_names))
+        data_frame = pd.DataFrame(columns=(["TRAILER", "TRAILER LENGTH", "LOAD LENGTH"] + list(set(self.model_names))))
 
         # We initialize an index
         i = 0
@@ -658,13 +681,15 @@ class LoadBuilder:
         # We consider the min and the max
         nbr_of_load = len(self.trailers)
 
-        if min_load > nbr_of_load:
+        if self.second_phase_activated and min_load > nbr_of_load:
             self.__unpack_trailers()
             return self.unused_models
 
         else:
             if max_load < nbr_of_load:
                 self.__select_top_n(max_load)
+
+        self.__update_models_data()
 
         return self.unused_models
 
