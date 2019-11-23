@@ -732,7 +732,7 @@ class LoadBuilder:
         self.second_phase_activated = True
 
         # Copy the unused models list
-        unused_copy = self.unused_models.copy
+        unused_copy = self.unused_models.copy()
         self.unused_models.clear()
 
         # We save the end of execution time
