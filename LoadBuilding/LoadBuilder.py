@@ -713,24 +713,29 @@ class LoadBuilder:
         nbr_of_load = len(self.trailers)
 
         if self.second_phase_activated and min_load > nbr_of_load:
+
+            # We unpack trailers
             self.__unpack_trailers()
-            return self.unused_models
 
         else:
             if max_load < nbr_of_load:
                 self.__select_top_n(max_load)
 
-        # We update all data
-        self.__update_models_data()
-        self.__update_trailers_data()
+            # We update all data
+            self.__update_models_data()
+            self.__update_trailers_data()
 
         # We activate phase 2
         self.second_phase_activated = True
 
+        # Copy the unused models list
+        unused_copy = self.unused_models.copy
+        self.unused_models.clear()
+
         # We save the end of execution time
         end_time = time.time()
 
-        return self.unused_models, end_time - start_time
+        return unused_copy, end_time - start_time
 
 
 def create_folder(directory):
