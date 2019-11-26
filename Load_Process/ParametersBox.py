@@ -272,7 +272,6 @@ class Box(Frame):
                 if not IsInt(ligne.plantTo.get()) :
                     ligne.plantTo.config(bg=WarningColor)
                     errors=True
-                i
                     
                 if not IsInt(ligne.loadMin.get()) :
                     ligne.loadMin.config(bg=WarningColor)
@@ -289,6 +288,7 @@ class Box(Frame):
                 if not ( IsInt(ligne.flatbed.get())  or ligne.flatbed.get()=='' ):
                     ligne.flatbed.config(bg=WarningColor)
                     errors=True
+
                 if ligne.flatbed.get() != '' and ligne.drybox.get() != '' and ligne.loadMax.get()!='':
                     if int(ligne.flatbed.get()) + int(ligne.drybox.get()) < int(ligne.loadMax.get()):
                         errors = True
@@ -358,12 +358,12 @@ def changeEmail():
     
     
     class VerticalScrolledFrame(tk.Frame):
-        SQL = ''
-        headers= ''
+        #SQL = ''
+        #headers= ''
         def __init__(self, parent, *args, **kw):
             tk.Frame.__init__(self, parent, *args, **kw)    
-            self.headers='EMAIL_ADDRESS'
-            self.SQL = SQLConnection('CAVLSQLPD2\pbi2', 'Business_Planning','OTD_1_P2P_F_PARAMETERS_EMAIL_ADDRESS',self.headers)
+            #self.headers='EMAIL_ADDRESS'
+            #self.SQL = SQLConnection('CAVLSQLPD2\pbi2', 'Business_Planning','OTD_1_P2P_F_PARAMETERS_EMAIL_ADDRESS',self.headers)
 
             # create a canvas object and a vertical scrollbar for scrolling it
             vscrollbar = tk.Scrollbar(self, orient=tk.VERTICAL)
@@ -411,8 +411,11 @@ def changeEmail():
 
     tempo = [] #list of all buttons
     #Get all email address
+    headers='EMAIL_ADDRESS'
+    SQL = SQLConnection('CAVLSQLPD2\pbi2', 'Business_Planning','OTD_1_P2P_F_PARAMETERS_EMAIL_ADDRESS',headers)
+
     SQLquery = """ SELECT DISTINCT [EMAIL_ADDRESS] FROM [Business_Planning].[dbo].[OTD_1_P2P_F_PARAMETERS_EMAIL_ADDRESS]"""
-    lis= [ item for sublist in self.SQL.GetSQLData(SQLquery) for item in sublist]
+    lis= [ item for sublist in SQL.GetSQLData(SQLquery) for item in sublist]
 
 
     btn = tk.Button(scframe.interior, height=1, width=40, relief=tk.FLAT, 
@@ -457,13 +460,13 @@ def changeEmail():
             e1.delete(0,END)
 
         master = tk.Tk()
-        master.geometry("300x80+700+500")
+        master.geometry("500x80+700+500")
         master.title("ADD NEW EMAIL ADDRESS")
         tk.Label(master, 
                  text="EMAIL ADDRESS").grid(row=0)
         
 
-        e1 = tk.Entry(master)
+        e1 = tk.Entry(master, width=50)
         e1.grid(row=0, column=1)
 
         tk.Button(master,text='Cancel',command=master.destroy).grid(row=3, column=0,sticky=tk.W, pady=4)
