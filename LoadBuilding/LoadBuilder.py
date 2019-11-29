@@ -13,24 +13,21 @@ import matplotlib.pyplot as plt
 import matplotlib.patches as patches
 import LoadingObjects as LoadObj
 import pandas as pd
-import os
 from collections import Counter
 from packer import newPacker
 from matplotlib.path import Path
 from math import floor
-from datetime import date
 
 
 class LoadBuilder:
 
-    def __init__(self, plant_from, plant_to, trailers_data, shipping_date,
+    def __init__(self, plant_from, plant_to, trailers_data,
                  overhang_authorized=40, maximum_trailer_length=636, plc_lb=0.75):
 
         """
         :param plant_from: name of the plant from where the item are shipped
         :param plant_to: name of the plant where the item are shipped
         :param trailers_data: Pandas data frame containing details on trailers available
-        :param shipping_date: date associated to the shipping of the load that will be built
         :param overhang_authorized: maximum overhanging measure authorized by law for a trailer
         :param maximum_trailer_length: maximum length authorized by law for a trailer
         :param plc_lb: lower bound of length percentage covered that must be satisfied for all trailer
@@ -42,10 +39,8 @@ class LoadBuilder:
         self.plant_from = plant_from
         self.plant_to = plant_to
         self.model_names, self.warehouse, self.remaining_crates = [], LoadObj.Warehouse(), LoadObj.CratesManager()
-        self.trailers = []
-        self.trailers_done = None
-        self.shipping_date = shipping_date
-        self.unused_models = []
+        self.trailers, self.trailers_done, self.unused_models = [], [], []
+        self.all_size_codes = set()
 
     def __len__(self):
         return len(self.trailers_done)
@@ -64,7 +59,7 @@ class LoadBuilder:
             qty = models_data['QTY'][i]
             plant_to = models_data['PLANT_TO'][i]
 
-            if qty > 0 and plant_to == plant_to:
+            if qty > 0 and plant_to == self.plant_to:
 
                 # We save the name of the model
                 self.model_names.append([models_data['MODEL'][i]]*qty)
@@ -526,7 +521,11 @@ class LoadBuilder:
         self.model_names.clear()
         self.unused_models.clear()
 
-        return counts.elements()
+        # We save the size codes used for the loads done in this iteration
+        size_codes = list(counts.elements())
+        self.all_size_codes.update(size_codes)
+
+        return size_codes
 
     def __update_trailers_data(self):
 
@@ -587,25 +586,23 @@ class LoadBuilder:
         plt.show()
         plt.close()
 
-    def write_summarized_data(self, directory):
+    def get_loading_summary(self):
 
         """
-        Writes a loading summary in a .xlsx file and create a folder named "P2P - <date>"
-        at the directory mentioned and save the file in it.
+        Create a Pandas data frame with a summary of all loads done by the LoadBuilder
 
-        :param directory: String that mention path where the created folder is going to be saved
-
+        :return: Pandas data frame
         """
+        size_codes = list(self.all_size_codes)
 
         # We initialize a data frame with column names needed
-        data_frame = pd.DataFrame(columns=(["TRAILER", "TRAILER LENGTH", "LOAD LENGTH"] + list(set(self.model_names))))
+        data_frame = pd.DataFrame(columns=(["TRAILER", "TRAILER LENGTH", "LOAD LENGTH"] + size_codes))
 
         # We initialize an index
         i = 0
 
         # We add a line in the dataframe for every trailer used
         for trailer in self.trailers_done:
-
             # We save the quantities of every models inside the trailer
             s = Counter(trailer.load_summary())
 
@@ -613,13 +610,8 @@ class LoadBuilder:
             # and the quantities of every models in it.
             data_frame.loc[i] = [trailer.category] + [round(trailer.length / 12, 1)] + \
                                 [round(trailer.length_used / 12, 1)] + \
-                                [s[model] if s[model] > 0 else '' for model in self.model_names]
+                                [s[model] if s[model] > 0 else '' for model in size_codes]
             i += 1
-
-        # We add a line for unused model
-        unused_summary = Counter(self.unused_models)
-        data_frame.loc[i] = ["REMAINING", '', ''] + \
-                            [unused_summary[model] if unused_summary[model] > 0 else '' for model in self.model_names]
 
         # We execute a groupby with trailer in the same category
         data_frame = data_frame.groupby(data_frame.columns.tolist()).size().to_frame('QTY').reset_index()
@@ -632,44 +624,7 @@ class LoadBuilder:
         # We set indexes
         data_frame.set_index("TRAILER", inplace=True)
 
-        # We erase the quantity of the QTY column
-        data_frame.loc[["REMAINING"], ['QTY']] = ''
-
-        # We generate today's date
-        folder_date = date.today()
-        folder_date = str(folder_date.strftime("%m-%d-%y"))
-
-        # We save the folder name
-        folder = folder_date + '/'
-
-        # We save the path
-        path = directory + folder
-
-        # We create the folder in which the file will be stored (if the folder doesn't exist)
-        create_folder(path)
-
-        # We save the complete title of our future file
-        title = path + "P2P from " + self.plant_from + " to " + self.plant_to + " " + self.shipping_date + ".xlsx"
-
-        # We initialize a "writer"
-        writer = pd.ExcelWriter(title, engine='xlsxwriter')
-
-        # We export results in the file created
-        data_frame.to_excel(writer, sheet_name='Loads', index=True)
-
-        # We initialize a workbook
-        workbook = writer.book
-
-        # We initialize a worksheet
-        worksheet = writer.sheets['Loads']
-
-        # We set the widths of the columns
-        worksheet.set_column('A:B', 15)
-        worksheet.set_column('B:C', 4.5)
-        worksheet.set_column('C:D', 15)
-        worksheet.set_column('E:AK', 4.5)
-
-        writer.save()
+        return data_frame
 
     def build(self, models_data, max_load, plot_load_done=False):
 
@@ -706,19 +661,4 @@ class LoadBuilder:
         self.__update_trailers_data()
 
         return self.__size_code_used()
-
-
-def create_folder(directory):
-
-    """
-    Creates a folder with the directory mentioned
-
-    :param directory: String that mention path where the folder is going to be created
-    """
-    try:
-        if not os.path.exists(directory):
-            os.makedirs(directory)
-
-    except OSError:
-        print('Error while creating directory : ' + directory)
 
