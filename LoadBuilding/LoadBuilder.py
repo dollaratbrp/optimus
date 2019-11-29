@@ -46,7 +46,6 @@ class LoadBuilder:
         self.trailers_done = None
         self.shipping_date = shipping_date
         self.unused_models = []
-        self.second_phase_activated = False
 
     def __len__(self):
         return len(self.trailers_done)
@@ -510,14 +509,6 @@ class LoadBuilder:
             self.trailers.pop(i)
             i -= 1
 
-    def __unpack_trailers(self):
-
-        """
-        Unpack all trailer while saving their contents
-
-        """
-        self.__select_top_n(0)
-
     def __update_models_data(self):
 
         """
@@ -560,7 +551,7 @@ class LoadBuilder:
             self.trailers_data.loc[row_to_change[0], 'QTY'] -= item
 
         # We save trailers done and clear the current trailers list
-        self.trailers_done = self.trailers.copy()
+        self.trailers_done += self.trailers.copy()
         self.trailers.clear()
 
     @staticmethod
@@ -683,7 +674,7 @@ class LoadBuilder:
 
         writer.save()
 
-    def build(self, models_data, max_load, min_load=0, plot_load_done=False):
+    def build(self, models_data, max_load, plot_load_done=False):
 
         """
         This is the core of the object.
@@ -691,7 +682,6 @@ class LoadBuilder:
 
         :param models_data: Pandas data frame containing details on models to load
         :param max_load: maximum number of loads
-        :param min_load: minimum number of loads
         :param plot_load_done: boolean that indicates if plots of loads are going to be shown
         :return: list of the models unused
         """
@@ -708,24 +698,15 @@ class LoadBuilder:
         # We execute the loading of the trailers
         self.__trailer_packing(plot_enabled=plot_load_done)
 
-        # We consider the min and the max
-        nbr_of_load = len(self.trailers)
+        # We consider the max
+        nb_new_loads = len(self.trailers)
+        total_nb_loads = len(self.trailers_done) + nb_new_loads
 
-        if self.second_phase_activated and min_load > nbr_of_load:
+        if max_load < total_nb_loads:
+            self.__select_top_n(nb_new_loads - (total_nb_loads - max_load))
 
-            # We unpack trailers
-            self.__unpack_trailers()
-
-        else:
-            if max_load < nbr_of_load:
-                self.__select_top_n(max_load)
-
-            # We update all data
-            self.__update_models_data()
-            self.__update_trailers_data()
-
-        # We activate phase 2
-        self.second_phase_activated = True
+        # We update all data
+        self.__update_trailers_data()
 
         # Copy the unused models list
         unused_copy = self.unused_models.copy()
