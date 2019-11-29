@@ -509,11 +509,12 @@ class LoadBuilder:
             self.trailers.pop(i)
             i -= 1
 
-    def __update_models_data(self):
+    def __size_code_used(self):
 
         """
-        Updates quantities in original models data frame
+        Save all size code used in the new loads
 
+        :return : list of size codes (also called model names in other part of code)
         """
 
         # We counts all the models that were introduced in loads
@@ -521,15 +522,11 @@ class LoadBuilder:
         counts_of_unused = Counter(self.unused_models)
         counts.subtract(counts_of_unused)
 
-        # We update the models data
-        for key, item in counts.items():
-            row_to_change = self.models_data.index[(self.models_data['MODEL'] == key) &
-                                                   (self.models_data['PLANT_TO'] == self.plant_to)].tolist()
-
-            self.models_data.loc[row_to_change[0], 'QTY'] -= item
-
         # We erase model names in memory
         self.model_names.clear()
+        self.unused_models.clear()
+
+        return counts.elements()
 
     def __update_trailers_data(self):
 
@@ -708,11 +705,7 @@ class LoadBuilder:
         # We update all data
         self.__update_trailers_data()
 
-        # Copy the unused models list
-        unused_copy = self.unused_models.copy()
-        self.unused_models.clear()
-
-        return unused_copy
+        return self.__size_code_used()
 
 
 def create_folder(directory):
