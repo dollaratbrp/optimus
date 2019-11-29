@@ -24,20 +24,18 @@ from datetime import date
 
 class LoadBuilder:
 
-    def __init__(self, plant_from, plant_to, models_data, trailers_data, shipping_date,
+    def __init__(self, plant_from, plant_to, trailers_data, shipping_date,
                  overhang_authorized=40, maximum_trailer_length=636, plc_lb=0.75):
 
         """
         :param plant_from: name of the plant from where the item are shipped
         :param plant_to: name of the plant where the item are shipped
-        :param models_data: Pandas data frame containing details on models to load
         :param trailers_data: Pandas data frame containing details on trailers available
         :param shipping_date: date associated to the shipping of the load that will be built
         :param overhang_authorized: maximum overhanging measure authorized by law for a trailer
         :param maximum_trailer_length: maximum length authorized by law for a trailer
         :param plc_lb: lower bound of length percentage covered that must be satisfied for all trailer
         """
-        self.models_data = models_data
         self.trailers_data = trailers_data
         self.overhang_authorized = overhang_authorized  # In inches
         self.max_trailer_length = maximum_trailer_length  # In inches
@@ -54,7 +52,7 @@ class LoadBuilder:
     def __len__(self):
         return len(self.trailers_done)
 
-    def __warehouse_init(self):
+    def __warehouse_init(self, models_data):
 
         """
         Initializes a warehouse according to the models available in model data
@@ -62,25 +60,25 @@ class LoadBuilder:
         """
 
         # For all lines of the data frame
-        for i in self.models_data.index:
+        for i in models_data.index:
 
             # We save the quantity of the model and the plant_to
-            qty = self.models_data['QTY'][i]
-            plant_to = self.models_data['PLANT_TO'][i]
+            qty = models_data['QTY'][i]
+            plant_to = models_data['PLANT_TO'][i]
 
-            if qty > 0 and plant_to == self.plant_to:
+            if qty > 0 and plant_to == plant_to:
 
                 # We save the name of the model
-                self.model_names.append([self.models_data['MODEL'][i]]*qty)
+                self.model_names.append([models_data['MODEL'][i]]*qty)
 
                 # We save the stack limit
-                stack_limit = self.models_data['STACK_LIMIT'][i]
+                stack_limit = models_data['STACK_LIMIT'][i]
 
                 # We save the number of models per crate
-                nbr_per_crate = self.models_data['NBR_PER_CRATE'][i]
+                nbr_per_crate = models_data['NBR_PER_CRATE'][i]
 
                 # We save the overhang permission indicator
-                overhang = bool(self.models_data['OVERHANG'][i])
+                overhang = bool(models_data['OVERHANG'][i])
 
                 # We compute the number of models per stack
                 items_per_stack = stack_limit * nbr_per_crate
@@ -90,10 +88,10 @@ class LoadBuilder:
 
                 for j in range(nbr_stacks):
                     # We build the stack and send it into the warehouse
-                    self.warehouse.add_stack(LoadObj.Stack(max(self.models_data['LENGTH'][i], self.models_data['WIDTH'][i]),
-                                                           min(self.models_data['WIDTH'][i], self.models_data['LENGTH'][i]),
-                                                           self.models_data['HEIGHT'][i] * stack_limit,
-                                                           [self.models_data['MODEL'][i]] * items_per_stack, overhang))
+                    self.warehouse.add_stack(LoadObj.Stack(max(models_data['LENGTH'][i], models_data['WIDTH'][i]),
+                                                           min(models_data['WIDTH'][i], models_data['LENGTH'][i]),
+                                                           models_data['HEIGHT'][i] * stack_limit,
+                                                           [models_data['MODEL'][i]] * items_per_stack, overhang))
 
                 # We save the number of individual crates to build and convert it into
                 # integer to avoid conflict with range function
@@ -101,12 +99,12 @@ class LoadBuilder:
 
                 for j in range(nbr_individual_crates):
                     # We build the crate and send it to the crates manager
-                    self.remaining_crates.add_crate(LoadObj.Crate([self.models_data['MODEL'][i]] * nbr_per_crate,
-                                                                  max(self.models_data['LENGTH'][i],
-                                                                      self.models_data['WIDTH'][i]),
-                                                                  min(self.models_data['WIDTH'][i],
-                                                                      self.models_data['LENGTH'][i]),
-                                                                  self.models_data['HEIGHT'][i],
+                    self.remaining_crates.add_crate(LoadObj.Crate([models_data['MODEL'][i]] * nbr_per_crate,
+                                                                  max(models_data['LENGTH'][i],
+                                                                      models_data['WIDTH'][i]),
+                                                                  min(models_data['WIDTH'][i],
+                                                                      models_data['LENGTH'][i]),
+                                                                  models_data['HEIGHT'][i],
                                                                   stack_limit, overhang))
 
         # We flatten the model_names list
@@ -686,12 +684,13 @@ class LoadBuilder:
 
         writer.save()
 
-    def build(self, max_load, min_load=0, plot_load_done=False):
+    def build(self, models_data, max_load, min_load=0, plot_load_done=False):
 
         """
         This is the core of the object.
         It contains the principal steps of the loading process.
 
+        :param models_data: Pandas data frame containing details on models to load
         :param max_load: maximum number of loads
         :param min_load: minimum number of loads
         :param plot_load_done: boolean that indicates if plots of loads are going to be shown
@@ -701,7 +700,7 @@ class LoadBuilder:
         start_time = time.time()
 
         # We init the warehouse
-        self.__warehouse_init()
+        self.__warehouse_init(models_data)
 
         # We init the list of trailers
         self.__trailers_init()
