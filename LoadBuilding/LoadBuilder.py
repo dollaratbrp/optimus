@@ -14,7 +14,6 @@ import matplotlib.patches as patches
 import LoadingObjects as LoadObj
 import pandas as pd
 import os
-import time
 from collections import Counter
 from packer import newPacker
 from matplotlib.path import Path
@@ -694,10 +693,8 @@ class LoadBuilder:
         :param max_load: maximum number of loads
         :param min_load: minimum number of loads
         :param plot_load_done: boolean that indicates if plots of loads are going to be shown
-        :return: list of the models unused and time of execution
+        :return: list of the models unused
         """
-        # We save start time
-        start_time = time.time()
 
         # We init the warehouse
         self.__warehouse_init(models_data)
@@ -734,10 +731,7 @@ class LoadBuilder:
         unused_copy = self.unused_models.copy()
         self.unused_models.clear()
 
-        # We save the end of execution time
-        end_time = time.time()
-
-        return unused_copy, end_time - start_time
+        return unused_copy
 
 
 def create_folder(directory):
