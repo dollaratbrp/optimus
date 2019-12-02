@@ -25,8 +25,8 @@ def IsInt(value):
 
 #Each line inside the box
 class ligne:
-    plantFrom = []
-    plantTo = []
+    pointFrom = []
+    pointTo = []
     loadMin=[]
     loadMax=[]
     priority=[]
@@ -41,7 +41,7 @@ class ligne:
     index=0
     columnLength=0
     side = ''
-    
+
     def __init__(self,parent,root, side,PF='',PT='',LMIN=0,LMAX=0,DRYBOX=None,FLATBED=None,PTY=0,TRANS=0,SKIP=0,largeurColonne=12):
         if SKIP ==1:
             IsToSkip = True
@@ -61,10 +61,10 @@ class ligne:
         self.index=len(parent.lignes)
         self.columnLength= largeurColonne
         self.side = side
-        
-        self.plantFrom   = self.entryObj(PF)
-        self.plantTo = self.entryObj(PT)
-        self.loadMin =self.entryObj(LMIN) 
+
+        self.pointFrom   = self.entryObj(PF)
+        self.pointTo = self.entryObj(PT)
+        self.loadMin =self.entryObj(LMIN)
         self.loadMax = self.entryObj(LMAX)
         self.drybox = self.entryObj(DRYBOX)
         self.flatbed =  self.entryObj(FLATBED)
@@ -86,14 +86,14 @@ class ligne:
         tempo.pack(side=self.side)
         return tempo
 
-        
+
     def deleteAll(self):
         "Delete a line in the box"
         self.changeColor('yellow')
         confirm = messagebox.askokcancel('Delete ?',"Are you sure you want to remove this line from the list?")
         if confirm:
-            self.plantFrom.forget()
-            self.plantTo.forget()
+            self.pointFrom.forget()
+            self.pointTo.forget()
             self.loadMin.forget()
             self.loadMax.forget()
             self.drybox.forget()
@@ -103,11 +103,11 @@ class ligne:
             self.skip.forget()
             self.delete.forget()
             self.root.pack_forget()
-        
+
             self.parent.ForgetToDelete(self.index)
         else:
             self.changeColor()
-  
+
     def skipAction(self):
         "If the skip button is clicked"
         self.lineToSKip.set(not self.lineToSKip.get())
@@ -121,9 +121,9 @@ class ligne:
                 color='red'
             else:
                 color = 'white'
-        self.plantFrom.config(bg=color)
-        self.plantFrom.config(bg=color)
-        self.plantTo.config(bg=color)
+        self.pointFrom.config(bg=color)
+        self.pointFrom.config(bg=color)
+        self.pointTo.config(bg=color)
         self.loadMin.config(bg=color)
         self.loadMax.config(bg=color)
         self.drybox.config(bg=color)
@@ -135,14 +135,14 @@ class ligne:
 
 #To create a vertical scrollBar
 class VerticalScrolledFrame(tk.Frame):
-      
+
         def __init__(self, parent, *args, **kw):
-            tk.Frame.__init__(self, parent, *args, **kw)            
+            tk.Frame.__init__(self, parent, *args, **kw)
 
             # create a canvas object and a vertical scrollbar for scrolling it
             vscrollbar = tk.Scrollbar(self, orient=tk.VERTICAL)
             vscrollbar.pack(fill=tk.Y, side=tk.RIGHT, expand=tk.FALSE)
-            canvas = tk.Canvas(self, bd=0, highlightthickness=0,
+            canvas = tk.Canvas(self, bd=0, highlightthickness=0,height=650,
                             yscrollcommand=vscrollbar.set)
             canvas.pack(side=tk.LEFT, fill=tk.BOTH, expand=tk.TRUE)
             vscrollbar.config(command=canvas.yview)
@@ -175,16 +175,18 @@ class VerticalScrolledFrame(tk.Frame):
             canvas.bind('<Configure>', _configure_canvas)
 
 
-#The main box         
+#The main box
 class Box(Frame):
     lignes=[]
     verticalBar=''
     headers = ''
     SQL = ''
+
+
     def __init__(self,largeurColonne):
         Frame.__init__(self)
-        self.headers='PLANT_FROM,PLANT_TO,LOAD_MIN,LOAD_MAX,DRYBOX,FLATBED,PRIORITY_ORDER,TRANSIT,SKIP,IMPORT_DATE'
-        headers= ['Plant from','Plant to','Load min','Load max','DRYBOX','FLATBED','Priority Order','Transit','Skip' ,''] #Only for the box, not sql
+        self.headers='point_FROM,point_TO,LOAD_MIN,LOAD_MAX,DRYBOX,FLATBED,PRIORITY_ORDER,TRANSIT,SKIP,IMPORT_DATE'
+        headers= ['Point from','Point to','Load min','Load max','DRYBOX','FLATBED','Priority Order','Transit','Skip' ,''] #Only for the box, not sql
 
 
         self.SQL = SQLConnection('CAVLSQLPD2\pbi2', 'Business_Planning','OTD_1_P2P_F_PARAMETERS',self.headers)
@@ -206,17 +208,18 @@ class Box(Frame):
 
 
 
-        
+
         ##Define scrollbar
         keyF = frame(self, TOP)
         scframe = VerticalScrolledFrame(keyF)
         scframe.pack()
 
+
         self.verticalBar=scframe.interior
 
         #To set values
-        SQLquery = """SELECT distinct [PLANT_FROM]
-      ,[PLANT_TO]
+        SQLquery = """SELECT distinct [POINT_FROM]
+      ,[POINT_TO]
       ,[LOAD_MIN]
       ,[LOAD_MAX]
       ,[DRYBOX]
@@ -227,28 +230,27 @@ class Box(Frame):
 
   FROM [Business_Planning].[dbo].[OTD_1_P2P_F_PARAMETERS]
   where IMPORT_DATE = (select max(IMPORT_DATE) from [Business_Planning].[dbo].[OTD_1_P2P_F_PARAMETERS])
-  order by [PLANT_FROM]
-      ,[PLANT_TO] """
+  order by [POINT_FROM]
+      ,[POINT_TO] """
 
-        
         ValuesParams= [ sublist for sublist in self.SQL.GetSQLData(SQLquery) ]
 
         for values in ValuesParams:
             keyF = frame(self.verticalBar, TOP)
             self.lignes.append(ligne(self,keyF,LEFT,*values,largeurColonne))
-  
+
 
         keyF = frame(self, BOTTOM)
         tk.Button(keyF, text='Add New', command = lambda largeurColonne=largeurColonne : self.AddNew(largeurColonne), borderwidth=2,bg='#ABA3A3', relief=option[0],pady=10).pack(side=LEFT, expand=YES, fill=BOTH )
         tk.Button(keyF, text='Modify Email list', command = changeEmail, borderwidth=2,bg='#ABA3A3', relief=option[0],pady=10).pack(side=LEFT, expand=YES, fill=BOTH )
         tk.Button(keyF, text='Execute', command = self.quit, borderwidth=2,bg='#ABA3A3', relief=option[0],pady=10).pack(side=LEFT, expand=YES, fill=BOTH)
-     
+
     def ForgetToDelete(self,index):
         "To delete a line of values"
         self.lignes[index] = ''
-        
-        
-        
+
+
+
     def quit(self):
         "Delete all from SQL and send new data if there is no mistakes"
         WarningColor = 'yellow'
@@ -265,18 +267,18 @@ class Box(Frame):
                 else:
                     priorityOrder.append(ligne.priority.get())
 
-                if not IsInt(ligne.plantFrom.get()):
-                    ligne.plantFrom.config(bg=WarningColor)
+                if not IsInt(ligne.pointFrom.get()):
+                    ligne.pointFrom.config(bg=WarningColor)
                     errors=True
-                    
-                if not IsInt(ligne.plantTo.get()) :
-                    ligne.plantTo.config(bg=WarningColor)
+
+                if not IsInt(ligne.pointTo.get()) :
+                    ligne.pointTo.config(bg=WarningColor)
                     errors=True
-                    
+
                 if not IsInt(ligne.loadMin.get()) :
                     ligne.loadMin.config(bg=WarningColor)
                     errors=True
-                    
+
                 if not ( IsInt(ligne.loadMax.get())  or ligne.loadMax.get()=='' ):
                     ligne.loadMax.config(bg=WarningColor)
                     errors=True
@@ -305,14 +307,14 @@ class Box(Frame):
 
                 if not IsInt(ligne.priority.get()) :
                     ligne.priority.config(bg=WarningColor)
-                    errors=True                    
+                    errors=True
 
                 if not IsInt(ligne.transit.get()):
                     ligne.transit.config(bg=WarningColor)
                     errors=True
 
 
-                DATA_TO_SEND.append([ligne.plantFrom.get(),ligne.plantTo.get(),ligne.loadMin.get(),ligne.loadMax.get(),ligne.drybox.get(),ligne.flatbed.get(),ligne.priority.get(),ligne.transit.get(),ligne.lineToSKip.get()])
+                DATA_TO_SEND.append([ligne.pointFrom.get(),ligne.pointTo.get(),ligne.loadMin.get(),ligne.loadMax.get(),ligne.drybox.get(),ligne.flatbed.get(),ligne.priority.get(),ligne.transit.get(),ligne.lineToSKip.get()])
 
 
         if not errors:
@@ -327,41 +329,41 @@ class Box(Frame):
                         DATALine[obj]=None
                     else:
                         DATALine[obj] = int(DATALine[obj])
-                        
+
                 if DATALine[-1] == True:
                     DATALine[-1]=1
                 else:
                     DATALine[-1]=0
-                
+
                 DATALine.append(timeOfExport)
                 self.SQL.sendToSQL( [(DATALine)])
 
-            
+
             global ToExecute
             ToExecute=[True]
-            
+
             self.master.destroy()
         else:
             messagebox.showerror('Invalid DATA','There are some invalid inputs in the table')
 
-            
+
     def AddNew(self,largeurColonne):
         "To add a new line of values"
-        keyF =frame(self.verticalBar, TOP) 
+        keyF =frame(self.verticalBar, TOP)
         self.lignes.append(ligne(self,keyF,LEFT,'0000','0000',0,'','','',0,0,False,largeurColonne))
-        
+
 
 
 
 def changeEmail():
     "To change email list"
-    
-    
+
+
     class VerticalScrolledFrame(tk.Frame):
         #SQL = ''
         #headers= ''
         def __init__(self, parent, *args, **kw):
-            tk.Frame.__init__(self, parent, *args, **kw)    
+            tk.Frame.__init__(self, parent, *args, **kw)
             #self.headers='EMAIL_ADDRESS'
             #self.SQL = SQLConnection('CAVLSQLPD2\pbi2', 'Business_Planning','OTD_1_P2P_F_PARAMETERS_EMAIL_ADDRESS',self.headers)
 
@@ -400,7 +402,7 @@ def changeEmail():
                     canvas.itemconfigure(interior_id, width=canvas.winfo_width())
             canvas.bind('<Configure>', _configure_canvas)
 
-    
+
     root = tk.Tk()
     root.title("EMAIL ADDRESS")
     root.configure(background="gray99")
@@ -418,7 +420,7 @@ def changeEmail():
     lis= [ item for sublist in SQL.GetSQLData(SQLquery) for item in sublist]
 
 
-    btn = tk.Button(scframe.interior, height=1, width=40, relief=tk.FLAT, 
+    btn = tk.Button(scframe.interior, height=1, width=40, relief=tk.FLAT,
             bg="gray99", fg="purple3",
             font="Dosis", text='ADD NEW',
             command=lambda  lis=lis: addNew(lis))
@@ -428,7 +430,7 @@ def changeEmail():
 
 
     for i, x in enumerate(lis):
-        btn = tk.Button(scframe.interior, height=1, width=40, relief=tk.FLAT, 
+        btn = tk.Button(scframe.interior, height=1, width=40, relief=tk.FLAT,
             bg="gray99", fg="purple3",
             font="Dosis", text=lis[i],
             command=lambda i=i,x=x: openlink(i))
@@ -444,27 +446,27 @@ def changeEmail():
             lis.pop(i)
            #Delete from SQL
     def addNew(lis):
-        
+
         def addNewEmail():
             "Add new email address"
             newEmail =  [e1.get().lower()]
             if newEmail[0] not in lis:
                 lis.append(newEmail[0])
                 longueur = len(lis)-1
-            
+
                 btn = tk.Button(scframe.interior, height=1, width=40, relief=tk.FLAT, bg="gray99", fg="purple3",font="Dosis", text= newEmail[0] ,command=lambda : openlink(longueur))
                 btn.pack(padx=10, pady=5, side=tk.TOP)
                 tempo.append(btn)
                 self.SQL.sendToSQL( [(newEmail)])
-                
+
             e1.delete(0,END)
 
         master = tk.Tk()
         master.geometry("500x80+700+500")
         master.title("ADD NEW EMAIL ADDRESS")
-        tk.Label(master, 
+        tk.Label(master,
                  text="EMAIL ADDRESS").grid(row=0)
-        
+
 
         e1 = tk.Entry(master, width=50)
         e1.grid(row=0, column=1)
@@ -481,8 +483,16 @@ def changeEmail():
     root.mainloop()
 
 
-
-
+def MissingP2PBox(MissingP2P):
+    ToExecute[0]=False
+    errorMess = 'Missing these P2P (point_from - point_to) : \n'
+    for p2p in MissingP2P:
+        errorMess += str(p2p ) + '\n'
+    #root = tk.Tk()
+    #root.withdraw()
+    return messagebox.askokcancel("Warning",errorMess + '\n Continue execution? \n')
+    #messagebox.showwarning("Warning", errorMess)
+    #root.destroy()
 
 def OpenParameters():
     Box(largeurColonne).mainloop()

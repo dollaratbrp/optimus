@@ -1,6 +1,9 @@
-from Import_Functions import *
+#from Import_Functions import *
+#from LoadBuilder import LoadBuilder
 from ParametersBox import *
 from P2P_Functions import *
+import pandas as pd
+
 
 if not OpenParameters():  # If user cancel request
     sys.exit()
@@ -31,25 +34,24 @@ timeSinceLastCall('',FALSE)
 # #If SQL queries crash
 downloaded = False
 numberOfTry = 0
-# while (not downloaded and numberOfTry<3): # 3 trials, SQL Queries sometime crash for no reason
-##########
-numberOfTry+=1
-downloaded = True
-#    try:
+while (not downloaded and numberOfTry<3): # 3 trials, SQL Queries sometime crash for no reason
+    numberOfTry+=1
+    try:
+        downloaded = True
 ####################
 
         ####################################################################################
                            ###  Email address Query
         ####################################################################################
-        ###Use class
 
-headerEmail='EMAIL_ADDRESS'
-SQLEmail = SQLConnection('CAVLSQLPD2\pbi2', 'Business_Planning', 'OTD_1_P2P_F_PARAMETERS_EMAIL_ADDRESS',headers=headerEmail)
-QueryEmail=""" SELECT distinct [EMAIL_ADDRESS]
- FROM [Business_Planning].[dbo].[OTD_1_P2P_F_PARAMETERS_EMAIL_ADDRESS]
-"""
-#GET SQL DATA
-EmailList = [ sublist for sublist in SQLEmail.GetSQLData(QueryEmail) ]  #[ item for sublist in SQLEmail.GetSQLData(SQLEmail) for item in sublist]
+
+        headerEmail='EMAIL_ADDRESS'
+        SQLEmail = SQLConnection('CAVLSQLPD2\pbi2', 'Business_Planning', 'OTD_1_P2P_F_PARAMETERS_EMAIL_ADDRESS',headers=headerEmail)
+        QueryEmail=""" SELECT distinct [EMAIL_ADDRESS]
+         FROM [Business_Planning].[dbo].[OTD_1_P2P_F_PARAMETERS_EMAIL_ADDRESS]
+        """
+        #GET SQL DATA
+        EmailList = [ sublist for sublist in SQLEmail.GetSQLData(QueryEmail) ]  #[ item for sublist in SQLEmail.GetSQLData(SQLEmail) for item in sublist]
 
 
 
@@ -57,80 +59,91 @@ EmailList = [ sublist for sublist in SQLEmail.GetSQLData(QueryEmail) ]  #[ item 
                            ###  Parameters Query
         ####################################################################################
 
-headerParams='PLANT_FROM,PLANT_TO,LOAD_MIN,LOAD_MAX,DRYBOX,FLATBED,TRANSIT,PRIORITY_ORDER,SKIP'
-SQLParams = SQLConnection('CAVLSQLPD2\pbi2', 'Business_Planning', 'OTD_1_P2P_F_PARAMETERS',headers=headerParams)
-QueryParams=""" SELECT  [PLANT_FROM]
-      ,[PLANT_TO]
-      ,[LOAD_MIN]
-      ,[LOAD_MAX]
-	  ,[DRYBOX]
-      ,[FLATBED]
-      ,[TRANSIT]
-	  ,[PRIORITY_ORDER]
-      ,[SKIP]
-      --,[IMPORT_DATE]
-  FROM [Business_Planning].[dbo].[OTD_1_P2P_F_PARAMETERS]
-  where IMPORT_DATE = (select max(IMPORT_DATE) from [Business_Planning].[dbo].[OTD_1_P2P_F_PARAMETERS])
-  and SKIP = 0
-  order by PRIORITY_ORDER
-"""
-#GET SQL DATA
-DATAParams = [ sublist for sublist in SQLParams.GetSQLData(QueryParams) ]  #[ item for sublist in SQLEmail.GetSQLData(SQLEmail) for item in sublist]
+        headerParams='POINT_FROM,POINT_TO,LOAD_MIN,LOAD_MAX,DRYBOX,FLATBED,TRANSIT,PRIORITY_ORDER,SKIP'
+        SQLParams = SQLConnection('CAVLSQLPD2\pbi2', 'Business_Planning', 'OTD_1_P2P_F_PARAMETERS',headers=headerParams)
+        QueryParams=""" SELECT  [POINT_FROM]
+              ,[POINT_TO]
+              ,[LOAD_MIN]
+              ,[LOAD_MAX]
+              ,[DRYBOX]
+              ,[FLATBED]
+              ,[TRANSIT]
+              ,[PRIORITY_ORDER]
+              , 0 as Loads_Made
+          FROM [Business_Planning].[dbo].[OTD_1_P2P_F_PARAMETERS]
+          where IMPORT_DATE = (select max(IMPORT_DATE) from [Business_Planning].[dbo].[OTD_1_P2P_F_PARAMETERS])
+          and SKIP = 0
+          order by PRIORITY_ORDER
+        """
+        #GET SQL DATA
+        DATAParams = [ Parameters(*sublist) for sublist in SQLParams.GetSQLData(QueryParams) ]  #[ item for sublist in SQLEmail.GetSQLData(SQLEmail) for item in sublist]
 
 
         ####################################################################################
                            ###  WishList Query
         ####################################################################################
-headerWishList = 'SALES_DOCUMENT_NUMBER,SALES_ITEM_NUMBER,SOLD_TO_NUMBER,PLANT_FROM,SHIPPING_PLANT,DIVISION,MATERIAL_NUMBER,Size_Dimensions,Lenght,Width,Height,stackability,Quantity,Priority_Rank,X_IF_MANDATORY'
-SQLWishList = SQLConnection('CAVLSQLPD2\pbi2', 'Business_Planning', 'OTD_2_PRIORITY_F_P2P',headers=headerWishList)
-QueryWishList= """SELECT  [SALES_DOCUMENT_NUMBER]
-      ,[SALES_ITEM_NUMBER]
-      ,[SOLD_TO_NUMBER]
-      ,[PLANT_FROM]
-      ,[SHIPPING_PLANT]
-      ,[DIVISION]
-      ,RTRIM([MATERIAL_NUMBER])
-      ,RTRIM([Size_Dimensions])
-      ,[Lenght]
-      ,[Width]
-      ,[Height]
-      ,[stackability]
-      ,[Quantity]
-      ,[Priority_Rank]
-      ,[X_IF_MANDATORY]
-  FROM [Business_Planning].[dbo].[OTD_2_PRIORITY_F_P2P]
-  order by Priority_Rank
-"""
-OriginalDATAWishList = SQLWishList.GetSQLData(QueryWishList)
-DATAWishList=[]
-for obj in OriginalDATAWishList:
-    DATAWishList.append(WishListObj(*obj))
+        headerWishList = 'SALES_DOCUMENT_NUMBER,SALES_ITEM_NUMBER,SOLD_TO_NUMBER,POINT_FROM,SHIPPING_POINT,DIVISION,MATERIAL_NUMBER,Size_Dimensions,Lenght,Width,Height,stackability,Quantity,Priority_Rank,X_IF_MANDATORY'
+        SQLWishList = SQLConnection('CAVLSQLPD2\pbi2', 'Business_Planning', 'OTD_2_PRIORITY_F_P2P',headers=headerWishList)
+        QueryWishList= """SELECT  [SALES_DOCUMENT_NUMBER]
+              ,[SALES_ITEM_NUMBER]
+              ,[SOLD_TO_NUMBER]
+              ,[POINT_FROM]
+              ,[SHIPPING_POINT]
+              ,[DIVISION]
+              ,RTRIM([MATERIAL_NUMBER])
+              ,RTRIM([Size_Dimensions])
+              ,convert(int,[Length])
+              ,convert(int,[Width])
+              ,convert(int,[Height])
+              ,[stackability]
+              ,[Quantity]
+              ,[Priority_Rank]
+              ,[X_IF_MANDATORY]
+          FROM [Business_Planning].[dbo].[OTD_1_P2P_F_PRIORITY]
+          where Length<>0 and Width <> 0 and Height <> 0
+          order by Priority_Rank
+        """
+        OriginalDATAWishList = SQLWishList.GetSQLData(QueryWishList)
+        DATAWishList=[WishListObj(*obj) for obj in OriginalDATAWishList]
+        # for obj in OriginalDATAWishList:
+        #     DATAWishList.append(WishListObj(*obj))
 
         ####################################################################################
                            ###  INV Query
         ####################################################################################
-headerINV = ''
-SQLINV = SQLConnection('CAVLSQLPD2\pbi2', 'Business_Planning', 'OTD_1_SHIPPING_F_INVENTORY_VISIBILITY', headers=headerINV)
-QueryINV = """SELECT [PLANT]
-  ,[SHIPPING_POINT]
-  ,[MATERIAL_NUMBER]
-  ,[DIVISION]
-  ,[INVENTORY]
-FROM [Business_Planning].[dbo].[OTD_1_SHIPPING_F_INVENTORY_VISIBILITY]
-"""
-OriginalDATAINV = SQLINV.GetSQLData(QueryINV)
-DATAINV = []
-for obj in OriginalDATAINV:
-    DATAINV.append(INVObj(*obj))
+        headerINV = ''#Not important here
+        SQLINV = SQLConnection('CAVLSQLPD2\pbi2', 'Business_Planning', 'OTD_1_P2P_F_INVENTORY', headers=headerINV)
+        QueryINV = """SELECT  [SHIPPING_POINT]
+              ,[MATERIAL_NUMBER]
+              ,[QUANTITY]
+              ,[AVAILABLE_DATE]
+              ,[STATUS]
+          FROM [Business_Planning].[dbo].[OTD_1_P2P_F_INVENTORY]
+          where status = 'INVENTORY'
+        """
+        OriginalDATAINV = SQLINV.GetSQLData(QueryINV)
+        DATAINV = []
+        for obj in OriginalDATAINV:
+            DATAINV.append(INVObj(*obj))
+
 
 
         ####################################################################################
-                           ###  Parameters Query
+        ###  Look if all point_from + shipping_point are in parameters
         ####################################################################################
 
-#    except:
-#        downloaded=False
-#        print('SQL Query failed')  
+        SQLMissing = SQLConnection('CAVLSQLPD2\pbi2', 'Business_Planning', 'OTD_1_P2P_F_PRIORITY', headers='')
+        QueryMissing = """SELECT DISTINCT [POINT_FROM]
+              ,[SHIPPING_POINT]
+          FROM [Business_Planning].[dbo].[OTD_1_P2P_F_PRIORITY] 
+          where CONCAT(POINT_FROM,SHIPPING_POINT) not in (
+            select distinct CONCAT( [POINT_FROM],[POINT_TO])
+            FROM [Business_Planning].[dbo].[OTD_1_P2P_F_PARAMETERS] )
+        """
+        DATAMissing = SQLMissing.GetSQLData(QueryMissing)
+    except:
+        downloaded=False
+        print('SQL Query failed')
 
 #If SQL Queries failed
 if not downloaded:
@@ -143,6 +156,11 @@ if not downloaded:
 
 timeSinceLastCall('Get SQL DATA')
 
+if DATAMissing != []:
+    if not MissingP2PBox(DATAMissing):
+        sys.exit()
+
+timeSinceLastCall('',False)
 #####################################################################################################################
                                                 ### Excel Workbook declaration
 #####################################################################################################################
@@ -170,48 +188,52 @@ wsUnbookedList=[]
 
 
 #####################################################################################################################
-                                                ### Lists declaration
-#####################################################################################################################
-
-
-
-
-
-
-
-#####################################################################################################################
                                                 ###Isolate perfect match
 #####################################################################################################################
-ListApproved = []
-ListUnbooked = []
+ListApprovedWish = []
 
 for wish in DATAWishList:
-    found = False
     for inv in DATAINV:
-        if wish.PLANT_FROM==inv.PLANT and wish.MATERIAL_NUMBER==inv.MATERIAL_NUMBER and inv.INVENTORY>0:
-            inv.INVENTORY-=1
-            ListApproved.append(wish)
-            found = True
+        if wish.POINT_FROM==inv.POINT and wish.MATERIAL_NUMBER==inv.MATERIAL_NUMBER and inv.QUANTITY>0:
+            inv.QUANTITY-=1
+            ListApprovedWish.append(wish)
             break #no need to look further
-    if not found:
-        ListUnbooked.append(wish)
 
 ### We don't need unbooked skus
-for wish in ListUnbooked:
-    wsUnbooked.append(wish.lineToXlsx())
+for inv in DATAINV:
+    if inv.QUANTITY>0:
+        wsUnbooked.append(inv.lineToXlsx())
 
 
 
+
+
+#####################################################################################################################
+                                                ###Create Loads
+#####################################################################################################################
+for param in DATAParams:
+    columnsHead=['QTY','MODEL','PLANT_TO','LENGTH','WIDTH','HEIGHT','NBR_PER_CRATE','STACK_LIMIT','OVERHANG']
+    invData = []#pd.DataFrame([],columns=['QTY','MODEL','PLANT_TO','LENGTH','WIDTH','HEIGHT','NBR_PER_CRATE','STACK_LIMIT','OVERHANG'])
+    for wish in ListApprovedWish:
+        if wish.POINT_FROM==param.POINT_FROM and wish.SHIPPING_POINT==param.POINT_TO and wish.QUANTITY>0:
+            invData.append([wish.QUANTITY, wish.SIZE_DIMENSIONS,wish.SHIPPING_POINT,wish.LENGTH,wish.WIDTH,wish.HEIGHT,1,wish.STACKABILITY,0])#=invData.append(pd.DataFrame([[wish.QUANTITY, wish.SIZE_DIMENSIONS,wish.SHIPPING_POINT,wish.LENGTH,wish.WIDTH,wish.HEIGHT,1,wish.STACKABILITY,0]],columns=['QTY','MODEL','PLANT_TO','LENGTH','WIDTH','HEIGHT','NBR_PER_CRATE','STACK_LIMIT','OVERHANG']))
+    models_data = pd.DataFrame(data = invData, columns=columnsHead)
+
+    # TrailerData = pd.DataFrame(data=[[param.FLATBED,'FLATBED',param.POINT_FROM,param.POINT_TO,636,102,120,1,1],
+    #                             [param.DRYBOX,'DRYBOX',param.POINT_FROM,param.POINT_TO,628,98,120,0,1]],
+    #                             columns=['QTY','CATEGORY','PLANT_FROM','PLANT_TO','LENGTH','WIDTH','HEIGHT','OVERHANG','PRIORITY_RANK'])
+    param.LoadBuilder.models_data= models_data
+    # param.LoadBuilder.trailers_data=TrailerData
+
+    res, time = param.LoadBuilder.build(param.LOADMAX, param.LOADMIN, plot_load_done=False)
+
+    print(res)
+    print(models_data)
 #####################################################################################################################
                                                 ###Test to save data
 #####################################################################################################################
 
 
-
-#for obj in DATAWishList:
- #   wsUnbooked.append(obj.lineToXlsx())
-for obj in DATAINV:
-    wsApproved.append(obj.lineToXlsx())
 
 reference = [savexlsxFile(wb, saveFolder, dest_filename)]
 #send_email(EmailList, dest_filename, 'generalErrors?', reference)
