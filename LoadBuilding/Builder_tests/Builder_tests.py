@@ -10,7 +10,6 @@ By : Nicolas Raymond
 """
 import sys
 import os
-import time
 from LoadBuilder import LoadBuilder
 from openpyxl import load_workbook
 
@@ -30,36 +29,38 @@ def main():
     trailers_data = rw.read_trailers_data(ws)
 
     # We look the data frame to see if they are correct
-    #rw.display_df(models_data)
-    #rw.display_df(trailers_data)
+    # rw.display_df(trailers_data)
 
     # We initialize a dummy load builder to manage plant to plant between Juarez and El Paso
-    lb1 = LoadBuilder('Juarez', 'El Paso', models_data, trailers_data, '2019-11-23')
+    lb1 = LoadBuilder('Juarez', 'El Paso', trailers_data)
 
     # We build loads
-    res, time = lb1.build(10, 3, plot_load_done=True)
-    rw.show_summary(res, len(lb1), time)
-
+    res = lb1.build(models_data, 10, plot_load_done=False)
+    print(res)
 
     # We look again at the data frames to see if the were correctly updated
-    #rw.display_df(models_data)
-    #rw.display_df(trailers_data)
+    # rw.display_df(trailers_data)
 
     # We initialize a dummy load builder to manage plant to plant between Juarez and Juarez 2
-    lb2 = LoadBuilder('Juarez', 'Juarez 2', models_data, trailers_data, '2019-11-23')
+    lb2 = LoadBuilder('Juarez', 'Juarez 2', trailers_data)
 
     # We build loads
-    res, time = lb2.build(10, 3, plot_load_done=True)
-    rw.show_summary(res, len(lb2), time)
+    res = lb2.build(models_data, 10, plot_load_done=False)
+    print(res)
 
     # We look a last time at the data frames to see if the were correctly updated
-    #rw.display_df(models_data)
-    #rw.display_df(trailers_data)
+    # rw.display_df(trailers_data)
+
+    # We look at the loading summaries
+    lb1_summary = lb1.get_loading_summary()
+    lb2_summary = lb2.get_loading_summary()
+    rw.display_df(lb1_summary)
+    rw.display_df(lb2_summary)
 
     # We save the results of loading
     res_directory = os.path.join(wd, "Results", '')
-    lb1.write_summarized_data(res_directory)
-    lb2.write_summarized_data(res_directory)
+    rw.write_summarized_data(lb1_summary, lb1.plant_from, lb1.plant_to, res_directory)
+    rw.write_summarized_data(lb2_summary, lb2.plant_from, lb2.plant_to, res_directory)
 
 
 if __name__ == "__main__":
