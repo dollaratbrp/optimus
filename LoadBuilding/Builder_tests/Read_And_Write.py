@@ -17,6 +17,7 @@ import subprocess
 import pandas as pd
 import matplotlib.pyplot as plt
 from collections import Counter
+from datetime import date
 
 
 def read_models_data(ws):
@@ -143,3 +144,68 @@ def display_df(dataframe):
     the_table.set_fontsize(6)
 
     plt.show()
+
+
+def write_summarized_data(data_frame, plant_from, plant_to, directory):
+
+    """
+    Writes a loading summary in a .xlsx file and create a folder named "P2P - <date>"
+    at the directory mentioned and save the file in it.
+
+    :param data_frame: Pandas data frame with the loading summary
+    :param plant_from : String that mentions the plant from
+    :param plant_to : String that mentions the plant to
+    :param directory: String that mentions path where the created folder is going to be saved
+
+    """
+
+    # We generate today's date
+    folder_date = date.today()
+    folder_date = str(folder_date.strftime("%m-%d-%y"))
+
+    # We save the folder name
+    folder = folder_date + '/'
+
+    # We save the path
+    path = directory + folder
+
+    # We create the folder in which the file will be stored (if the folder doesn't exist)
+    create_folder(path)
+
+    # We save the complete title of our future file
+    title = path + "P2P from " + plant_from + " to " + plant_to + ".xlsx"
+
+    # We initialize a "writer"
+    writer = pd.ExcelWriter(title, engine='xlsxwriter')
+
+    # We export results in the file created
+    data_frame.to_excel(writer, sheet_name='Loads', index=True)
+
+    # We initialize a workbook
+    workbook = writer.book
+
+    # We initialize a worksheet
+    worksheet = writer.sheets['Loads']
+
+    # We set the widths of the columns
+    worksheet.set_column('A:B', 15)
+    worksheet.set_column('B:C', 4.5)
+    worksheet.set_column('C:D', 15)
+    worksheet.set_column('E:AK', 4.5)
+
+    writer.save()
+
+
+def create_folder(directory):
+
+    """
+    Creates a folder with the directory mentioned
+
+    :param directory: String that mention path where the folder is going to be created
+    """
+    try:
+        if not os.path.exists(directory):
+            os.makedirs(directory)
+
+    except OSError:
+        print('Error while creating directory : ' + directory)

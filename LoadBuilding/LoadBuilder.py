@@ -13,31 +13,25 @@ import matplotlib.pyplot as plt
 import matplotlib.patches as patches
 import LoadingObjects as LoadObj
 import pandas as pd
-import os
-import time
 from collections import Counter
 from packer import newPacker
 from matplotlib.path import Path
 from math import floor
-from datetime import date
 
 
 class LoadBuilder:
 
-    def __init__(self, plant_from, plant_to, models_data, trailers_data, shipping_date,
+    def __init__(self, plant_from, plant_to, trailers_data,
                  overhang_authorized=40, maximum_trailer_length=636, plc_lb=0.75):
 
         """
         :param plant_from: name of the plant from where the item are shipped
         :param plant_to: name of the plant where the item are shipped
-        :param models_data: Pandas data frame containing details on models to load
         :param trailers_data: Pandas data frame containing details on trailers available
-        :param shipping_date: date associated to the shipping of the load that will be built
         :param overhang_authorized: maximum overhanging measure authorized by law for a trailer
         :param maximum_trailer_length: maximum length authorized by law for a trailer
         :param plc_lb: lower bound of length percentage covered that must be satisfied for all trailer
         """
-        self.models_data = models_data
         self.trailers_data = trailers_data
         self.overhang_authorized = overhang_authorized  # In inches
         self.max_trailer_length = maximum_trailer_length  # In inches
@@ -45,16 +39,13 @@ class LoadBuilder:
         self.plant_from = plant_from
         self.plant_to = plant_to
         self.model_names, self.warehouse, self.remaining_crates = [], LoadObj.Warehouse(), LoadObj.CratesManager()
-        self.trailers = []
-        self.trailers_done = None
-        self.shipping_date = shipping_date
-        self.unused_models = []
-        self.second_phase_activated = False
+        self.trailers, self.trailers_done, self.unused_models = [], [], []
+        self.all_size_codes = set()
 
     def __len__(self):
         return len(self.trailers_done)
 
-    def __warehouse_init(self):
+    def __warehouse_init(self, models_data):
 
         """
         Initializes a warehouse according to the models available in model data
@@ -62,25 +53,25 @@ class LoadBuilder:
         """
 
         # For all lines of the data frame
-        for i in self.models_data.index:
+        for i in models_data.index:
 
             # We save the quantity of the model and the plant_to
-            qty = self.models_data['QTY'][i]
-            plant_to = self.models_data['PLANT_TO'][i]
+            qty = models_data['QTY'][i]
+            plant_to = models_data['PLANT_TO'][i]
 
             if qty > 0 and plant_to == self.plant_to:
 
                 # We save the name of the model
-                self.model_names.append([self.models_data['MODEL'][i]]*qty)
+                self.model_names.append([models_data['MODEL'][i]]*qty)
 
                 # We save the stack limit
-                stack_limit = self.models_data['STACK_LIMIT'][i]
+                stack_limit = models_data['STACK_LIMIT'][i]
 
                 # We save the number of models per crate
-                nbr_per_crate = self.models_data['NBR_PER_CRATE'][i]
+                nbr_per_crate = models_data['NBR_PER_CRATE'][i]
 
                 # We save the overhang permission indicator
-                overhang = bool(self.models_data['OVERHANG'][i])
+                overhang = bool(models_data['OVERHANG'][i])
 
                 # We compute the number of models per stack
                 items_per_stack = stack_limit * nbr_per_crate
@@ -90,10 +81,10 @@ class LoadBuilder:
 
                 for j in range(nbr_stacks):
                     # We build the stack and send it into the warehouse
-                    self.warehouse.add_stack(LoadObj.Stack(max(self.models_data['LENGTH'][i], self.models_data['WIDTH'][i]),
-                                                           min(self.models_data['WIDTH'][i], self.models_data['LENGTH'][i]),
-                                                           self.models_data['HEIGHT'][i] * stack_limit,
-                                                           [self.models_data['MODEL'][i]] * items_per_stack, overhang))
+                    self.warehouse.add_stack(LoadObj.Stack(max(models_data['LENGTH'][i], models_data['WIDTH'][i]),
+                                                           min(models_data['WIDTH'][i], models_data['LENGTH'][i]),
+                                                           models_data['HEIGHT'][i] * stack_limit,
+                                                           [models_data['MODEL'][i]] * items_per_stack, overhang))
 
                 # We save the number of individual crates to build and convert it into
                 # integer to avoid conflict with range function
@@ -101,12 +92,12 @@ class LoadBuilder:
 
                 for j in range(nbr_individual_crates):
                     # We build the crate and send it to the crates manager
-                    self.remaining_crates.add_crate(LoadObj.Crate([self.models_data['MODEL'][i]] * nbr_per_crate,
-                                                                  max(self.models_data['LENGTH'][i],
-                                                                      self.models_data['WIDTH'][i]),
-                                                                  min(self.models_data['WIDTH'][i],
-                                                                      self.models_data['LENGTH'][i]),
-                                                                  self.models_data['HEIGHT'][i],
+                    self.remaining_crates.add_crate(LoadObj.Crate([models_data['MODEL'][i]] * nbr_per_crate,
+                                                                  max(models_data['LENGTH'][i],
+                                                                      models_data['WIDTH'][i]),
+                                                                  min(models_data['WIDTH'][i],
+                                                                      models_data['LENGTH'][i]),
+                                                                  models_data['HEIGHT'][i],
                                                                   stack_limit, overhang))
 
         # We flatten the model_names list
@@ -513,19 +504,12 @@ class LoadBuilder:
             self.trailers.pop(i)
             i -= 1
 
-    def __unpack_trailers(self):
+    def __size_code_used(self):
 
         """
-        Unpack all trailer while saving their contents
+        Save all size code used in the new loads
 
-        """
-        self.__select_top_n(0)
-
-    def __update_models_data(self):
-
-        """
-        Updates quantities in original models data frame
-
+        :return : list of size codes (also called model names in other part of code)
         """
 
         # We counts all the models that were introduced in loads
@@ -533,15 +517,15 @@ class LoadBuilder:
         counts_of_unused = Counter(self.unused_models)
         counts.subtract(counts_of_unused)
 
-        # We update the models data
-        for key, item in counts.items():
-            row_to_change = self.models_data.index[(self.models_data['MODEL'] == key) &
-                                                   (self.models_data['PLANT_TO'] == self.plant_to)].tolist()
-
-            self.models_data.loc[row_to_change[0], 'QTY'] -= item
-
         # We erase model names in memory
         self.model_names.clear()
+        self.unused_models.clear()
+
+        # We save the size codes used for the loads done in this iteration
+        size_codes = list(counts.elements())
+        self.all_size_codes.update(size_codes)
+
+        return size_codes
 
     def __update_trailers_data(self):
 
@@ -563,7 +547,7 @@ class LoadBuilder:
             self.trailers_data.loc[row_to_change[0], 'QTY'] -= item
 
         # We save trailers done and clear the current trailers list
-        self.trailers_done = self.trailers.copy()
+        self.trailers_done += self.trailers.copy()
         self.trailers.clear()
 
     @staticmethod
@@ -602,25 +586,23 @@ class LoadBuilder:
         plt.show()
         plt.close()
 
-    def write_summarized_data(self, directory):
+    def get_loading_summary(self):
 
         """
-        Writes a loading summary in a .xlsx file and create a folder named "P2P - <date>"
-        at the directory mentioned and save the file in it.
+        Create a Pandas data frame with a summary of all loads done by the LoadBuilder
 
-        :param directory: String that mention path where the created folder is going to be saved
-
+        :return: Pandas data frame
         """
+        size_codes = list(self.all_size_codes)
 
         # We initialize a data frame with column names needed
-        data_frame = pd.DataFrame(columns=(["TRAILER", "TRAILER LENGTH", "LOAD LENGTH"] + list(set(self.model_names))))
+        data_frame = pd.DataFrame(columns=(["TRAILER", "TRAILER LENGTH", "LOAD LENGTH"] + size_codes))
 
         # We initialize an index
         i = 0
 
         # We add a line in the dataframe for every trailer used
         for trailer in self.trailers_done:
-
             # We save the quantities of every models inside the trailer
             s = Counter(trailer.load_summary())
 
@@ -628,13 +610,8 @@ class LoadBuilder:
             # and the quantities of every models in it.
             data_frame.loc[i] = [trailer.category] + [round(trailer.length / 12, 1)] + \
                                 [round(trailer.length_used / 12, 1)] + \
-                                [s[model] if s[model] > 0 else '' for model in self.model_names]
+                                [s[model] if s[model] > 0 else '' for model in size_codes]
             i += 1
-
-        # We add a line for unused model
-        unused_summary = Counter(self.unused_models)
-        data_frame.loc[i] = ["REMAINING", '', ''] + \
-                            [unused_summary[model] if unused_summary[model] > 0 else '' for model in self.model_names]
 
         # We execute a groupby with trailer in the same category
         data_frame = data_frame.groupby(data_frame.columns.tolist()).size().to_frame('QTY').reset_index()
@@ -647,61 +624,22 @@ class LoadBuilder:
         # We set indexes
         data_frame.set_index("TRAILER", inplace=True)
 
-        # We erase the quantity of the QTY column
-        data_frame.loc[["REMAINING"], ['QTY']] = ''
+        return data_frame
 
-        # We generate today's date
-        folder_date = date.today()
-        folder_date = str(folder_date.strftime("%m-%d-%y"))
-
-        # We save the folder name
-        folder = folder_date + '/'
-
-        # We save the path
-        path = directory + folder
-
-        # We create the folder in which the file will be stored (if the folder doesn't exist)
-        create_folder(path)
-
-        # We save the complete title of our future file
-        title = path + "P2P from " + self.plant_from + " to " + self.plant_to + " " + self.shipping_date + ".xlsx"
-
-        # We initialize a "writer"
-        writer = pd.ExcelWriter(title, engine='xlsxwriter')
-
-        # We export results in the file created
-        data_frame.to_excel(writer, sheet_name='Loads', index=True)
-
-        # We initialize a workbook
-        workbook = writer.book
-
-        # We initialize a worksheet
-        worksheet = writer.sheets['Loads']
-
-        # We set the widths of the columns
-        worksheet.set_column('A:B', 15)
-        worksheet.set_column('B:C', 4.5)
-        worksheet.set_column('C:D', 15)
-        worksheet.set_column('E:AK', 4.5)
-
-        writer.save()
-
-    def build(self, max_load, min_load=0, plot_load_done=False):
+    def build(self, models_data, max_load, plot_load_done=False):
 
         """
         This is the core of the object.
         It contains the principal steps of the loading process.
 
+        :param models_data: Pandas data frame containing details on models to load
         :param max_load: maximum number of loads
-        :param min_load: minimum number of loads
         :param plot_load_done: boolean that indicates if plots of loads are going to be shown
-        :return: list of the models unused and time of execution
+        :return: list of the models unused
         """
-        # We save start time
-        start_time = time.time()
 
         # We init the warehouse
-        self.__warehouse_init()
+        self.__warehouse_init(models_data)
 
         # We init the list of trailers
         self.__trailers_init()
@@ -712,46 +650,15 @@ class LoadBuilder:
         # We execute the loading of the trailers
         self.__trailer_packing(plot_enabled=plot_load_done)
 
-        # We consider the min and the max
-        nbr_of_load = len(self.trailers)
+        # We consider the max
+        nb_new_loads = len(self.trailers)
+        total_nb_loads = len(self.trailers_done) + nb_new_loads
 
-        if self.second_phase_activated and min_load > nbr_of_load:
+        if max_load < total_nb_loads:
+            self.__select_top_n(nb_new_loads - (total_nb_loads - max_load))
 
-            # We unpack trailers
-            self.__unpack_trailers()
+        # We update all data
+        self.__update_trailers_data()
 
-        else:
-            if max_load < nbr_of_load:
-                self.__select_top_n(max_load)
-
-            # We update all data
-            self.__update_models_data()
-            self.__update_trailers_data()
-
-        # We activate phase 2
-        self.second_phase_activated = True
-
-        # Copy the unused models list
-        unused_copy = self.unused_models.copy()
-        self.unused_models.clear()
-
-        # We save the end of execution time
-        end_time = time.time()
-
-        return unused_copy, end_time - start_time
-
-
-def create_folder(directory):
-
-    """
-    Creates a folder with the directory mentioned
-
-    :param directory: String that mention path where the folder is going to be created
-    """
-    try:
-        if not os.path.exists(directory):
-            os.makedirs(directory)
-
-    except OSError:
-        print('Error while creating directory : ' + directory)
+        return self.__size_code_used()
 
