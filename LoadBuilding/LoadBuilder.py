@@ -57,9 +57,8 @@ class LoadBuilder:
 
             # We save the quantity of the model and the plant_to
             qty = models_data['QTY'][i]
-            plant_to = models_data['PLANT_TO'][i]
 
-            if qty > 0 and plant_to == self.plant_to:
+            if qty > 0:
 
                 # We save the name of the model
                 self.model_names.append([models_data['MODEL'][i]]*qty)
@@ -115,10 +114,8 @@ class LoadBuilder:
 
             # We save the quantity, the plant_from and the plant _to
             qty = self.trailers_data['QTY'][i]
-            plant_from = self.trailers_data['PLANT_FROM'][i]
-            plant_to = self.trailers_data['PLANT_TO'][i]
 
-            if qty > 0 and plant_from == self.plant_from and plant_to == self.plant_to:
+            if qty > 0:
 
                 # We save trailer's length
                 t_length = self.trailers_data['LENGTH'][i]
@@ -545,9 +542,7 @@ class LoadBuilder:
         for key, item in counts.items():
             row_to_change = self.trailers_data.index[(self.trailers_data['CATEGORY'] == key[0]) &
                                                      (self.trailers_data['LENGTH'] == key[1]) &
-                                                     (self.trailers_data['WIDTH'] == key[2]) &
-                                                     (self.trailers_data['PLANT_FROM'] == self.plant_from) &
-                                                     (self.trailers_data['PLANT_TO'] == self.plant_to)].tolist()
+                                                     (self.trailers_data['WIDTH'] == key[2])].tolist()
 
             self.trailers_data.loc[row_to_change[0], 'QTY'] -= item
 
