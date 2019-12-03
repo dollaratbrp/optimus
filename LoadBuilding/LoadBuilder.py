@@ -307,7 +307,7 @@ class LoadBuilder:
         # We build a set containing all pairs of objects' width and length in a certain range in the warehouse
         unique_tuples = set((self.warehouse[i].width, self.warehouse[i].length)
                             for i in range(min(last_upper_bound, len(self.warehouse))))
-        print('______________',last_upper_bound, len(self.warehouse))
+
         # We initialize the shortest length found with the maximal length found
         shortest_length = max(max(dimensions) for dimensions in unique_tuples)
 
