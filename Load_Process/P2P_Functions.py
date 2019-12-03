@@ -1,6 +1,6 @@
 from LoadBuilder import LoadBuilder
 from Import_Functions import *
-
+DATAInclude=[]
 class WishListObj:
     def __init__(self,SDN,SINU,STN,PF,SP,DIV,MAT_NUM,SIZE,LENG,WIDTH,HEIGHT,STACK,QTY,RANK,MANDATORY):
         self.SALES_DOCUMENT_NUMBER = SDN
@@ -18,7 +18,8 @@ class WishListObj:
         self.QUANTITY = QTY
         self.RANK = RANK
         self.MANDATORY = MANDATORY
-        self.On_Load = False
+
+
     def lineToXlsx(self):
         return [self.SALES_DOCUMENT_NUMBER, self.SALES_ITEM_NUMBER , self.SOLD_TO_NUMBER,self.POINT_FROM,self.SHIPPING_POINT,self.DIVISION,self.MATERIAL_NUMBER,
         self.SIZE_DIMENSIONS ,self.LENGTH ,self.WIDTH ,self.HEIGHT,self.STACKABILITY,self.QUANTITY,self.RANK,self.MANDATORY]
@@ -37,7 +38,7 @@ class INVObj:
 
 
 class Parameters:
-    def __init__(self,POINT_FROM,POINT_TO,LOADMIN,LOADMAX,DRYBOX,FLATBED,TRANSIT,PRIORITY,Loads_Made):
+    def __init__(self,POINT_FROM,POINT_TO,LOADMIN,LOADMAX,DRYBOX,FLATBED,TRANSIT,PRIORITY):
         self.POINT_FROM = POINT_FROM
         self.POINT_TO=POINT_TO
         self.LOADMIN=LOADMIN
@@ -46,12 +47,29 @@ class Parameters:
         self.FLATBED = FLATBED
         self.PRIORITY = PRIORITY
         self.TRANSIT = TRANSIT
-        self.Loads_Made=Loads_Made
 
         TrailerData = pd.DataFrame(
-            data=[[self.FLATBED, 'FLATBED', self.POINT_FROM, self.POINT_TO, 636, 102, 120, 1, 1],
-                  [self.DRYBOX, 'DRYBOX', self.POINT_FROM, self.POINT_TO, 628, 98, 120, 0, 1]],
-            columns=['QTY', 'CATEGORY', 'PLANT_FROM', 'PLANT_TO', 'LENGTH', 'WIDTH', 'HEIGHT', 'OVERHANG',
+            data=[[self.FLATBED, 'FLATBED', 636, 102, 120, 1, 1],
+                  [self.DRYBOX, 'DRYBOX',  628, 98, 120, 0, 1]],
+            columns=['QTY', 'CATEGORY', 'LENGTH', 'WIDTH', 'HEIGHT', 'OVERHANG',
                      'PRIORITY_RANK'])
-        self.LoadBuilder = LoadBuilder(POINT_FROM, POINT_TO, [], TrailerData, weekdays(0))
+        self.LoadBuilder = LoadBuilder(TrailerData)
+
+class Included_Inv:
+    def __init__(self,Point_Source,Point_Include):
+        self.source=Point_Source
+        self.include = Point_Include
+
+##Functions ##################################################################################
+
+def EquivalentPlantFrom(Point1,Point2):
+    """" Point1 is shipping_point_from for inv, Point1 is shipping_point_from for wishlist"""
+    if Point1== Point2:
+        return True
+    else:
+        global DATAInclude
+        for equiv in DATAInclude:
+            if equiv.source == Point2 and equiv.include == Point1:
+                return True
+    return False
 
