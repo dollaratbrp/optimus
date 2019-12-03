@@ -21,7 +21,7 @@ from math import floor
 
 class LoadBuilder:
 
-    def __init__(self, plant_from, plant_to, trailers_data,
+    def __init__(self, trailers_data,
                  overhang_authorized=40, maximum_trailer_length=636, plc_lb=0.75):
 
         """
@@ -36,8 +36,6 @@ class LoadBuilder:
         self.overhang_authorized = overhang_authorized  # In inches
         self.max_trailer_length = maximum_trailer_length  # In inches
         self.plc_lb = plc_lb
-        self.plant_from = plant_from
-        self.plant_to = plant_to
         self.model_names, self.warehouse, self.remaining_crates = [], LoadObj.Warehouse(), LoadObj.CratesManager()
         self.trailers, self.trailers_done, self.unused_models = [], [], []
         self.all_size_codes = set()
