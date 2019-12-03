@@ -310,7 +310,7 @@ class LoadBuilder:
         # We build a set containing all pairs of objects' width and length in a certain range in the warehouse
         unique_tuples = set((self.warehouse[i].width, self.warehouse[i].length)
                             for i in range(min(last_upper_bound, len(self.warehouse))))
-
+        print('______________',last_upper_bound, len(self.warehouse))
         # We initialize the shortest length found with the maximal length found
         shortest_length = max(max(dimensions) for dimensions in unique_tuples)
 
@@ -370,7 +370,12 @@ class LoadBuilder:
         configs = np.array([configs])
 
         # We compute an upper bound for the maximal number of rectangles that can fit in our trailer
-        ub = self.__max_rect_upperbound(trailer, len(self.warehouse) - nb_oversize)
+        nb_rect_to_consider = len(self.warehouse) - nb_oversize
+
+        if nb_rect_to_consider == 0:
+            return []
+
+        ub = self.__max_rect_upperbound(trailer, nb_rect_to_consider)
 
         # We save the number of stack pre-rotated
         nb_of_pre_rotated = configs.shape[1]
@@ -469,8 +474,8 @@ class LoadBuilder:
             new_packer.pack(reset_opened_bins=False)
 
             # We send a message if the second phase of packing was effective
-            if last_res < len(new_packer[0]):
-                print('COMPLETION EFFECTIVE')
+            # if last_res < len(new_packer[0]):
+            #     print('COMPLETION EFFECTIVE')
 
     def __remove_leftover_trailers(self):
 
