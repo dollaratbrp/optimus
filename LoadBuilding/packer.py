@@ -1,4 +1,4 @@
-from skyline import SkylineBlWm
+from skyline import SkylineBlWm, SkylineBl
 
 import operator
 import itertools
@@ -519,7 +519,7 @@ PackingBin = Enum(["BNF", "BFF", "BBF", "Global"])
 
 def newPacker(mode=PackingMode.Offline,
               bin_algo=PackingBin.BFF,
-              pack_algo=SkylineBlWm,
+              pack_algo=SkylineBl,
               sort_algo=SORT_NONE,
               rotation=True):
     """
