@@ -653,7 +653,7 @@ class LoadBuilder:
         total_nb_loads = len(self.trailers_done) + nb_new_loads
 
         if max_load < total_nb_loads:
-            self.__select_top_n(nb_new_loads - (total_nb_loads - max_load))
+            self.__select_top_n(max(nb_new_loads - (total_nb_loads - max_load),0))
 
         # We update all data
         self.__update_trailers_data()
