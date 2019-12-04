@@ -172,9 +172,9 @@ if not downloaded:
 timeSinceLastCall('Get SQL DATA')
 
 
-if DATAMissing != []:
-    if not MissingP2PBox(DATAMissing):
-        sys.exit()
+# if DATAMissing != []:
+#     if not MissingP2PBox(DATAMissing):
+#         sys.exit()
 
 timeSinceLastCall('',False)
 #####################################################################################################################
@@ -209,27 +209,22 @@ wsUnbookedList=[]
 ListApprovedWish = []
 
 for wish in DATAWishList:
-    tempoList=[]
-    FoundAll=False
-    for Iteration in range(1, wish.QUANTITY +1):
-        if Iteration < wish.QUANTITY:
-            for inv in DATAINV:
-                if  EquivalentPlantFrom(inv.POINT,wish.POINT_FROM) and wish.MATERIAL_NUMBER==inv.MATERIAL_NUMBER and inv.QUANTITY>0: #wish.POINT_FROM==inv.POINT and
-                    inv.QUANTITY-=1
-                    tempoList.append(inv)
-                    break  # no need to look further
+    position = 0
+    for Iteration in range( wish.QUANTITY ):
+        for inv in range(position,len(DATAINV)):
+            if  EquivalentPlantFrom(DATAINV[inv].POINT,wish.POINT_FROM) and wish.MATERIAL_NUMBER==DATAINV[inv].MATERIAL_NUMBER and DATAINV[inv].QUANTITY>0: #wish.POINT_FROM==inv.POINT and
+                DATAINV[inv].QUANTITY-=1
+                wish.INV_ITEMS.append(DATAINV[inv])
+                position=inv
+                break  # no need to look further
 
-        else:
-            for inv in DATAINV:
-                if  EquivalentPlantFrom(inv.POINT,wish.POINT_FROM) and wish.MATERIAL_NUMBER==inv.MATERIAL_NUMBER and inv.QUANTITY>0: #wish.POINT_FROM==inv.POINT and
-                    inv.QUANTITY-=1
-                    ListApprovedWish.append(wish)
-                    FoundAll = True  #If we don't find all qty for wish, we give back skus in inv
-                    break #no need to look further
 
-    if not FoundAll: #We give back taken inv
-        for invToGiveBack in tempoList:
+    if len(wish.INV_ITEMS) < wish.QUANTITY: #We give back taken inv
+        for invToGiveBack in wish.INV_ITEMS:
             invToGiveBack.QUANTITY+=1
+        wish.INV_ITEMS = []
+    else:
+        ListApprovedWish.append(wish)
 
 ### We don't need unbooked skus
 for inv in DATAINV:
@@ -248,19 +243,67 @@ for param in DATAParams:
     columnsHead=['QTY','MODEL','LENGTH','WIDTH','HEIGHT','NBR_PER_CRATE','STACK_LIMIT','OVERHANG']
     invData = []#pd.DataFrame([],columns=['QTY','MODEL','PLANT_TO','LENGTH','WIDTH','HEIGHT','NBR_PER_CRATE','STACK_LIMIT','OVERHANG'])
     for wish in ListApprovedWish:
-        if wish.POINT_FROM==param.POINT_FROM  and wish.SHIPPING_POINT==param.POINT_TO and wish.QUANTITY>0:##equivalent
-            wish.selected=True
+        if wish.POINT_FROM==param.POINT_FROM  and wish.SHIPPING_POINT==param.POINT_TO and wish.QUANTITY>0:
             tempoOnLoad.append(wish)
-            invData.append([wish.QUANTITY, wish.SIZE_DIMENSIONS,wish.LENGTH,wish.WIDTH,wish.HEIGHT,1,wish.STACKABILITY,0])#=invData.append(pd.DataFrame([[wish.QUANTITY, wish.SIZE_DIMENSIONS,wish.SHIPPING_POINT,wish.LENGTH,wish.WIDTH,wish.HEIGHT,1,wish.STACKABILITY,0]],columns=['QTY','MODEL','PLANT_TO','LENGTH','WIDTH','HEIGHT','NBR_PER_CRATE','STACK_LIMIT','OVERHANG']))
+            invData.append([1, wish.SIZE_DIMENSIONS,wish.LENGTH,wish.WIDTH,wish.HEIGHT,1,wish.STACKABILITY,0])#quantity is one, one box for each line
     models_data = pd.DataFrame(data = invData, columns=columnsHead)
 
 
-    #print('Test')
-    #print(param.POINT_FROM,param.POINT_TO)
-    res = param.LoadBuilder.build(models_data,param.LOADMAX, plot_load_done=False)
-    #print("--",param.POINT_FROM,param.POINT_TO,'\n',param.LoadBuilder.get_loading_summary())
-    print(res)
-    #print(models_data)
+    result = param.LoadBuilder.build(models_data,param.LOADMAX, plot_load_done=False)
+
+    for model in result:
+        found = False
+        for OnLoad in tempoOnLoad:
+            if OnLoad.SIZE_DIMENSIONS == model and OnLoad.QUANTITY>0:
+                OnLoad.QUANTITY =0
+                found = True
+                break
+        if not found:
+            print('Error in Perfect Match: impossible result.\n')
+
+
+#####################################################################################################################
+                                                ###Store unallocated units in inv pool
+#####################################################################################################################
+print('part2')
+InventoryPool = []
+for wish in ListApprovedWish:
+    if wish.QUANTITY>0:
+        for inv in wish.INV_ITEMS:
+            InventoryPool.append(inv)
+
+
+#####################################################################################################################
+                                                ###Make minimum number of loads for each P2P
+#####################################################################################################################
+for param in DATAParams:
+    if len(param.LoadBuilder) < param.LOADMIN:
+        tempoOnLoad = []
+        columnsHead = ['QTY', 'MODEL', 'LENGTH', 'WIDTH', 'HEIGHT', 'NBR_PER_CRATE', 'STACK_LIMIT', 'OVERHANG']
+        invData = []
+        for wish in DATAWishList:
+            if wish.POINT_FROM==param.POINT_FROM and wish.SHIPPING_POINT == param.POINT_TO and wish.QUANTITY>0:
+                position =0
+                for Iteration in range(wish.QUANTITY):
+                    for inv in range(position, len(InventoryPool)):
+                        if EquivalentPlantFrom(InventoryPool[inv].POINT,wish.POINT_FROM) and InventoryPool[inv].MATERIAL_NUMBER==wish.MATERIAL_NUMBER and InventoryPool[inv].QUANTITY >0:
+                            InventoryPool[inv].QUANTITY -= 1
+                            wish.INV_ITEMS.append(InventoryPool[inv])
+                            position = inv
+                            break # no need to look further
+                if len(wish.INV_ITEMS) < wish.QUANTITY:  # We give back taken inv
+                    for invToGiveBack in wish.INV_ITEMS:
+                        invToGiveBack.QUANTITY += 1
+                    wish.INV_ITEMS=[]
+                else:
+                    tempoOnLoad.append(wish)
+                    invData.append([1, wish.SIZE_DIMENSIONS, wish.LENGTH, wish.WIDTH, wish.HEIGHT, 1, wish.STACKABILITY, 0])
+
+        models_data = pd.DataFrame(data=invData, columns=columnsHead)
+        print(models_data)
+        result = param.LoadBuilder.build(models_data, param.LOADMIN - len(param.LoadBuilder), plot_load_done=False)
+        print(result)
+
 #####################################################################################################################
                                                 ###Test to save data
 #####################################################################################################################

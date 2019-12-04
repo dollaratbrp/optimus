@@ -18,6 +18,15 @@ class WishListObj:
         self.QUANTITY = QTY
         self.RANK = RANK
         self.MANDATORY = MANDATORY
+        # To keep track of inv origins
+        self.INV_ITEMS=[]
+
+
+
+    def SendInPool(self):
+        result = [self.INV_POINT_FROM,self.MATERIAL_NUMBER,self.QUANTITY,self.INV_DATE,self.INV_STATUS]
+        self.INV_POINT_FROM,self.INV_DATE, self.INV_STATUS= '','',''
+        return result
 
 
     def lineToXlsx(self):
@@ -63,7 +72,8 @@ class Included_Inv:
 ##Functions ##################################################################################
 
 def EquivalentPlantFrom(Point1,Point2):
-    """" Point1 is shipping_point_from for inv, Point1 is shipping_point_from for wishlist"""
+    """" Point1 is shipping_point_from for inv, Point2 is shipping_point_from for wishlist
+        Point1 is included in Point2                                                      """
     if Point1== Point2:
         return True
     else:
