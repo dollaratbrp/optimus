@@ -291,12 +291,12 @@ class Box(Frame):
                     ligne.flatbed.config(bg=WarningColor)
                     errors=True
 
-                if ligne.flatbed.get() != '' and ligne.drybox.get() != '' and ligne.loadMax.get()!='':
-                    if int(ligne.flatbed.get()) + int(ligne.drybox.get()) < int(ligne.loadMax.get()):
-                        errors = True
-                        ligne.loadMax.config(bg=WarningColor)
-                        ligne.drybox.config(bg=WarningColor)
-                        ligne.flatbed.config(bg=WarningColor)
+                # if ligne.flatbed.get() != '' and ligne.drybox.get() != '' and ligne.loadMax.get()!='':
+                #     if int(ligne.flatbed.get()) + int(ligne.drybox.get()) < int(ligne.loadMax.get()):
+                #         errors = True
+                #         ligne.loadMax.config(bg=WarningColor)
+                #         ligne.drybox.config(bg=WarningColor)
+                #         ligne.flatbed.config(bg=WarningColor)
 
 
                 if  IsInt(ligne.loadMin.get()) and IsInt(ligne.loadMax.get()):
@@ -441,7 +441,7 @@ def changeEmail():
         "To delete an email address"
         confirm = messagebox.askokcancel(lis[i],"Are you sure you want to remove {0} from the list?".format(lis[i]))
         if confirm:
-            self.SQL.deleteFromSQL( "[EMAIL_ADDRESS] = ('{0}')".format(lis[i]))
+            SQL.deleteFromSQL( "[EMAIL_ADDRESS] = ('{0}')".format(lis[i]))
             tempo[i].forget()
             lis.pop(i)
            #Delete from SQL
@@ -457,7 +457,7 @@ def changeEmail():
                 btn = tk.Button(scframe.interior, height=1, width=40, relief=tk.FLAT, bg="gray99", fg="purple3",font="Dosis", text= newEmail[0] ,command=lambda : openlink(longueur))
                 btn.pack(padx=10, pady=5, side=tk.TOP)
                 tempo.append(btn)
-                self.SQL.sendToSQL( [(newEmail)])
+                SQL.sendToSQL( [(newEmail)])
 
             e1.delete(0,END)
 
