@@ -98,14 +98,14 @@ while (not downloaded and numberOfTry<3): # 3 trials, SQL Queries sometime crash
               ,[Quantity]
               ,[Priority_Rank]
               ,[X_IF_MANDATORY]
-          FROM [Business_Planning].[dbo].[OTD_1_P2P_F_PRIORITY]
+              ,[OVERHANG]
+          FROM [Business_Planning].[dbo].[OTD_1_P2P_F_PRIORITY_WITHOUT_INVENTORY]
           where Length<>0 and Width <> 0 and Height <> 0
           order by Priority_Rank
         """
         OriginalDATAWishList = SQLWishList.GetSQLData(QueryWishList)
         DATAWishList=[WishListObj(*obj) for obj in OriginalDATAWishList]
-        # for obj in OriginalDATAWishList:
-        #     DATAWishList.append(WishListObj(*obj))
+
 
         ####################################################################################
                            ###  INV Query
@@ -227,9 +227,12 @@ for wish in DATAWishList:
         ListApprovedWish.append(wish)
 
 ### We don't need unbooked skus
+InventoryPool = []
 for inv in DATAINV:
-    if inv.QUANTITY>0:
-        wsUnbooked.append(inv.lineToXlsx())
+    if inv.QUANTITY<inv.ORIGINAL_QUANTITY:#we took some units
+        InventoryPool.append(inv)
+
+
 
 
 
@@ -245,12 +248,12 @@ for param in DATAParams:
     for wish in ListApprovedWish:
         if wish.POINT_FROM==param.POINT_FROM  and wish.SHIPPING_POINT==param.POINT_TO and wish.QUANTITY>0:
             tempoOnLoad.append(wish)
-            invData.append([1, wish.SIZE_DIMENSIONS,wish.LENGTH,wish.WIDTH,wish.HEIGHT,1,wish.STACKABILITY,0])#quantity is one, one box for each line
+            invData.append([1, wish.SIZE_DIMENSIONS,wish.LENGTH,wish.WIDTH,wish.HEIGHT,1,wish.STACKABILITY,wish.OVERHANG])#quantity is one, one box for each line
     models_data = pd.DataFrame(data = invData, columns=columnsHead)
 
 
     result = param.LoadBuilder.build(models_data,param.LOADMAX, plot_load_done=False)
-
+    print(result)
     for model in result:
         found = False
         for OnLoad in tempoOnLoad:
@@ -266,15 +269,16 @@ for param in DATAParams:
                                                 ###Store unallocated units in inv pool
 #####################################################################################################################
 print('part2')
-InventoryPool = []
 for wish in ListApprovedWish:
     if wish.QUANTITY>0:
         for inv in wish.INV_ITEMS:
-            InventoryPool.append(inv)
+            inv.QUANTITY+=1
+        wish.INV_ITEMS=[]
+
 
 
 #####################################################################################################################
-                                                ###Make minimum number of loads for each P2P
+                                                ### Try to Make the minimum number of loads for each P2P
 #####################################################################################################################
 for param in DATAParams:
     if len(param.LoadBuilder) < param.LOADMIN:
@@ -297,12 +301,78 @@ for param in DATAParams:
                     wish.INV_ITEMS=[]
                 else:
                     tempoOnLoad.append(wish)
-                    invData.append([1, wish.SIZE_DIMENSIONS, wish.LENGTH, wish.WIDTH, wish.HEIGHT, 1, wish.STACKABILITY, 0])
+                    invData.append([1, wish.SIZE_DIMENSIONS, wish.LENGTH, wish.WIDTH, wish.HEIGHT, 1, wish.STACKABILITY, wish.OVERHANG])
 
         models_data = pd.DataFrame(data=invData, columns=columnsHead)
-        print(models_data)
         result = param.LoadBuilder.build(models_data, param.LOADMIN - len(param.LoadBuilder), plot_load_done=False)
+        print(models_data)
         print(result)
+        for model in result:
+            found = False
+            for OnLoad in tempoOnLoad:
+                if OnLoad.SIZE_DIMENSIONS == model and OnLoad.QUANTITY > 0:
+                    OnLoad.QUANTITY = 0
+                    found = True
+                    break
+            if not found:
+                print('Error in Perfect Match: impossible result.\n')
+        for wish in tempoOnLoad: #If it is not on loads, give back inv
+            if wish.QUANTITY>0:
+                for inv in wish.INV_ITEMS:
+                    inv.QUANTITY+=1
+                wish.INV_ITEMS=[]
+
+
+
+
+#####################################################################################################################
+                                                ### Try to Make the maximum number of loads for each P2P
+#####################################################################################################################
+print('part 3')
+
+for param in DATAParams:
+    if len(param.LoadBuilder) < param.LOADMAX:
+        tempoOnLoad = []
+        columnsHead = ['QTY', 'MODEL', 'LENGTH', 'WIDTH', 'HEIGHT', 'NBR_PER_CRATE', 'STACK_LIMIT', 'OVERHANG']
+        invData = []
+        for wish in DATAWishList:
+            if wish.POINT_FROM==param.POINT_FROM and wish.SHIPPING_POINT == param.POINT_TO and wish.QUANTITY>0:
+                position =0
+                for Iteration in range(wish.QUANTITY):
+                    for inv in range(position, len(InventoryPool)):
+                        if EquivalentPlantFrom(InventoryPool[inv].POINT,wish.POINT_FROM) and InventoryPool[inv].MATERIAL_NUMBER==wish.MATERIAL_NUMBER and InventoryPool[inv].QUANTITY >0:
+                            InventoryPool[inv].QUANTITY -= 1
+                            wish.INV_ITEMS.append(InventoryPool[inv])
+                            position = inv
+                            break # no need to look further
+                if len(wish.INV_ITEMS) < wish.QUANTITY:  # We give back taken inv
+                    for invToGiveBack in wish.INV_ITEMS:
+                        invToGiveBack.QUANTITY += 1
+                    wish.INV_ITEMS=[]
+                else:
+                    tempoOnLoad.append(wish)
+                    invData.append([1, wish.SIZE_DIMENSIONS, wish.LENGTH, wish.WIDTH, wish.HEIGHT, 1, wish.STACKABILITY, wish.OVERHANG])
+
+        models_data = pd.DataFrame(data=invData, columns=columnsHead)
+        result = param.LoadBuilder.build(models_data, param.LOADMAX, plot_load_done=False)
+        print(models_data)
+        print(result)
+        for model in result:
+            found = False
+            for OnLoad in tempoOnLoad:
+                if OnLoad.SIZE_DIMENSIONS == model and OnLoad.QUANTITY > 0:
+                    OnLoad.QUANTITY = 0
+                    found = True
+                    break
+            if not found:
+                print('Error in Perfect Match: impossible result.\n')
+        for wish in tempoOnLoad: #If it is not on loads, give back inv
+            if wish.QUANTITY>0:
+                for inv in wish.INV_ITEMS:
+                    inv.QUANTITY+=1
+                wish.INV_ITEMS=[]
+
+
 
 #####################################################################################################################
                                                 ###Test to save data

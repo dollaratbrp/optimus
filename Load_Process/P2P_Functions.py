@@ -2,7 +2,7 @@ from LoadBuilder import LoadBuilder
 from Import_Functions import *
 DATAInclude=[]
 class WishListObj:
-    def __init__(self,SDN,SINU,STN,PF,SP,DIV,MAT_NUM,SIZE,LENG,WIDTH,HEIGHT,STACK,QTY,RANK,MANDATORY):
+    def __init__(self,SDN,SINU,STN,PF,SP,DIV,MAT_NUM,SIZE,LENG,WIDTH,HEIGHT,STACK,QTY,RANK,MANDATORY,OVERHANG):
         self.SALES_DOCUMENT_NUMBER = SDN
         self.SALES_ITEM_NUMBER = SINU
         self.SOLD_TO_NUMBER = STN
@@ -18,20 +18,13 @@ class WishListObj:
         self.QUANTITY = QTY
         self.RANK = RANK
         self.MANDATORY = MANDATORY
+        self.OVERHANG=OVERHANG
         # To keep track of inv origins
         self.INV_ITEMS=[]
 
-
-
-    def SendInPool(self):
-        result = [self.INV_POINT_FROM,self.MATERIAL_NUMBER,self.QUANTITY,self.INV_DATE,self.INV_STATUS]
-        self.INV_POINT_FROM,self.INV_DATE, self.INV_STATUS= '','',''
-        return result
-
-
     def lineToXlsx(self):
         return [self.SALES_DOCUMENT_NUMBER, self.SALES_ITEM_NUMBER , self.SOLD_TO_NUMBER,self.POINT_FROM,self.SHIPPING_POINT,self.DIVISION,self.MATERIAL_NUMBER,
-        self.SIZE_DIMENSIONS ,self.LENGTH ,self.WIDTH ,self.HEIGHT,self.STACKABILITY,self.QUANTITY,self.RANK,self.MANDATORY]
+        self.SIZE_DIMENSIONS ,self.LENGTH ,self.WIDTH ,self.HEIGHT,self.STACKABILITY,self.QUANTITY,self.RANK,self.MANDATORY,SELF.OVERHANG]
 
 
 class INVObj:
@@ -41,6 +34,9 @@ class INVObj:
         self.QUANTITY=QUANTITY
         self.DATE=DATE
         self.STATUS = STATUS
+        #To see if we took inv
+        self.ORIGINAL_QUANTITY = QUANTITY
+
 
     def lineToXlsx(self):
         return [self.POINT, self.MATERIAL_NUMBER,self.QUANTITY,self.DATE,self.STATUS]
