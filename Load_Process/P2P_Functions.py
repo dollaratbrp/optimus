@@ -35,7 +35,8 @@ class INVObj:
         self.DATE=DATE
         self.STATUS = STATUS
         #To see if we took inv
-        self.ORIGINAL_QUANTITY = QUANTITY
+        #self.ORIGINAL_QUANTITY = QUANTITY
+        self.unused = 0 #count the number of skus to display on BOOKED_UNUSED worksheet
 
 
     def lineToXlsx(self):
@@ -59,6 +60,7 @@ class Parameters:
             columns=['QTY', 'CATEGORY', 'LENGTH', 'WIDTH', 'HEIGHT', 'OVERHANG',
                      'PRIORITY_RANK'])
         self.LoadBuilder = LoadBuilder(TrailerData)
+        self.AssignedWish=[]
 
 class Included_Inv:
     def __init__(self,Point_Source,Point_Include):

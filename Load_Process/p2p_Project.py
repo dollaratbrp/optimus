@@ -3,10 +3,11 @@
 from ParametersBox import *
 from P2P_Functions import *
 import pandas as pd
+from openpyxl.styles import (PatternFill, colors, Alignment)
+import Builder_tests.Read_And_Write as rw
 
-
-if not OpenParameters():  # If user cancel request
-    sys.exit()
+# if not OpenParameters():  # If user cancel request
+#     sys.exit()
 
 
 # -------------------------------------------------------------------------------------------------------------------------------------------------------------------#
@@ -16,7 +17,7 @@ if not OpenParameters():  # If user cancel request
 # -------------------------------------------------------------------------------------------------------------------------------------------------------------------#
 dayTodayComplete= pd.datetime.now().replace(second=0, microsecond=0)
 dayToday= weekdays(0)
-            # os.path()
+
 saveFolder='S:\Shared\Business_Planning\Personal\Lefebvre\S2\p2p\p2p_Project\p2p_Project\\' #Folder to save data
 dest_filename = 'P2P_Summary_'+dayToday #Name of excel file with today's date
 # -------------------------------------------------------------------------------------------------------------------------------------------------------------------#
@@ -34,7 +35,7 @@ timeSinceLastCall('',FALSE)
 # #If SQL queries crash
 downloaded = False
 numberOfTry = 0
-while (not downloaded and numberOfTry<3): # 3 trials, SQL Queries sometime crash for no reason
+while not downloaded and numberOfTry<3: # 3 trials, SQL Queries sometime crash for no reason
     numberOfTry+=1
     try:
         downloaded = True
@@ -79,6 +80,21 @@ while (not downloaded and numberOfTry<3): # 3 trials, SQL Queries sometime crash
 
 
         ####################################################################################
+                           ###  Parameters P2P ORDER (for excel sheet)
+        ####################################################################################
+
+        QueryOrder=""" SELECT distinct  [POINT_FROM],[POINT_TO]
+          FROM [Business_Planning].[dbo].[OTD_1_P2P_F_PARAMETERS]
+          where IMPORT_DATE = (select max(IMPORT_DATE) from [Business_Planning].[dbo].[OTD_1_P2P_F_PARAMETERS])
+          and SKIP = 0
+          order by [POINT_FROM],[POINT_TO]
+        """
+        #GET SQL DATA
+        P2POrder = SQLParams.GetSQLData(QueryOrder)
+
+
+
+        ####################################################################################
                            ###  WishList Query
         ####################################################################################
         headerWishList = 'SALES_DOCUMENT_NUMBER,SALES_ITEM_NUMBER,SOLD_TO_NUMBER,POINT_FROM,SHIPPING_POINT,DIVISION,MATERIAL_NUMBER,Size_Dimensions,Lenght,Width,Height,stackability,Quantity,Priority_Rank,X_IF_MANDATORY'
@@ -100,7 +116,7 @@ while (not downloaded and numberOfTry<3): # 3 trials, SQL Queries sometime crash
               ,[X_IF_MANDATORY]
               ,[OVERHANG]
           FROM [Business_Planning].[dbo].[OTD_1_P2P_F_PRIORITY_WITHOUT_INVENTORY]
-          where Length<>0 and Width <> 0 and Height <> 0
+          where [POINT_FROM] <>[SHIPPING_POINT] and Length<>0 and Width <> 0 and Height <> 0
           order by Priority_Rank
         """
         OriginalDATAWishList = SQLWishList.GetSQLData(QueryWishList)
@@ -119,6 +135,7 @@ while (not downloaded and numberOfTry<3): # 3 trials, SQL Queries sometime crash
               ,[STATUS]
           FROM [Business_Planning].[dbo].[OTD_1_P2P_F_INVENTORY]
           where status = 'INVENTORY'
+          order by SHIPPING_POINT, MATERIAL_NUMBER
         """
         OriginalDATAINV = SQLINV.GetSQLData(QueryINV)
         DATAINV = []
@@ -153,6 +170,7 @@ while (not downloaded and numberOfTry<3): # 3 trials, SQL Queries sometime crash
           where CONCAT(POINT_FROM,SHIPPING_POINT) not in (
             select distinct CONCAT( [POINT_FROM],[POINT_TO])
             FROM [Business_Planning].[dbo].[OTD_1_P2P_F_PARAMETERS] )
+            and [POINT_FROM] <>[SHIPPING_POINT] 
         """
         DATAMissing = SQLMissing.GetSQLData(QueryMissing)
     except:
@@ -183,25 +201,47 @@ timeSinceLastCall('',False)
 
 
 wb = Workbook()
+Warning_fill = PatternFill(fill_type="solid", start_color="FFFF00",end_color="FFFF00")
+my_fill = PatternFill(fill_type="solid", start_color="a6a6a6",end_color="a6a6a6")
 
 ### Summary
 wsSummary = wb.active
 wsSummary.title = "SUMMARY"
-
+wsSummary.append(['POINT_FROM','SHIPPING_POINT','NUMBER_OF_LOADS'])
+wsSummary.column_dimensions['A'].width =13
+wsSummary.column_dimensions['B'].width =16
+wsSummary.column_dimensions['C'].width =19
+for y in range(1, 4):
+    wsSummary.cell(row=1, column=y).fill = my_fill
 
 
 ### Approved loads
 wsApproved = wb.create_sheet("APPROVED")
-wsApproved.append([''])
-wsApprovedList = []
-
+wsApproved.append(['POINT_FROM','SHIPPING_POINT','LOAD_NUMBER','MATERIAL_NUMBER','QUANTITY','SIZE_DIMENSIONS',
+                   'SALES_DOCUMENT_NUMBER','SALES_ITEM_NUMBER','SOLD_TO_NUMBER'])
+for y in range(1, 10):
+    wsApproved.cell(row=1, column=y).fill = my_fill
+for letter in ['A','B','C','D','E','F','H','I']:
+    wsApproved.column_dimensions[letter].width = 20
+wsApproved.column_dimensions['G'].width = 27
 
 ### Unbooked
 wsUnbooked = wb.create_sheet("UNBOOKED")
-wsUnbooked.append([''])
-wsUnbookedList=[]
+wsUnbooked.append(['POINT_FROM','MATERIAL_NUMBER','QUANTITY'])
+for y in range(1, 4):
+    wsUnbooked.cell(row=1, column=y).fill = my_fill
+wsUnbooked.column_dimensions['A'].width = 13
+wsUnbooked.column_dimensions['B'].width = 16
+wsUnbooked.column_dimensions['C'].width = 10
 
-
+### Booked unused
+wsUnused = wb.create_sheet("BOOKED_UNUSED")
+wsUnused.append(['POINT_FROM','MATERIAL_NUMBER','QUANTITY'])
+for y in range(1, 4):
+    wsUnused.cell(row=1, column=y).fill = my_fill
+wsUnused.column_dimensions['A'].width =13
+wsUnused.column_dimensions['B'].width =16
+wsUnused.column_dimensions['C'].width =10
 
 #####################################################################################################################
                                                 ###Isolate perfect match
@@ -211,11 +251,11 @@ ListApprovedWish = []
 for wish in DATAWishList:
     position = 0
     for Iteration in range( wish.QUANTITY ):
-        for inv in range(position,len(DATAINV)):
-            if  EquivalentPlantFrom(DATAINV[inv].POINT,wish.POINT_FROM) and wish.MATERIAL_NUMBER==DATAINV[inv].MATERIAL_NUMBER and DATAINV[inv].QUANTITY>0: #wish.POINT_FROM==inv.POINT and
-                DATAINV[inv].QUANTITY-=1
-                wish.INV_ITEMS.append(DATAINV[inv])
-                position=inv
+        for It, inv in enumerate(DATAINV[position::]):
+            if  EquivalentPlantFrom(inv.POINT,wish.POINT_FROM) and wish.MATERIAL_NUMBER==inv.MATERIAL_NUMBER and inv.QUANTITY>0: #wish.POINT_FROM==inv.POINT and
+                inv.QUANTITY-=1
+                wish.INV_ITEMS.append(inv)
+                position+=It
                 break  # no need to look further
 
 
@@ -227,10 +267,10 @@ for wish in DATAWishList:
         ListApprovedWish.append(wish)
 
 ### We don't need unbooked skus
-InventoryPool = []
-for inv in DATAINV:
-    if inv.QUANTITY<inv.ORIGINAL_QUANTITY:#we took some units
-        InventoryPool.append(inv)
+InventoryPool = DATAINV#[]
+# for inv in DATAINV:
+#     if inv.QUANTITY<inv.ORIGINAL_QUANTITY:#we took some units
+#         InventoryPool.append(inv)
 
 
 
@@ -260,6 +300,7 @@ for param in DATAParams:
             if OnLoad.SIZE_DIMENSIONS == model and OnLoad.QUANTITY>0:
                 OnLoad.QUANTITY =0
                 found = True
+                param.AssignedWish.append(OnLoad)
                 break
         if not found:
             print('Error in Perfect Match: impossible result.\n')
@@ -282,6 +323,7 @@ for wish in ListApprovedWish:
 #####################################################################################################################
 for param in DATAParams:
     if len(param.LoadBuilder) < param.LOADMIN:
+        print(param.POINT_FROM,param.POINT_TO,param.LOADMIN,param.LOADMAX,len(param.LoadBuilder))
         tempoOnLoad = []
         columnsHead = ['QTY', 'MODEL', 'LENGTH', 'WIDTH', 'HEIGHT', 'NBR_PER_CRATE', 'STACK_LIMIT', 'OVERHANG']
         invData = []
@@ -289,11 +331,11 @@ for param in DATAParams:
             if wish.POINT_FROM==param.POINT_FROM and wish.SHIPPING_POINT == param.POINT_TO and wish.QUANTITY>0:
                 position =0
                 for Iteration in range(wish.QUANTITY):
-                    for inv in range(position, len(InventoryPool)):
-                        if EquivalentPlantFrom(InventoryPool[inv].POINT,wish.POINT_FROM) and InventoryPool[inv].MATERIAL_NUMBER==wish.MATERIAL_NUMBER and InventoryPool[inv].QUANTITY >0:
-                            InventoryPool[inv].QUANTITY -= 1
-                            wish.INV_ITEMS.append(InventoryPool[inv])
-                            position = inv
+                    for It, inv in enumerate(InventoryPool[position::]):
+                        if EquivalentPlantFrom(inv.POINT,wish.POINT_FROM) and inv.MATERIAL_NUMBER==wish.MATERIAL_NUMBER and inv.QUANTITY >0:
+                            inv.QUANTITY -= 1
+                            wish.INV_ITEMS.append(inv)
+                            position += It
                             break # no need to look further
                 if len(wish.INV_ITEMS) < wish.QUANTITY:  # We give back taken inv
                     for invToGiveBack in wish.INV_ITEMS:
@@ -313,6 +355,7 @@ for param in DATAParams:
                 if OnLoad.SIZE_DIMENSIONS == model and OnLoad.QUANTITY > 0:
                     OnLoad.QUANTITY = 0
                     found = True
+                    param.AssignedWish.append(OnLoad)
                     break
             if not found:
                 print('Error in Perfect Match: impossible result.\n')
@@ -339,11 +382,11 @@ for param in DATAParams:
             if wish.POINT_FROM==param.POINT_FROM and wish.SHIPPING_POINT == param.POINT_TO and wish.QUANTITY>0:
                 position =0
                 for Iteration in range(wish.QUANTITY):
-                    for inv in range(position, len(InventoryPool)):
-                        if EquivalentPlantFrom(InventoryPool[inv].POINT,wish.POINT_FROM) and InventoryPool[inv].MATERIAL_NUMBER==wish.MATERIAL_NUMBER and InventoryPool[inv].QUANTITY >0:
-                            InventoryPool[inv].QUANTITY -= 1
-                            wish.INV_ITEMS.append(InventoryPool[inv])
-                            position = inv
+                    for It, inv in enumerate(InventoryPool[position::]) :
+                        if EquivalentPlantFrom(inv.POINT,wish.POINT_FROM) and inv.MATERIAL_NUMBER==wish.MATERIAL_NUMBER and inv.QUANTITY >0:
+                            inv.QUANTITY -= 1
+                            wish.INV_ITEMS.append(inv)
+                            position += It
                             break # no need to look further
                 if len(wish.INV_ITEMS) < wish.QUANTITY:  # We give back taken inv
                     for invToGiveBack in wish.INV_ITEMS:
@@ -363,6 +406,7 @@ for param in DATAParams:
                 if OnLoad.SIZE_DIMENSIONS == model and OnLoad.QUANTITY > 0:
                     OnLoad.QUANTITY = 0
                     found = True
+                    param.AssignedWish.append(OnLoad)
                     break
             if not found:
                 print('Error in Perfect Match: impossible result.\n')
@@ -378,7 +422,58 @@ for param in DATAParams:
                                                 ###Test to save data
 #####################################################################################################################
 
+for param in DATAParams:
+    print(param.POINT_FROM,' _ ',param.POINT_TO)
+    print(len(param.LoadBuilder))
+    print(param.LoadBuilder.trailers_done)
+    print(param.LoadBuilder.get_loading_summary())
+
+lineIndex=2 #To display a warning if number of loads is lower than parameters min
+
+for order in P2POrder:
+    for param in DATAParams:
+        if param.POINT_FROM == order[0] and param.POINT_TO == order[1]:
+            #section for summary worksheet
+            wsSummary.append([param.POINT_FROM,param.POINT_TO,len(param.LoadBuilder)])
+            if len(param.LoadBuilder) < param.LOADMIN:
+                wsSummary.cell(row=lineIndex, column=3).fill = Warning_fill
+            lineIndex+=1
+            #Approved worksheet
+            loads = param.LoadBuilder.get_loading_summary()
+            if len(param.LoadBuilder)>0:
+                for line in range(len(loads)):
+                    for Iteration in range(int(loads["QTY"][line])):
+                        for column in loads.columns[5::]:#size_dimentions
+                            if loads[column][line] != '':
+                                wsApproved.append([param.POINT_FROM,param.POINT_TO,-1,'',loads[column][line],column])
+
+
+
+            break
+
+
+#Assign left inv to wishList
+for wish in DATAWishList:
+    if wish.QUANTITY>0:
+        position = 0
+        for Iteration in range( wish.QUANTITY ):
+            for It, inv in enumerate(DATAINV[position::]):
+                if  EquivalentPlantFrom(inv.POINT,wish.POINT_FROM) and wish.MATERIAL_NUMBER==inv.MATERIAL_NUMBER and inv.QUANTITY - inv.unused>0:
+                    inv.unused+=1
+                    position+=It
+                    break  # no need to look further
+
+
+# send inv in wsUnused and wsUnbooked
+for inv in DATAINV:
+    if inv.unused>0:
+        wsUnused.append([inv.POINT,inv.MATERIAL_NUMBER,inv.unused])
+    if inv.QUANTITY - inv.unused >0:
+        wsUnbooked.append([inv.POINT,inv.MATERIAL_NUMBER,inv.QUANTITY-inv.unused])
+
+
 
 
 reference = [savexlsxFile(wb, saveFolder, dest_filename)]
+#os.system('start "excel" "'+str(reference[0])+'"')
 #send_email(EmailList, dest_filename, 'generalErrors?', reference)
