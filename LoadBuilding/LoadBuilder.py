@@ -620,7 +620,7 @@ class LoadBuilder:
         data_frame = data_frame[cols]
 
         # We set indexes
-        data_frame.set_index("TRAILER", inplace=True)
+        #data_frame.set_index("TRAILER", inplace=True)
 
         return data_frame
 
