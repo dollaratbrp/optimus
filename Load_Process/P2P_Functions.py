@@ -21,10 +21,13 @@ class WishListObj:
         self.OVERHANG=OVERHANG
         # To keep track of inv origins
         self.INV_ITEMS=[]
+        self.ORIGINAL_QUANTITY = QTY
+        # If the item is assigned to a Load in excel workbook
+        self.Finished = False
 
     def lineToXlsx(self):
         return [self.SALES_DOCUMENT_NUMBER, self.SALES_ITEM_NUMBER , self.SOLD_TO_NUMBER,self.POINT_FROM,self.SHIPPING_POINT,self.DIVISION,self.MATERIAL_NUMBER,
-        self.SIZE_DIMENSIONS ,self.LENGTH ,self.WIDTH ,self.HEIGHT,self.STACKABILITY,self.QUANTITY,self.RANK,self.MANDATORY,SELF.OVERHANG]
+        self.SIZE_DIMENSIONS ,self.LENGTH ,self.WIDTH ,self.HEIGHT,self.STACKABILITY,self.QUANTITY,self.RANK,self.MANDATORY,self.OVERHANG]
 
 
 class INVObj:

@@ -17,6 +17,7 @@ import Builder_tests.Read_And_Write as rw
 # -------------------------------------------------------------------------------------------------------------------------------------------------------------------#
 dayTodayComplete= pd.datetime.now().replace(second=0, microsecond=0)
 dayToday= weekdays(0)
+printLoads = False
 
 saveFolder='S:\Shared\Business_Planning\Personal\Lefebvre\S2\p2p\p2p_Project\p2p_Project\\' #Folder to save data
 dest_filename = 'P2P_Summary_'+dayToday #Name of excel file with today's date
@@ -117,7 +118,7 @@ while not downloaded and numberOfTry<3: # 3 trials, SQL Queries sometime crash f
               ,[OVERHANG]
           FROM [Business_Planning].[dbo].[OTD_1_P2P_F_PRIORITY_WITHOUT_INVENTORY]
           where [POINT_FROM] <>[SHIPPING_POINT] and Length<>0 and Width <> 0 and Height <> 0
-          order by Priority_Rank
+          order by [X_IF_MANDATORY] desc, Priority_Rank
         """
         OriginalDATAWishList = SQLWishList.GetSQLData(QueryWishList)
         DATAWishList=[WishListObj(*obj) for obj in OriginalDATAWishList]
@@ -282,6 +283,7 @@ InventoryPool = DATAINV#[]
                                                 ###Create Loads
 #####################################################################################################################
 for param in DATAParams:
+    print(param.POINT_FROM, param.POINT_TO, param.LOADMIN, param.LOADMAX)
     tempoOnLoad=[]
     columnsHead=['QTY','MODEL','LENGTH','WIDTH','HEIGHT','NBR_PER_CRATE','STACK_LIMIT','OVERHANG']
     invData = []#pd.DataFrame([],columns=['QTY','MODEL','PLANT_TO','LENGTH','WIDTH','HEIGHT','NBR_PER_CRATE','STACK_LIMIT','OVERHANG'])
@@ -291,8 +293,8 @@ for param in DATAParams:
             invData.append([1, wish.SIZE_DIMENSIONS,wish.LENGTH,wish.WIDTH,wish.HEIGHT,1,wish.STACKABILITY,wish.OVERHANG])#quantity is one, one box for each line
     models_data = pd.DataFrame(data = invData, columns=columnsHead)
 
-
-    result = param.LoadBuilder.build(models_data,param.LOADMAX, plot_load_done=False)
+    print(models_data.to_string())
+    result = param.LoadBuilder.build(models_data,param.LOADMAX, plot_load_done=printLoads)
     print(result)
     for model in result:
         found = False
@@ -346,8 +348,8 @@ for param in DATAParams:
                     invData.append([1, wish.SIZE_DIMENSIONS, wish.LENGTH, wish.WIDTH, wish.HEIGHT, 1, wish.STACKABILITY, wish.OVERHANG])
 
         models_data = pd.DataFrame(data=invData, columns=columnsHead)
-        result = param.LoadBuilder.build(models_data, param.LOADMIN - len(param.LoadBuilder), plot_load_done=False)
-        print(models_data)
+        print(models_data.to_string())
+        result = param.LoadBuilder.build(models_data, param.LOADMIN - len(param.LoadBuilder), plot_load_done=printLoads)
         print(result)
         for model in result:
             found = False
@@ -375,6 +377,7 @@ print('part 3')
 
 for param in DATAParams:
     if len(param.LoadBuilder) < param.LOADMAX:
+        print(param.POINT_FROM, param.POINT_TO, param.LOADMIN, param.LOADMAX, len(param.LoadBuilder))
         tempoOnLoad = []
         columnsHead = ['QTY', 'MODEL', 'LENGTH', 'WIDTH', 'HEIGHT', 'NBR_PER_CRATE', 'STACK_LIMIT', 'OVERHANG']
         invData = []
@@ -397,8 +400,8 @@ for param in DATAParams:
                     invData.append([1, wish.SIZE_DIMENSIONS, wish.LENGTH, wish.WIDTH, wish.HEIGHT, 1, wish.STACKABILITY, wish.OVERHANG])
 
         models_data = pd.DataFrame(data=invData, columns=columnsHead)
-        result = param.LoadBuilder.build(models_data, param.LOADMAX, plot_load_done=False)
-        print(models_data)
+        print(models_data.to_string())
+        result = param.LoadBuilder.build(models_data, param.LOADMAX, plot_load_done=printLoads)
         print(result)
         for model in result:
             found = False
@@ -421,7 +424,7 @@ for param in DATAParams:
 #####################################################################################################################
                                                 ###Test to save data
 #####################################################################################################################
-
+print('\n\n\n\n\n\nresult\n\n\n\n\n\n')
 for param in DATAParams:
     print(param.POINT_FROM,' _ ',param.POINT_TO)
     print(len(param.LoadBuilder))
@@ -429,6 +432,11 @@ for param in DATAParams:
     print(param.LoadBuilder.get_loading_summary())
 
 lineIndex=2 #To display a warning if number of loads is lower than parameters min
+LoadIteration =0 #Number of each load
+
+#SQL to send DATA
+headersResult = 'POINT_FROM,SHIPPING_POINT,LOAD_NUMBER,MATERIAL_NUMBER,QUANTITY,SIZE_DIMENSIONS,SALES_DOCUMENT_NUMBER ,SALES_ITEM_NUMBER,SOLD_TO_NUMBER,IMPORT_DATE'
+SQLResult = SQLConnection('CAVLSQLPD2\pbi2', 'Business_Planning', 'OTD_1_P2P_F_HISTORICAL',headers=headersResult)
 
 for order in P2POrder:
     for param in DATAParams:
@@ -443,17 +451,31 @@ for order in P2POrder:
             if len(param.LoadBuilder)>0:
                 for line in range(len(loads)):
                     for Iteration in range(int(loads["QTY"][line])):
-                        for column in loads.columns[5::]:#size_dimentions
+                        LoadIteration+=1
+                        for column in loads.columns[4::]:#size_dimentions
                             if loads[column][line] != '':
-                                wsApproved.append([param.POINT_FROM,param.POINT_TO,-1,'',loads[column][line],column])
+                                for QUANTITY in range(int(loads[column][line])):
+                                    for wish in param.AssignedWish:
+                                        if not wish.Finished and wish.SIZE_DIMENSIONS == column:
+                                            wish.Finished=True
+                                            valuesSQL = [(param.POINT_FROM, param.POINT_TO, LoadIteration, wish.MATERIAL_NUMBER, wish.ORIGINAL_QUANTITY,
+                                                 column,wish.SALES_DOCUMENT_NUMBER,wish.SALES_ITEM_NUMBER,wish.SOLD_TO_NUMBER,dayTodayComplete)]
 
+                                            wsApproved.append([param.POINT_FROM, param.POINT_TO, LoadIteration, wish.MATERIAL_NUMBER, wish.ORIGINAL_QUANTITY,
+                                                 column,wish.SALES_DOCUMENT_NUMBER,wish.SALES_ITEM_NUMBER,wish.SOLD_TO_NUMBER])
 
-
+                                            SQLResult.sendToSQL(valuesSQL)
+                                            break
+                                #wsApproved.append([param.POINT_FROM,param.POINT_TO,-1,'',loads[column][line],column])
             break
 
 
 #Assign left inv to wishList
 for wish in DATAWishList:
+    if wish.QUANTITY == 0 and not wish.Finished:
+        print('Error with wish: ', wish.lineToXlsx())
+    if wish.QUANTITY>0 and wish.MANDATORY=='X':
+        print(wish.lineToXlsx(), 'Not done and mandatory')
     if wish.QUANTITY>0:
         position = 0
         for Iteration in range( wish.QUANTITY ):
@@ -475,5 +497,5 @@ for inv in DATAINV:
 
 
 reference = [savexlsxFile(wb, saveFolder, dest_filename)]
-#os.system('start "excel" "'+str(reference[0])+'"')
+os.system('start "excel" "'+str(reference[0])+'"')
 #send_email(EmailList, dest_filename, 'generalErrors?', reference)
