@@ -6,8 +6,8 @@ import pandas as pd
 from openpyxl.styles import (PatternFill, colors, Alignment)
 import Builder_tests.Read_And_Write as rw
 
-# if not OpenParameters():  # If user cancel request
-#     sys.exit()
+if not OpenParameters():  # If user cancel request
+    sys.exit()
 
 
 # -------------------------------------------------------------------------------------------------------------------------------------------------------------------#
@@ -28,7 +28,7 @@ dest_filename = 'P2P_Summary_'+dayToday #Name of excel file with today's date
 # -------------------------------------------------------------------------------------------------------------------------------------------------------------------#
 
 
-timeSinceLastCall('',FALSE)
+timeSinceLastCall('',False)
 #####################################################################################################################
                                                 ###Get SQL DATA
 # ####################################################################################################################
@@ -51,6 +51,7 @@ while not downloaded and numberOfTry<3: # 3 trials, SQL Queries sometime crash f
         SQLEmail = SQLConnection('CAVLSQLPD2\pbi2', 'Business_Planning', 'OTD_1_P2P_F_PARAMETERS_EMAIL_ADDRESS',headers=headerEmail)
         QueryEmail=""" SELECT distinct [EMAIL_ADDRESS]
          FROM [Business_Planning].[dbo].[OTD_1_P2P_F_PARAMETERS_EMAIL_ADDRESS]
+         WHERE PROJECT = 'P2P'
         """
         #GET SQL DATA
         EmailList = [ sublist for sublist in SQLEmail.GetSQLData(QueryEmail) ]  #[ item for sublist in SQLEmail.GetSQLData(SQLEmail) for item in sublist]
@@ -474,8 +475,6 @@ for order in P2POrder:
 for wish in DATAWishList:
     if wish.QUANTITY == 0 and not wish.Finished:
         print('Error with wish: ', wish.lineToXlsx())
-    if wish.QUANTITY>0 and wish.MANDATORY=='X':
-        print(wish.lineToXlsx(), 'Not done and mandatory')
     if wish.QUANTITY>0:
         position = 0
         for Iteration in range( wish.QUANTITY ):
@@ -498,4 +497,4 @@ for inv in DATAINV:
 
 reference = [savexlsxFile(wb, saveFolder, dest_filename)]
 os.system('start "excel" "'+str(reference[0])+'"')
-#send_email(EmailList, dest_filename, 'generalErrors?', reference)
+send_email(EmailList[0], dest_filename, '', reference)
