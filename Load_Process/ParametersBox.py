@@ -5,7 +5,8 @@ from tkinter import (messagebox)
 import pandas as pd
 
 
-largeurColonne=12 
+largeurColonne=12
+Project = ['']
 ToExecute=[False]#If the user wants to execute the main program or not, becomes True if user click on 'Execute' button
 
 
@@ -413,10 +414,10 @@ def changeEmail():
 
     tempo = [] #list of all buttons
     #Get all email address
-    headers='EMAIL_ADDRESS'
+    headers='EMAIL_ADDRESS,PROJECT'
     SQL = SQLConnection('CAVLSQLPD2\pbi2', 'Business_Planning','OTD_1_P2P_F_PARAMETERS_EMAIL_ADDRESS',headers)
-
-    SQLquery = """ SELECT DISTINCT [EMAIL_ADDRESS] FROM [Business_Planning].[dbo].[OTD_1_P2P_F_PARAMETERS_EMAIL_ADDRESS]"""
+    global Project
+    SQLquery = """ SELECT DISTINCT [EMAIL_ADDRESS] FROM [Business_Planning].[dbo].[OTD_1_P2P_F_PARAMETERS_EMAIL_ADDRESS] WHERE PROJECT = '{0}'""".format(Project[0])
     lis= [ item for sublist in SQL.GetSQLData(SQLquery) for item in sublist]
 
 
@@ -441,7 +442,7 @@ def changeEmail():
         "To delete an email address"
         confirm = messagebox.askokcancel(lis[i],"Are you sure you want to remove {0} from the list?".format(lis[i]))
         if confirm:
-            SQL.deleteFromSQL( "[EMAIL_ADDRESS] = ('{0}')".format(lis[i]))
+            SQL.deleteFromSQL( "[EMAIL_ADDRESS] = ('{0}') and PROJECT = '{1}'".format(lis[i],Project[0]))
             tempo[i].forget()
             lis.pop(i)
            #Delete from SQL
@@ -457,7 +458,7 @@ def changeEmail():
                 btn = tk.Button(scframe.interior, height=1, width=40, relief=tk.FLAT, bg="gray99", fg="purple3",font="Dosis", text= newEmail[0] ,command=lambda : openlink(longueur))
                 btn.pack(padx=10, pady=5, side=tk.TOP)
                 tempo.append(btn)
-                SQL.sendToSQL( [(newEmail)])
+                SQL.sendToSQL( [(newEmail[0], Project[0])])
 
             e1.delete(0,END)
 
@@ -494,7 +495,12 @@ def MissingP2PBox(MissingP2P):
     #messagebox.showwarning("Warning", errorMess)
     #root.destroy()
 
-def OpenParameters():
+def OpenParameters(projectName = ''):
+    global Project
+    if projectName == '':
+        Project=['P2P']
+    else:
+        Project = [projectName]
     Box(largeurColonne).mainloop()
     return ToExecute[0]
 
