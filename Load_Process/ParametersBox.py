@@ -43,7 +43,7 @@ class ligne:
     columnLength=0
     side = ''
 
-    def __init__(self,parent,root, side,PF='',PT='',LMIN=0,LMAX=0,DRYBOX=None,FLATBED=None,PTY=0,TRANS=0,SKIP=0,largeurColonne=12):
+    def __init__(self,parent,root, side,PF='',PT='',LMIN=0,LMAX=0,DRYBOX=None,FLATBED=None,PTY=0,TRANS=0,SKIP=0,days=-1,largeurColonne=12):
         if SKIP ==1:
             IsToSkip = True
         else:
@@ -71,6 +71,12 @@ class ligne:
         self.flatbed =  self.entryObj(FLATBED)
         self.priority = self.entryObj(PTY)
         self.transit = self.entryObj(TRANS)
+
+        if days != -1:
+            self.days = self.entryObj(days)
+            self.NbDays = True
+        else:
+            self.NbDays = False
 
         self.skip = Button(root,text='X',width = largeurColonne,command = self.skipAction)#Checkbutton(root, text="", variable=self.lineToSKip)
         self.skip.pack(side=side)#, expand=YES, fill=BOTH)
@@ -104,6 +110,8 @@ class ligne:
             self.skip.forget()
             self.delete.forget()
             self.root.pack_forget()
+            if self.NbDays:
+                self.days.pack_forget()
 
             self.parent.ForgetToDelete(self.index)
         else:
@@ -132,7 +140,8 @@ class ligne:
         self.priority.config(bg=color)
         self.transit.config(bg=color)
         self.skip.config(bg=color)
-
+        if self.NbDays:
+            self.days.config(bg = color)
 
 #To create a vertical scrollBar
 class VerticalScrolledFrame(tk.Frame):
@@ -186,18 +195,51 @@ class Box(Frame):
 
     def __init__(self,largeurColonne):
         Frame.__init__(self)
-        self.headers='point_FROM,point_TO,LOAD_MIN,LOAD_MAX,DRYBOX,FLATBED,PRIORITY_ORDER,TRANSIT,SKIP,IMPORT_DATE'
-        headers= ['Point from','Point to','Load min','Load max','DRYBOX','FLATBED','Priority Order','Transit','Skip' ,''] #Only for the box, not sql
+        global Project
+        if Project[0] == 'P2P':
+            self.headers='point_FROM,point_TO,LOAD_MIN,LOAD_MAX,DRYBOX,FLATBED,PRIORITY_ORDER,TRANSIT,SKIP,IMPORT_DATE'
+            headers= ['Point from','Point to','Load min','Load max','DRYBOX','FLATBED','Priority Order','Transit','Skip' ,''] #Only for the box, not sql
+            self.SQL = SQLConnection('CAVLSQLPD2\pbi2', 'Business_Planning', 'OTD_1_P2P_F_PARAMETERS', self.headers)
+            # To set values
+            SQLquery = """SELECT distinct [POINT_FROM]
+                ,[POINT_TO]
+                ,[LOAD_MIN]
+                ,[LOAD_MAX]
+                ,[DRYBOX]
+                ,[FLATBED]
+                ,[PRIORITY_ORDER]
+                ,[TRANSIT]
+                ,[SKIP]
+                , -1 as [DAYS_TO]
+            FROM [Business_Planning].[dbo].[OTD_1_P2P_F_PARAMETERS]
+            where IMPORT_DATE = (select max(IMPORT_DATE) from [Business_Planning].[dbo].[OTD_1_P2P_F_PARAMETERS])
+            order by [POINT_FROM]
+                ,[POINT_TO] """
+        else:
+            self.headers='point_FROM,point_TO,LOAD_MIN,LOAD_MAX,DRYBOX,FLATBED,PRIORITY_ORDER,TRANSIT,[DAYS_TO],SKIP,IMPORT_DATE'
+            headers= ['Point from','Point to','Load min','Load max','DRYBOX','FLATBED','Priority Order','Transit','DAYS_TO','Skip' ,''] #Only for the box, not sql
+            self.SQL = SQLConnection('CAVLSQLPD2\pbi2', 'Business_Planning', 'OTD_1_P2P_F_FORECAST_PARAMETERS', self.headers)
+            # To set values
+            SQLquery = """SELECT distinct [POINT_FROM]
+                ,[POINT_TO]
+                ,[LOAD_MIN]
+                ,[LOAD_MAX]
+                ,[DRYBOX]
+                ,[FLATBED]
+                ,[PRIORITY_ORDER]
+                ,[TRANSIT]
+                ,[SKIP]
+                ,[DAYS_TO]
 
-
-        self.SQL = SQLConnection('CAVLSQLPD2\pbi2', 'Business_Planning','OTD_1_P2P_F_PARAMETERS',self.headers)
+            FROM [Business_Planning].[dbo].[OTD_1_P2P_F_FORECAST_PARAMETERS]
+            where IMPORT_DATE = (select max(IMPORT_DATE) from [Business_Planning].[dbo].[OTD_1_P2P_F_FORECAST_PARAMETERS])
+            order by [POINT_FROM]
+                ,[POINT_TO] """
 
         self.option_add('*Font', 'Verdana 12 bold')
         self.pack(expand=YES, fill=BOTH)
         self.master.title('Parameters Box')
         #self.master.geometry("400x450")
-
-
 
         ##Section pour les headers
         option=["raised", "sunken",  "solid"] # choices for header's layout
@@ -218,21 +260,7 @@ class Box(Frame):
 
         self.verticalBar=scframe.interior
 
-        #To set values
-        SQLquery = """SELECT distinct [POINT_FROM]
-      ,[POINT_TO]
-      ,[LOAD_MIN]
-      ,[LOAD_MAX]
-      ,[DRYBOX]
-      ,[FLATBED]
-      ,[PRIORITY_ORDER]
-      ,[TRANSIT]
-      ,[SKIP]
 
-  FROM [Business_Planning].[dbo].[OTD_1_P2P_F_PARAMETERS]
-  where IMPORT_DATE = (select max(IMPORT_DATE) from [Business_Planning].[dbo].[OTD_1_P2P_F_PARAMETERS])
-  order by [POINT_FROM]
-      ,[POINT_TO] """
 
         ValuesParams= [ sublist for sublist in self.SQL.GetSQLData(SQLquery) ]
 
@@ -314,14 +342,22 @@ class Box(Frame):
                     ligne.transit.config(bg=WarningColor)
                     errors=True
 
-
-                DATA_TO_SEND.append([ligne.pointFrom.get(),ligne.pointTo.get(),ligne.loadMin.get(),ligne.loadMax.get(),ligne.drybox.get(),ligne.flatbed.get(),ligne.priority.get(),ligne.transit.get(),ligne.lineToSKip.get()])
-
+                if Project[0] == 'P2P':
+                    DATA_TO_SEND.append([ligne.pointFrom.get(),ligne.pointTo.get(),ligne.loadMin.get(),ligne.loadMax.get(),ligne.drybox.get(),ligne.flatbed.get(),ligne.priority.get(),ligne.transit.get(),ligne.lineToSKip.get()])
+                else:
+                    DATA_TO_SEND.append(
+                        [ligne.pointFrom.get(), ligne.pointTo.get(), ligne.loadMin.get(), ligne.loadMax.get(),
+                         ligne.drybox.get(), ligne.flatbed.get(), ligne.priority.get(), ligne.transit.get(), ligne.days.get(),
+                         ligne.lineToSKip.get()])
 
         if not errors:
             timeOfExport = pd.datetime.now()
             #delete in SQL, only keep the last 3 modifications in history
-            self.SQL.deleteFromSQL( "IMPORT_DATE not in (SELECT  DISTINCT top(3) IMPORT_DATE FROM [Business_Planning].[dbo].[OTD_1_P2P_F_PARAMETERS] ORDER BY IMPORT_DATE desc) ")
+            if Project[0] == 'P2P':
+                self.SQL.deleteFromSQL( "IMPORT_DATE not in (SELECT  DISTINCT top(3) IMPORT_DATE FROM [Business_Planning].[dbo].[OTD_1_P2P_F_PARAMETERS] ORDER BY IMPORT_DATE desc) ")
+            else:
+                self.SQL.deleteFromSQL(
+                    "IMPORT_DATE not in (SELECT  DISTINCT top(3) IMPORT_DATE FROM [Business_Planning].[dbo].[OTD_1_P2P_F_FORECAST_PARAMETERS] ORDER BY IMPORT_DATE desc) ")
 
             #envoit du nouveau data dans SQL
             for DATALine in DATA_TO_SEND:
@@ -351,9 +387,11 @@ class Box(Frame):
     def AddNew(self,largeurColonne):
         "To add a new line of values"
         keyF =frame(self.verticalBar, TOP)
-        self.lignes.append(ligne(self,keyF,LEFT,'0000','0000',0,'','','',0,0,False,largeurColonne))
-
-
+        global Project
+        if Project[0] == 'P2P':
+            self.lignes.append(ligne(self,keyF,LEFT,'0000','0000',0,'','','',0,0,False,-1,largeurColonne))
+        else:
+            self.lignes.append(ligne(self,keyF,LEFT,'0000','0000',0,'','','',0, 0, False,0, largeurColonne))
 
 
 def changeEmail():
@@ -495,12 +533,9 @@ def MissingP2PBox(MissingP2P):
     #messagebox.showwarning("Warning", errorMess)
     #root.destroy()
 
-def OpenParameters(projectName = ''):
+def OpenParameters(projectName = 'P2P'):
     global Project
-    if projectName == '':
-        Project=['P2P']
-    else:
-        Project = [projectName]
+    Project = [projectName]
     Box(largeurColonne).mainloop()
     return ToExecute[0]
 
