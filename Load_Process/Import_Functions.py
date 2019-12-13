@@ -128,8 +128,11 @@ def timeSinceLastCall(functionName = "",ToPrint=True):
 #               -startDay               #First day to start from now (0 for today, -1 for yesterday, 1 for tomorrow,...)
 
 #*****************************************************
-def weekdays(dayAfter,startDay=0):#returns the date in X week days
-    today = datetime.date.today()+datetime.timedelta(startDay)
+def weekdays(dayAfter,startDay=0,officialDay=''):#returns the date in X week days
+    if officialDay=='':
+        today = datetime.date.today() + datetime.timedelta(startDay)
+    else:
+        today = datetime.datetime.strptime(officialDay, '%Y-%m-%d').date() + datetime.timedelta(startDay)
     wkday = today.weekday()
     #if today's date is a weekend day
     if wkday>4:
