@@ -71,12 +71,9 @@ class ligne:
         self.flatbed =  self.entryObj(FLATBED)
         self.priority = self.entryObj(PTY)
         self.transit = self.entryObj(TRANS)
+        self.days = self.entryObj(days)
 
-        if days != -1:
-            self.days = self.entryObj(days)
-            self.NbDays = True
-        else:
-            self.NbDays = False
+
 
         self.skip = Button(root,text='X',width = largeurColonne,command = self.skipAction)#Checkbutton(root, text="", variable=self.lineToSKip)
         self.skip.pack(side=side)#, expand=YES, fill=BOTH)
@@ -110,8 +107,7 @@ class ligne:
             self.skip.forget()
             self.delete.forget()
             self.root.pack_forget()
-            if self.NbDays:
-                self.days.pack_forget()
+            self.days.pack_forget()
 
             self.parent.ForgetToDelete(self.index)
         else:
@@ -140,8 +136,7 @@ class ligne:
         self.priority.config(bg=color)
         self.transit.config(bg=color)
         self.skip.config(bg=color)
-        if self.NbDays:
-            self.days.config(bg = color)
+        self.days.config(bg = color)
 
 #To create a vertical scrollBar
 class VerticalScrolledFrame(tk.Frame):
@@ -196,9 +191,11 @@ class Box(Frame):
     def __init__(self,largeurColonne):
         Frame.__init__(self)
         global Project
+        self.headers = 'point_FROM,point_TO,LOAD_MIN,LOAD_MAX,DRYBOX,FLATBED,PRIORITY_ORDER,TRANSIT,DAYS_TO,SKIP,IMPORT_DATE'
+        headers = ['Point from', 'Point to', 'Load min', 'Load max', 'DRYBOX', 'FLATBED', 'Priority Order', 'Transit',
+                   'DAYS_TO','Skip', '']  # Only for the box, not sql
+
         if Project[0] == 'P2P':
-            self.headers='point_FROM,point_TO,LOAD_MIN,LOAD_MAX,DRYBOX,FLATBED,PRIORITY_ORDER,TRANSIT,SKIP,IMPORT_DATE'
-            headers= ['Point from','Point to','Load min','Load max','DRYBOX','FLATBED','Priority Order','Transit','Skip' ,''] #Only for the box, not sql
             self.SQL = SQLConnection('CAVLSQLPD2\pbi2', 'Business_Planning', 'OTD_1_P2P_F_PARAMETERS', self.headers)
             # To set values
             SQLquery = """SELECT distinct [POINT_FROM]
@@ -210,14 +207,12 @@ class Box(Frame):
                 ,[PRIORITY_ORDER]
                 ,[TRANSIT]
                 ,[SKIP]
-                , -1 as [DAYS_TO]
+                ,[DAYS_TO]
             FROM [Business_Planning].[dbo].[OTD_1_P2P_F_PARAMETERS]
             where IMPORT_DATE = (select max(IMPORT_DATE) from [Business_Planning].[dbo].[OTD_1_P2P_F_PARAMETERS])
             order by [POINT_FROM]
                 ,[POINT_TO] """
         else:
-            self.headers='point_FROM,point_TO,LOAD_MIN,LOAD_MAX,DRYBOX,FLATBED,PRIORITY_ORDER,TRANSIT,[DAYS_TO],SKIP,IMPORT_DATE'
-            headers= ['Point from','Point to','Load min','Load max','DRYBOX','FLATBED','Priority Order','Transit','DAYS_TO','Skip' ,''] #Only for the box, not sql
             self.SQL = SQLConnection('CAVLSQLPD2\pbi2', 'Business_Planning', 'OTD_1_P2P_F_FORECAST_PARAMETERS', self.headers)
             # To set values
             SQLquery = """SELECT distinct [POINT_FROM]
@@ -342,10 +337,10 @@ class Box(Frame):
                     ligne.transit.config(bg=WarningColor)
                     errors=True
 
-                if Project[0] == 'P2P':
-                    DATA_TO_SEND.append([ligne.pointFrom.get(),ligne.pointTo.get(),ligne.loadMin.get(),ligne.loadMax.get(),ligne.drybox.get(),ligne.flatbed.get(),ligne.priority.get(),ligne.transit.get(),ligne.lineToSKip.get()])
-                else:
-                    DATA_TO_SEND.append(
+                # if Project[0] == 'P2P':
+                #     DATA_TO_SEND.append([ligne.pointFrom.get(),ligne.pointTo.get(),ligne.loadMin.get(),ligne.loadMax.get(),ligne.drybox.get(),ligne.flatbed.get(),ligne.priority.get(),ligne.transit.get(),ligne.lineToSKip.get()])
+                # else:
+                DATA_TO_SEND.append(
                         [ligne.pointFrom.get(), ligne.pointTo.get(), ligne.loadMin.get(), ligne.loadMax.get(),
                          ligne.drybox.get(), ligne.flatbed.get(), ligne.priority.get(), ligne.transit.get(), ligne.days.get(),
                          ligne.lineToSKip.get()])
@@ -388,10 +383,7 @@ class Box(Frame):
         "To add a new line of values"
         keyF =frame(self.verticalBar, TOP)
         global Project
-        if Project[0] == 'P2P':
-            self.lignes.append(ligne(self,keyF,LEFT,'0000','0000',0,'','','',0,0,False,-1,largeurColonne))
-        else:
-            self.lignes.append(ligne(self,keyF,LEFT,'0000','0000',0,'','','',0, 0, False,0, largeurColonne))
+        self.lignes.append(ligne(self,keyF,LEFT,'0000','0000',0,'','','',0, 0, False,0, largeurColonne))
 
 
 def changeEmail():
