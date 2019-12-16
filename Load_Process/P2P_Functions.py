@@ -24,6 +24,7 @@ class WishListObj:
         self.ORIGINAL_QUANTITY = QTY
         # If the item is assigned to a Load in excel workbook
         self.Finished = False
+        self.endDate = None # The date calculated in Forecast function
 
     def lineToXlsx(self):
         return [self.SALES_DOCUMENT_NUMBER, self.SALES_ITEM_NUMBER , self.SOLD_TO_NUMBER,self.POINT_FROM,self.SHIPPING_POINT,self.DIVISION,self.MATERIAL_NUMBER,
@@ -37,7 +38,7 @@ class INVObj:
         self.QUANTITY=QUANTITY
         self.DATE=DATE
         self.STATUS = STATUS
-        self.Future =  not (weekdays(0) == DATE)
+        self.Future =  not (weekdays(0) == DATE) #if available date is not the same than today
         #To see if we took inv
         #self.ORIGINAL_QUANTITY = QUANTITY
         self.unused = 0 #count the number of skus to display on BOOKED_UNUSED worksheet
@@ -59,13 +60,18 @@ class Parameters:
         self.TRANSIT = TRANSIT
         self.days_to =days_to
 
+        self.LoadBuilder = []
+        self.new_LoadBuilder()
+        self.AssignedWish=[]
+    def new_LoadBuilder(self):
+        """"We reset the loadBuilder"""
+        self.AssignedWish = []
         TrailerData = pd.DataFrame(
             data=[[self.FLATBED, 'FLATBED', 636, 102, 120, 1, 1],
-                  [self.DRYBOX, 'DRYBOX',  628, 98, 120, 0, 1]],
+                  [self.DRYBOX, 'DRYBOX', 628, 98, 120, 0, 1]],
             columns=['QTY', 'CATEGORY', 'LENGTH', 'WIDTH', 'HEIGHT', 'OVERHANG',
                      'PRIORITY_RANK'])
         self.LoadBuilder = LoadBuilder(TrailerData)
-        self.AssignedWish=[]
 
 class Included_Inv:
     def __init__(self,Point_Source,Point_Include):

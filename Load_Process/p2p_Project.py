@@ -231,8 +231,7 @@ while not downloaded and numberOfTry<3: # 3 trials, SQL Queries sometime crash f
 #If SQL Queries failed
 if not downloaded:
     try:
-        print('failed')
-        #send_email(EmailList, dest_filename, 'SQL QUERIES FAILED')
+        send_email(EmailList, dest_filename, 'SQL QUERIES FAILED')
     except:
         pass
     sys.exit()
@@ -334,7 +333,7 @@ for wish in DATAWishList:
                                                 ###Create Loads
 #####################################################################################################################
 for param in DATAParams:
-    print(param.POINT_FROM, param.POINT_TO, param.LOADMIN, param.LOADMAX)
+
     tempoOnLoad=[]
     columnsHead=['QTY','MODEL','LENGTH','WIDTH','HEIGHT','NBR_PER_CRATE','STACK_LIMIT','OVERHANG']
     invData = []#pd.DataFrame([],columns=['QTY','MODEL','PLANT_TO','LENGTH','WIDTH','HEIGHT','NBR_PER_CRATE','STACK_LIMIT','OVERHANG'])
@@ -344,9 +343,8 @@ for param in DATAParams:
             invData.append([1, wish.SIZE_DIMENSIONS,wish.LENGTH,wish.WIDTH,wish.HEIGHT,1,wish.STACKABILITY,wish.OVERHANG])#quantity is one, one box for each line
     models_data = pd.DataFrame(data = invData, columns=columnsHead)
 
-    print(models_data.to_string())
     result = param.LoadBuilder.build(models_data,param.LOADMAX, plot_load_done=printLoads)
-    print(result)
+
     for model in result:
         found = False
         for OnLoad in tempoOnLoad:
@@ -362,7 +360,7 @@ for param in DATAParams:
 #####################################################################################################################
                                                 ###Store unallocated units in inv pool
 #####################################################################################################################
-print('part2')
+
 for wish in ListApprovedWish:
     if wish.QUANTITY>0:
         for inv in wish.INV_ITEMS:
@@ -376,7 +374,7 @@ for wish in ListApprovedWish:
 #####################################################################################################################
 for param in DATAParams:
     if len(param.LoadBuilder) < param.LOADMIN:
-        print(param.POINT_FROM,param.POINT_TO,param.LOADMIN,param.LOADMAX,len(param.LoadBuilder))
+        #print(param.POINT_FROM,param.POINT_TO,param.LOADMIN,param.LOADMAX,len(param.LoadBuilder))
         tempoOnLoad = []
         columnsHead = ['QTY', 'MODEL', 'LENGTH', 'WIDTH', 'HEIGHT', 'NBR_PER_CRATE', 'STACK_LIMIT', 'OVERHANG']
         invData = []
@@ -399,9 +397,9 @@ for param in DATAParams:
                     invData.append([1, wish.SIZE_DIMENSIONS, wish.LENGTH, wish.WIDTH, wish.HEIGHT, 1, wish.STACKABILITY, wish.OVERHANG])
 
         models_data = pd.DataFrame(data=invData, columns=columnsHead)
-        print(models_data.to_string())
+        #print(models_data.to_string())
         result = param.LoadBuilder.build(models_data, param.LOADMIN - len(param.LoadBuilder), plot_load_done=printLoads)
-        print(result)
+
         for model in result:
             found = False
             for OnLoad in tempoOnLoad:
@@ -424,11 +422,10 @@ for param in DATAParams:
 #####################################################################################################################
                                                 ### Try to Make the maximum number of loads for each P2P
 #####################################################################################################################
-print('part 3')
+
 
 for param in DATAParams:
     if len(param.LoadBuilder) < param.LOADMAX:
-        print(param.POINT_FROM, param.POINT_TO, param.LOADMIN, param.LOADMAX, len(param.LoadBuilder))
         tempoOnLoad = []
         columnsHead = ['QTY', 'MODEL', 'LENGTH', 'WIDTH', 'HEIGHT', 'NBR_PER_CRATE', 'STACK_LIMIT', 'OVERHANG']
         invData = []
@@ -451,9 +448,9 @@ for param in DATAParams:
                     invData.append([1, wish.SIZE_DIMENSIONS, wish.LENGTH, wish.WIDTH, wish.HEIGHT, 1, wish.STACKABILITY, wish.OVERHANG])
 
         models_data = pd.DataFrame(data=invData, columns=columnsHead)
-        print(models_data.to_string())
+
         result = param.LoadBuilder.build(models_data, param.LOADMAX, plot_load_done=printLoads)
-        print(result)
+
         for model in result:
             found = False
             for OnLoad in tempoOnLoad:
