@@ -37,6 +37,7 @@ class INVObj:
         self.QUANTITY=QUANTITY
         self.DATE=DATE
         self.STATUS = STATUS
+        self.Future =  not (weekdays(0) == DATE)
         #To see if we took inv
         #self.ORIGINAL_QUANTITY = QUANTITY
         self.unused = 0 #count the number of skus to display on BOOKED_UNUSED worksheet
@@ -47,7 +48,7 @@ class INVObj:
 
 
 class Parameters:
-    def __init__(self,POINT_FROM,POINT_TO,LOADMIN,LOADMAX,DRYBOX,FLATBED,TRANSIT,PRIORITY):
+    def __init__(self,POINT_FROM,POINT_TO,LOADMIN,LOADMAX,DRYBOX,FLATBED,TRANSIT,PRIORITY,days_to):
         self.POINT_FROM = POINT_FROM
         self.POINT_TO=POINT_TO
         self.LOADMIN=LOADMIN
@@ -56,6 +57,7 @@ class Parameters:
         self.FLATBED = FLATBED
         self.PRIORITY = PRIORITY
         self.TRANSIT = TRANSIT
+        self.days_to =days_to
 
         TrailerData = pd.DataFrame(
             data=[[self.FLATBED, 'FLATBED', 636, 102, 120, 1, 1],

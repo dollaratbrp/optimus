@@ -72,6 +72,7 @@ while not downloaded and numberOfTry<3: # 3 trials, SQL Queries sometime crash f
               ,[FLATBED]
               ,[TRANSIT]
               ,[PRIORITY_ORDER]
+              ,DAYS_TO
           FROM [Business_Planning].[dbo].[OTD_1_P2P_F_PARAMETERS]
           where IMPORT_DATE = (select max(IMPORT_DATE) from [Business_Planning].[dbo].[OTD_1_P2P_F_PARAMETERS])
           and SKIP = 0
@@ -93,8 +94,6 @@ while not downloaded and numberOfTry<3: # 3 trials, SQL Queries sometime crash f
         """
         #GET SQL DATA
         P2POrder = SQLParams.GetSQLData(QueryOrder)
-
-
 
         ####################################################################################
                            ###  WishList Query
@@ -121,9 +120,9 @@ while not downloaded and numberOfTry<3: # 3 trials, SQL Queries sometime crash f
           where [POINT_FROM] <>[SHIPPING_POINT] and Length<>0 and Width <> 0 and Height <> 0
           order by [X_IF_MANDATORY] desc, Priority_Rank
         """
+
         OriginalDATAWishList = SQLWishList.GetSQLData(QueryWishList)
         DATAWishList=[WishListObj(*obj) for obj in OriginalDATAWishList]
-
 
         ####################################################################################
                            ###  INV Query
@@ -142,7 +141,7 @@ while not downloaded and numberOfTry<3: # 3 trials, SQL Queries sometime crash f
         QueryINV = """select distinct SHIPPING_POINT
               ,[MATERIAL_NUMBER]
               ,case when sum(tempo.[QUANTITY]) <0 then 0 else convert(int,sum(tempo.QUANTITY)) end as [QUANTITY]
-              , GETDATE() as [AVAILABLE_DATE]
+              , convert(DATE,GETDATE()) as [AVAILABLE_DATE]
               ,'INVENTORY' as [STATUS]
 			  from(
 		
@@ -160,7 +159,7 @@ while not downloaded and numberOfTry<3: # 3 trials, SQL Queries sometime crash f
               ,GETDATE() as [AVAILABLE_DATE]
               ,'INVENTORY' as [STATUS]
 			   FROM [Business_Planning].[dbo].[OTD_1_P2P_F_INVENTORY]
-          where status in ('QA HOLD') and AVAILABLE_DATE between convert(DATE,GETDATE()-1) and  (select case when DATEPART(WEEKDAY,getdate()) = 6 then convert(DATE,GETDATE()+3) else convert(DATE,GETDATE() +1) end)
+          where status in ('QA HOLD') and AVAILABLE_DATE between convert(DATE,GETDATE()-1) and GETDATE() --(select case when DATEPART(WEEKDAY,getdate()) = 6 then convert(DATE,GETDATE()+3) else convert(DATE,GETDATE() +1) end)
 		 )) as tempo
 		 group by SHIPPING_POINT
               ,[MATERIAL_NUMBER]
@@ -175,6 +174,24 @@ while not downloaded and numberOfTry<3: # 3 trials, SQL Queries sometime crash f
         DATAINV = []
         for obj in OriginalDATAINV:
             DATAINV.append(INVObj(*obj))
+
+        ####################################################################################
+                           ###  QA HOLD Query
+        ####################################################################################
+        Query_QA = """ SELECT  [SHIPPING_POINT]
+              ,[MATERIAL_NUMBER]
+              , [QUANTITY]
+              ,convert (DATE,[AVAILABLE_DATE]) as AVAILABLE_DATE
+              ,[STATUS]
+          FROM [Business_Planning].[dbo].[OTD_1_P2P_F_INVENTORY]
+          where status = 'QA HOLD'
+		  and AVAILABLE_DATE = (case when DATEPART(WEEKDAY,getdate()) = 6 then convert(DATE,GETDATE()+3) else convert(DATE,GETDATE() +1) end)
+                        """
+        OriginalDATA_QA = SQLINV.GetSQLData(Query_QA)
+        #DATA_QA = []
+        for obj in OriginalDATA_QA:
+            DATAINV.append(INVObj(*obj)) #add QA HOLD with inv
+                                        # we want the QA at the end of inv list, so the skus in QA will be the last to be chose
 
 
 
@@ -224,9 +241,9 @@ if not downloaded:
 timeSinceLastCall('Get SQL DATA')
 
 
-# if DATAMissing != []:
-#     if not MissingP2PBox(DATAMissing):
-#         sys.exit()
+if DATAMissing != []:
+    if not MissingP2PBox(DATAMissing):
+        sys.exit()
 
 timeSinceLastCall('',False)
 #####################################################################################################################
@@ -287,10 +304,22 @@ for wish in DATAWishList:
     for Iteration in range( wish.QUANTITY ):
         for It, inv in enumerate(DATAINV[position::]):
             if  EquivalentPlantFrom(inv.POINT,wish.POINT_FROM) and wish.MATERIAL_NUMBER==inv.MATERIAL_NUMBER and inv.QUANTITY>0: #wish.POINT_FROM==inv.POINT and
-                inv.QUANTITY-=1
-                wish.INV_ITEMS.append(inv)
-                position+=It
-                break  # no need to look further
+                if inv.Future: #QA of tomorrow, need to look if load is for today or later
+                    InvToTake = False
+                    for param in DATAParams:
+                        if wish.POINT_FROM == param.POINT_FROM and wish.SHIPPING_POINT==param.POINT_TO and param.days_to>0:
+                            InvToTake = True
+                            break
+                    if InvToTake:
+                        inv.QUANTITY -= 1
+                        wish.INV_ITEMS.append(inv)
+                        position += It
+                        break  # no need to look further
+                else:
+                    inv.QUANTITY-=1
+                    wish.INV_ITEMS.append(inv)
+                    position+=It
+                    break  # no need to look further
 
 
     if len(wish.INV_ITEMS) < wish.QUANTITY: #We give back taken inv
@@ -299,17 +328,6 @@ for wish in DATAWishList:
         wish.INV_ITEMS = []
     else:
         ListApprovedWish.append(wish)
-
-### We don't need unbooked skus
-InventoryPool = DATAINV#[]
-# for inv in DATAINV:
-#     if inv.QUANTITY<inv.ORIGINAL_QUANTITY:#we took some units
-#         InventoryPool.append(inv)
-
-
-
-
-
 
 
 #####################################################################################################################
@@ -366,8 +384,8 @@ for param in DATAParams:
             if wish.POINT_FROM==param.POINT_FROM and wish.SHIPPING_POINT == param.POINT_TO and wish.QUANTITY>0:
                 position =0
                 for Iteration in range(wish.QUANTITY):
-                    for It, inv in enumerate(InventoryPool[position::]):
-                        if EquivalentPlantFrom(inv.POINT,wish.POINT_FROM) and inv.MATERIAL_NUMBER==wish.MATERIAL_NUMBER and inv.QUANTITY >0:
+                    for It, inv in enumerate(DATAINV[position::]):
+                        if EquivalentPlantFrom(inv.POINT,wish.POINT_FROM) and inv.MATERIAL_NUMBER==wish.MATERIAL_NUMBER and inv.QUANTITY >0 and (not inv.Future or inv.Future and param.days_to>0):
                             inv.QUANTITY -= 1
                             wish.INV_ITEMS.append(inv)
                             position += It
@@ -418,8 +436,8 @@ for param in DATAParams:
             if wish.POINT_FROM==param.POINT_FROM and wish.SHIPPING_POINT == param.POINT_TO and wish.QUANTITY>0:
                 position =0
                 for Iteration in range(wish.QUANTITY):
-                    for It, inv in enumerate(InventoryPool[position::]) :
-                        if EquivalentPlantFrom(inv.POINT,wish.POINT_FROM) and inv.MATERIAL_NUMBER==wish.MATERIAL_NUMBER and inv.QUANTITY >0:
+                    for It, inv in enumerate(DATAINV[position::]) :
+                        if EquivalentPlantFrom(inv.POINT,wish.POINT_FROM) and inv.MATERIAL_NUMBER==wish.MATERIAL_NUMBER and inv.QUANTITY >0 and (not inv.Future or inv.Future and param.days_to>0):
                             inv.QUANTITY -= 1
                             wish.INV_ITEMS.append(inv)
                             position += It
@@ -512,9 +530,20 @@ for wish in DATAWishList:
         for Iteration in range( wish.QUANTITY ):
             for It, inv in enumerate(DATAINV[position::]):
                 if  EquivalentPlantFrom(inv.POINT,wish.POINT_FROM) and wish.MATERIAL_NUMBER==inv.MATERIAL_NUMBER and inv.QUANTITY - inv.unused>0:
-                    inv.unused+=1
-                    position+=It
-                    break  # no need to look further
+                    if inv.Future:  # QA of tomorrow, need to look if load is for today or later
+                        InvToTake = False
+                        for param in DATAParams:
+                            if wish.POINT_FROM == param.POINT_FROM and wish.SHIPPING_POINT == param.POINT_TO and param.days_to > 0:
+                                InvToTake = True
+                                break
+                        if InvToTake:
+                            inv.unused += 1
+                            position += It
+                            break  # no need to look further
+                    else:
+                        inv.unused+=1
+                        position+=It
+                        break  # no need to look further
 
 
 # send inv in wsUnused and wsUnbooked
