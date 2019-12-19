@@ -2,7 +2,7 @@ from LoadBuilder import LoadBuilder
 from Import_Functions import *
 DATAInclude=[]
 class WishListObj:
-    def __init__(self,SDN,SINU,STN,PF,SP,DIV,MAT_NUM,SIZE,LENG,WIDTH,HEIGHT,STACK,QTY,RANK,MANDATORY,OVERHANG):
+    def __init__(self,SDN,SINU,STN,PF,SP,DIV,MAT_NUM,SIZE,LENG,WIDTH,HEIGHT,STACK,QTY,RANK,MANDATORY,OVERHANG,IsAdhoc=0):
         self.SALES_DOCUMENT_NUMBER = SDN
         self.SALES_ITEM_NUMBER = SINU
         self.SOLD_TO_NUMBER = STN
@@ -19,16 +19,18 @@ class WishListObj:
         self.RANK = RANK
         self.MANDATORY = MANDATORY
         self.OVERHANG=OVERHANG
+        self.IsAdhoc=IsAdhoc
         # To keep track of inv origins
         self.INV_ITEMS=[]
         self.ORIGINAL_QUANTITY = QTY
         # If the item is assigned to a Load in excel workbook
         self.Finished = False
-        self.endDate = None # The date calculated in Forecast function
+        self.EndDate = None
 
-    def lineToXlsx(self):
-        return [self.SALES_DOCUMENT_NUMBER, self.SALES_ITEM_NUMBER , self.SOLD_TO_NUMBER,self.POINT_FROM,self.SHIPPING_POINT,self.DIVISION,self.MATERIAL_NUMBER,
-        self.SIZE_DIMENSIONS ,self.LENGTH ,self.WIDTH ,self.HEIGHT,self.STACKABILITY,self.QUANTITY,self.RANK,self.MANDATORY,self.OVERHANG]
+    def lineToXlsx(self,dateToday):
+        return [(self.SALES_DOCUMENT_NUMBER, self.SALES_ITEM_NUMBER , self.SOLD_TO_NUMBER,self.POINT_FROM,self.SHIPPING_POINT,self.DIVISION,self.MATERIAL_NUMBER,
+        self.SIZE_DIMENSIONS ,self.LENGTH ,self.WIDTH ,self.HEIGHT,self.STACKABILITY,self.OVERHANG,self.ORIGINAL_QUANTITY,self.RANK,self.MANDATORY,
+                self.EndDate,dateToday,self.IsAdhoc)]
 
 
 class INVObj:

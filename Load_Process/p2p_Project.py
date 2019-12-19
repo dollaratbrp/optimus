@@ -1,3 +1,17 @@
+# Create loads for P2P
+
+### Used SQL Table and actions:
+#[Business_Planning].[dbo].[OTD_1_P2P_F_PARAMETERS_EMAIL_ADDRESS] : Get data, alter, delete, send
+#[Business_Planning].[dbo].[OTD_1_P2P_F_PARAMETERS] : Get data, alter, delete, send
+#[Business_Planning].[dbo].[OTD_1_P2P_F_PRIORITY_WITHOUT_INVENTORY] : Get data
+#[Business_Planning].[dbo].[OTD_1_P2P_F_INVENTORY] : Get data
+#OTD_1_P2P_D_INCLUDED_INVENTORY : Get data
+#OTD_1_P2P_F_HISTORICAL : Send data
+
+### Important path
+# Folder where the excel workbook is saved
+saveFolder='S:\Shared\Business_Planning\Personal\Lefebvre\S2\p2p\p2p_Project\p2p_Project\\' #Folder to save data
+
 #from Import_Functions import *
 #from LoadBuilder import LoadBuilder
 from ParametersBox import *
@@ -6,27 +20,16 @@ import pandas as pd
 from openpyxl.styles import (PatternFill, colors, Alignment)
 import Builder_tests.Read_And_Write as rw
 
-if not OpenParameters():  # If user cancel request
-    sys.exit()
-
-
-# -------------------------------------------------------------------------------------------------------------------------------------------------------------------#
-# -------------------------------------------------------------------------------------------------------------------------------------------------------------------#
-                                                                     #MODIFICATIONS SECTION
-# -------------------------------------------------------------------------------------------------------------------------------------------------------------------#
-# -------------------------------------------------------------------------------------------------------------------------------------------------------------------#
-dayTodayComplete= pd.datetime.now().replace(second=0, microsecond=0)
-dayToday= weekdays(0)
-printLoads = False
-
-saveFolder='S:\Shared\Business_Planning\Personal\Lefebvre\S2\p2p\p2p_Project\p2p_Project\\' #Folder to save data
+# Parameters variables
+dayTodayComplete= pd.datetime.now().replace(second=0, microsecond=0) #date to set in SQL for import date
+dayToday= weekdays(0) #Date to display in report
+printLoads = False #Print created loads
+AutomaticRun = False # set to True to automate code
 dest_filename = 'P2P_Summary_'+dayToday #Name of excel file with today's date
-# -------------------------------------------------------------------------------------------------------------------------------------------------------------------#
-# -------------------------------------------------------------------------------------------------------------------------------------------------------------------#
-                                                                        #END OF MODIFICATIONS
-# -------------------------------------------------------------------------------------------------------------------------------------------------------------------#
-# -------------------------------------------------------------------------------------------------------------------------------------------------------------------#
 
+if not AutomaticRun:
+    if not OpenParameters():  # If user cancel request
+        sys.exit()
 
 timeSinceLastCall('',False)
 #####################################################################################################################
@@ -54,7 +57,7 @@ while not downloaded and numberOfTry<3: # 3 trials, SQL Queries sometime crash f
          WHERE PROJECT = 'P2P'
         """
         #GET SQL DATA
-        EmailList = [ sublist for sublist in SQLEmail.GetSQLData(QueryEmail) ]  #[ item for sublist in SQLEmail.GetSQLData(SQLEmail) for item in sublist]
+        EmailList = [ item for sublist in SQLEmail.GetSQLData(QueryEmail) for item in sublist]#[ sublist for sublist in SQLEmail.GetSQLData(QueryEmail) ]  #[ item for sublist in SQLEmail.GetSQLData(SQLEmail) for item in sublist]
 
 
 
@@ -83,7 +86,7 @@ while not downloaded and numberOfTry<3: # 3 trials, SQL Queries sometime crash f
 
 
         ####################################################################################
-                           ###  Parameters P2P ORDER (for excel sheet)
+                           ###  Parameters P2P ORDER (for excel sheet order)
         ####################################################################################
 
         QueryOrder=""" SELECT distinct  [POINT_FROM],[POINT_TO]
@@ -118,6 +121,9 @@ while not downloaded and numberOfTry<3: # 3 trials, SQL Queries sometime crash f
               ,[OVERHANG]
           FROM [Business_Planning].[dbo].[OTD_1_P2P_F_PRIORITY_WITHOUT_INVENTORY]
           where [POINT_FROM] <>[SHIPPING_POINT] and Length<>0 and Width <> 0 and Height <> 0
+          and concat (POINT_FROM,SHIPPING_POINT) in (select distinct concat([POINT_FROM],[POINT_TO]) from [Business_Planning].[dbo].[OTD_1_P2P_F_PARAMETERS]
+          where IMPORT_DATE = (select max(IMPORT_DATE) from [Business_Planning].[dbo].[OTD_1_P2P_F_PARAMETERS])
+          and SKIP = 0)
           order by [X_IF_MANDATORY] desc, Priority_Rank
         """
 
@@ -169,11 +175,8 @@ while not downloaded and numberOfTry<3: # 3 trials, SQL Queries sometime crash f
                 """
 
 
-
         OriginalDATAINV = SQLINV.GetSQLData(QueryINV)
-        DATAINV = []
-        for obj in OriginalDATAINV:
-            DATAINV.append(INVObj(*obj))
+        DATAINV = [INVObj(*obj) for obj in OriginalDATAINV]
 
         ####################################################################################
                            ###  QA HOLD Query
@@ -217,10 +220,10 @@ while not downloaded and numberOfTry<3: # 3 trials, SQL Queries sometime crash f
         SQLMissing = SQLConnection('CAVLSQLPD2\pbi2', 'Business_Planning', 'OTD_1_P2P_F_PRIORITY', headers='')
         QueryMissing = """SELECT DISTINCT [POINT_FROM]
               ,[SHIPPING_POINT]
-          FROM [Business_Planning].[dbo].[OTD_1_P2P_F_PRIORITY] 
+          FROM [Business_Planning].[dbo].[OTD_1_P2P_F_PRIORITY_WITHOUT_INVENTORY] 
           where CONCAT(POINT_FROM,SHIPPING_POINT) not in (
             select distinct CONCAT( [POINT_FROM],[POINT_TO])
-            FROM [Business_Planning].[dbo].[OTD_1_P2P_F_PARAMETERS] )
+            FROM [Business_Planning].[dbo].[OTD_1_P2P_F_PARAMETERS] where IMPORT_DATE = (select max(IMPORT_DATE) from [Business_Planning].[dbo].[OTD_1_P2P_F_PARAMETERS]) )
             and [POINT_FROM] <>[SHIPPING_POINT] 
         """
         DATAMissing = SQLMissing.GetSQLData(QueryMissing)
@@ -239,10 +242,11 @@ if not downloaded:
 
 timeSinceLastCall('Get SQL DATA')
 
-
-if DATAMissing != []:
-    if not MissingP2PBox(DATAMissing):
-        sys.exit()
+# If there are missing P2P in parameters table
+if not AutomaticRun:
+    if DATAMissing != []:
+        if not MissingP2PBox(DATAMissing):
+            sys.exit()
 
 timeSinceLastCall('',False)
 #####################################################################################################################
@@ -298,8 +302,9 @@ wsUnused.column_dimensions['C'].width =10
 #####################################################################################################################
 ListApprovedWish = []
 
+# We iterate through wishlist to keep the priority order
 for wish in DATAWishList:
-    position = 0
+    position = 0 #To not loop through all inv Data at each iteration
     for Iteration in range( wish.QUANTITY ):
         for It, inv in enumerate(DATAINV[position::]):
             if  EquivalentPlantFrom(inv.POINT,wish.POINT_FROM) and wish.MATERIAL_NUMBER==inv.MATERIAL_NUMBER and inv.QUANTITY>0: #wish.POINT_FROM==inv.POINT and
@@ -314,14 +319,14 @@ for wish in DATAWishList:
                         wish.INV_ITEMS.append(inv)
                         position += It
                         break  # no need to look further
-                else:
+                else: # we give the inv to the wish item
                     inv.QUANTITY-=1
                     wish.INV_ITEMS.append(inv)
                     position+=It
                     break  # no need to look further
 
 
-    if len(wish.INV_ITEMS) < wish.QUANTITY: #We give back taken inv
+    if len(wish.INV_ITEMS) < wish.QUANTITY: #We give back taken inv if there is not enough units
         for invToGiveBack in wish.INV_ITEMS:
             invToGiveBack.QUANTITY+=1
         wish.INV_ITEMS = []
@@ -332,8 +337,8 @@ for wish in DATAWishList:
 #####################################################################################################################
                                                 ###Create Loads
 #####################################################################################################################
-for param in DATAParams:
-
+for param in DATAParams: # for all P2P in parameters
+    # Create data table to create loads
     tempoOnLoad=[]
     columnsHead=['QTY','MODEL','LENGTH','WIDTH','HEIGHT','NBR_PER_CRATE','STACK_LIMIT','OVERHANG']
     invData = []#pd.DataFrame([],columns=['QTY','MODEL','PLANT_TO','LENGTH','WIDTH','HEIGHT','NBR_PER_CRATE','STACK_LIMIT','OVERHANG'])
@@ -343,8 +348,9 @@ for param in DATAParams:
             invData.append([1, wish.SIZE_DIMENSIONS,wish.LENGTH,wish.WIDTH,wish.HEIGHT,1,wish.STACKABILITY,wish.OVERHANG])#quantity is one, one box for each line
     models_data = pd.DataFrame(data = invData, columns=columnsHead)
 
+    # Create loads
     result = param.LoadBuilder.build(models_data,param.LOADMAX, plot_load_done=printLoads)
-
+    #Choose which wish to send in load based on selected crates and priority order
     for model in result:
         found = False
         for OnLoad in tempoOnLoad:
@@ -353,28 +359,25 @@ for param in DATAParams:
                 found = True
                 param.AssignedWish.append(OnLoad)
                 break
-        if not found:
+        if not found: # If one returned crate doesn't match data
             print('Error in Perfect Match: impossible result.\n')
-
 
 #####################################################################################################################
                                                 ###Store unallocated units in inv pool
 #####################################################################################################################
-
+# If a wish item is not on a load, we give back his reserved inv
 for wish in ListApprovedWish:
     if wish.QUANTITY>0:
         for inv in wish.INV_ITEMS:
             inv.QUANTITY+=1
         wish.INV_ITEMS=[]
 
-
-
 #####################################################################################################################
                                                 ### Try to Make the minimum number of loads for each P2P
 #####################################################################################################################
 for param in DATAParams:
-    if len(param.LoadBuilder) < param.LOADMIN:
-        #print(param.POINT_FROM,param.POINT_TO,param.LOADMIN,param.LOADMAX,len(param.LoadBuilder))
+    if len(param.LoadBuilder) < param.LOADMIN: #If the minimum isn't reached
+        # create data table
         tempoOnLoad = []
         columnsHead = ['QTY', 'MODEL', 'LENGTH', 'WIDTH', 'HEIGHT', 'NBR_PER_CRATE', 'STACK_LIMIT', 'OVERHANG']
         invData = []
@@ -397,9 +400,9 @@ for param in DATAParams:
                     invData.append([1, wish.SIZE_DIMENSIONS, wish.LENGTH, wish.WIDTH, wish.HEIGHT, 1, wish.STACKABILITY, wish.OVERHANG])
 
         models_data = pd.DataFrame(data=invData, columns=columnsHead)
-        #print(models_data.to_string())
+        # Create loads
         result = param.LoadBuilder.build(models_data, param.LOADMIN - len(param.LoadBuilder), plot_load_done=printLoads)
-
+        # Choose wish items to put on loads
         for model in result:
             found = False
             for OnLoad in tempoOnLoad:
@@ -425,7 +428,9 @@ for param in DATAParams:
 
 
 for param in DATAParams:
+    #if we haven't reached the max number of loads
     if len(param.LoadBuilder) < param.LOADMAX:
+        # Create data table
         tempoOnLoad = []
         columnsHead = ['QTY', 'MODEL', 'LENGTH', 'WIDTH', 'HEIGHT', 'NBR_PER_CRATE', 'STACK_LIMIT', 'OVERHANG']
         invData = []
@@ -448,9 +453,9 @@ for param in DATAParams:
                     invData.append([1, wish.SIZE_DIMENSIONS, wish.LENGTH, wish.WIDTH, wish.HEIGHT, 1, wish.STACKABILITY, wish.OVERHANG])
 
         models_data = pd.DataFrame(data=invData, columns=columnsHead)
-
+        # Create loads
         result = param.LoadBuilder.build(models_data, param.LOADMAX, plot_load_done=printLoads)
-
+        #choose wish items to put on loads
         for model in result:
             found = False
             for OnLoad in tempoOnLoad:
@@ -472,12 +477,13 @@ for param in DATAParams:
 #####################################################################################################################
                                                 ###Test to save data
 #####################################################################################################################
-print('\n\n\n\n\n\nresult\n\n\n\n\n\n')
-for param in DATAParams:
-    print(param.POINT_FROM,' _ ',param.POINT_TO)
-    print(len(param.LoadBuilder))
-    print(param.LoadBuilder.trailers_done)
-    print(param.LoadBuilder.get_loading_summary())
+##to see created loads for each p2p
+# print('\n\n\n\n\n\nresult\n\n\n\n\n\n')
+# for param in DATAParams:
+#     print(param.POINT_FROM,' _ ',param.POINT_TO)
+#     print(len(param.LoadBuilder))
+#     print(param.LoadBuilder.trailers_done)
+#     print(param.LoadBuilder.get_loading_summary())
 
 lineIndex=2 #To display a warning if number of loads is lower than parameters min
 LoadIteration =0 #Number of each load
@@ -486,7 +492,7 @@ LoadIteration =0 #Number of each load
 headersResult = 'POINT_FROM,SHIPPING_POINT,LOAD_NUMBER,MATERIAL_NUMBER,QUANTITY,SIZE_DIMENSIONS,SALES_DOCUMENT_NUMBER ,SALES_ITEM_NUMBER,SOLD_TO_NUMBER,IMPORT_DATE'
 SQLResult = SQLConnection('CAVLSQLPD2\pbi2', 'Business_Planning', 'OTD_1_P2P_F_HISTORICAL',headers=headersResult)
 
-for order in P2POrder:
+for order in P2POrder: #To send data in excel workbook, order by : -point_from , -point_to
     for param in DATAParams:
         if param.POINT_FROM == order[0] and param.POINT_TO == order[1]:
             #section for summary worksheet
@@ -496,14 +502,14 @@ for order in P2POrder:
             lineIndex+=1
             #Approved worksheet
             loads = param.LoadBuilder.get_loading_summary()
-            if len(param.LoadBuilder)>0:
+            if len(param.LoadBuilder)>0: #If some loads were created
                 for line in range(len(loads)):
-                    for Iteration in range(int(loads["QTY"][line])):
+                    for Iteration in range(int(loads["QTY"][line])): #For every load of this kind
                         LoadIteration+=1
-                        for column in loads.columns[4::]:#size_dimentions
-                            if loads[column][line] != '':
-                                for QUANTITY in range(int(loads[column][line])):
-                                    for wish in param.AssignedWish:
+                        for column in loads.columns[4::]:# loop through size_dimentions
+                            if loads[column][line] != '': # if there is some quantity
+                                for QUANTITY in range(int(loads[column][line])): #For every unit of this crate on the load
+                                    for wish in param.AssignedWish: # we associate a wish unit to this crate, then we save it
                                         if not wish.Finished and wish.SIZE_DIMENSIONS == column:
                                             wish.Finished=True
                                             valuesSQL = [(param.POINT_FROM, param.POINT_TO, LoadIteration, wish.MATERIAL_NUMBER, wish.ORIGINAL_QUANTITY,
@@ -514,11 +520,11 @@ for order in P2POrder:
 
                                             SQLResult.sendToSQL(valuesSQL)
                                             break
-                                #wsApproved.append([param.POINT_FROM,param.POINT_TO,-1,'',loads[column][line],column])
+
             break
 
 
-#Assign left inv to wishList
+#Assign left inv to wishList, to look for booked but unused
 for wish in DATAWishList:
     if wish.QUANTITY == 0 and not wish.Finished:
         print('Error with wish: ', wish.lineToXlsx())
@@ -554,5 +560,5 @@ for inv in DATAINV:
 
 
 reference = [savexlsxFile(wb, saveFolder, dest_filename)]
-os.system('start "excel" "'+str(reference[0])+'"')
-send_email(EmailList[0], dest_filename, '', reference)
+send_email(EmailList, dest_filename, '', reference)
+#os.system('start "excel" "'+str(reference[0])+'"') # To open excel workbook
