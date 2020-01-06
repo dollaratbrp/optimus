@@ -361,7 +361,6 @@ class Warehouse:
 
         # We add the stack that could not fit in the trailer at the end of the warehouse
         if len(leftover) > 0:
-            print(leftover)
             for j in leftover:
                 new.add_stack(self[j])
 
