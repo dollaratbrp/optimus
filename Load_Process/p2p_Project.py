@@ -426,7 +426,7 @@ for param in DATAParams:
         models_data = pd.DataFrame(data=invData, columns=columnsHead)
 
         # Create loads
-        result = param.LoadBuilder.build(models_data, param.LOADMIN - len(param.LoadBuilder), plot_load_done=printLoads)
+        result = param.LoadBuilder.build(models_data, param.LOADMIN, plot_load_done=printLoads)
 
         # Choose wish items to put on loads
         for model in result:
@@ -505,13 +505,15 @@ for param in DATAParams:
 #####################################################################################################################
 #                                                ### Test to save data
 #####################################################################################################################
+
 # to see created loads for each p2p
-# print('\n\n\n\n\n\nresult\n\n\n\n\n\n')
-# for param in DATAParams:
-#     print(param.POINT_FROM,' _ ',param.POINT_TO)
-#     print(len(param.LoadBuilder))
-#     print(param.LoadBuilder.trailers_done)
-#     print(param.LoadBuilder.get_loading_summary())
+print('\n\n\n\nResults\n\n\n\n')
+for param in DATAParams:
+    print('\n\n')
+    print(param.POINT_FROM, ' _ ', param.POINT_TO)
+    print(len(param.LoadBuilder))
+    print(param.LoadBuilder.trailers_done)
+    print(param.LoadBuilder.get_loading_summary())
 
 lineIndex = 2  # To display a warning if number of loads is lower than parameters min
 LoadIteration = 0  # Number of each load
@@ -564,7 +566,7 @@ for wish in DATAWishList:
         print('Error with wish: ', wish.lineToXlsx())
     if wish.QUANTITY > 0:
         position = 0
-        for Iteration in range( wish.QUANTITY):
+        for Iteration in range(wish.QUANTITY):
             for It, inv in enumerate(DATAINV[position::]):
                 if EquivalentPlantFrom(inv.POINT, wish.POINT_FROM) and \
                         wish.MATERIAL_NUMBER == inv.MATERIAL_NUMBER and inv.QUANTITY - inv.unused > 0:
