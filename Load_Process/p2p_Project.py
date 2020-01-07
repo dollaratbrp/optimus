@@ -367,6 +367,9 @@ for param in DATAParams:  # for all P2P in parameters
             invData.append([1, wish.SIZE_DIMENSIONS, wish.LENGTH, wish.WIDTH, wish.HEIGHT, 1,
                             wish.STACKABILITY, wish.OVERHANG])  # quantity is one, one box for each line
     models_data = pd.DataFrame(data=invData, columns=columnsHead)
+    models_data = models_data.groupby(['MODEL', 'LENGTH', 'WIDTH', 'HEIGHT',
+                                       'NBR_PER_CRATE', 'STACK_LIMIT', 'OVERHANG']).sum()
+    models_data = models_data.reset_index()
 
     # Create loads
     result = param.LoadBuilder.build(models_data, param.LOADMAX, plot_load_done=printLoads)
@@ -424,6 +427,9 @@ for param in DATAParams:
                                     wish.HEIGHT, 1, wish.STACKABILITY, wish.OVERHANG])
 
         models_data = pd.DataFrame(data=invData, columns=columnsHead)
+        models_data = models_data.groupby(['MODEL', 'LENGTH', 'WIDTH', 'HEIGHT',
+                                           'NBR_PER_CRATE', 'STACK_LIMIT', 'OVERHANG']).sum()
+        models_data = models_data.reset_index()
 
         # Create loads
         result = param.LoadBuilder.build(models_data, param.LOADMIN, plot_load_done=printLoads)
@@ -481,6 +487,9 @@ for param in DATAParams:
                                     wish.HEIGHT, 1, wish.STACKABILITY, wish.OVERHANG])
 
         models_data = pd.DataFrame(data=invData, columns=columnsHead)
+        models_data = models_data.groupby(['MODEL', 'LENGTH', 'WIDTH', 'HEIGHT',
+                                           'NBR_PER_CRATE', 'STACK_LIMIT', 'OVERHANG']).sum()
+        models_data = models_data.reset_index()
 
         # Create loads
         result = param.LoadBuilder.build(models_data, param.LOADMAX, plot_load_done=printLoads)
