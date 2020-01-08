@@ -637,7 +637,10 @@ class LoadBuilder:
         """
         # We look if models_data is empty
         if models_data.empty:
+            print('NO INVENTORY AVAILABLE')
             return []
+
+        print(models_data)
 
         # We init the warehouse
         self.__warehouse_init(models_data)
@@ -657,6 +660,8 @@ class LoadBuilder:
 
         if max_load < total_nb_loads:
             self.__select_top_n(max(nb_new_loads - (total_nb_loads - max_load), 0))
+
+        print('Number of new loads : ', nb_new_loads)
 
         # We update all data
         self.__update_trailers_data()
