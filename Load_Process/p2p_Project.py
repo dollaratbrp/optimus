@@ -8,6 +8,12 @@ Last update : 2020-01-06
 By : Nicolas Raymond
 
 """
+import sys
+import os
+
+sys.path.append(os.getcwd())  # We add current directory to sys.path
+parent_dir = os.path.dirname(os.getcwd())
+sys.path.append(os.path.join(parent_dir, 'LoadBuilding'))
 
 # from Import_Functions import *
 from ParametersBox import *
