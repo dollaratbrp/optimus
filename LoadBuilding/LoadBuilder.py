@@ -633,7 +633,7 @@ class LoadBuilder:
         :param models_data: Pandas data frame containing details on models to load
         :param max_load: maximum number of loads
         :param plot_load_done: boolean that indicates if plots of loads are going to be shown
-        :return: list of the models unused
+        :return: list of size code used
         """
         # We look if models_data is empty
         if models_data.empty:
