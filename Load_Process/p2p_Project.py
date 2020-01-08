@@ -8,6 +8,12 @@ Last update : 2020-01-06
 By : Nicolas Raymond
 
 """
+import sys
+import os
+
+sys.path.append(os.getcwd())  # We add current directory to sys.path
+parent_dir = os.path.dirname(os.getcwd())
+sys.path.append(os.path.join(parent_dir, 'LoadBuilding'))
 
 # from Import_Functions import *
 from ParametersBox import *
@@ -354,6 +360,7 @@ for wish in DATAWishList:
 #####################################################################################################################
 #                                                Create Loads
 #####################################################################################################################
+print('\n\nCREATE FIRST LOADS\n\n')
 
 for param in DATAParams:  # for all P2P in parameters
     # Create data table to create loads
@@ -372,6 +379,7 @@ for param in DATAParams:  # for all P2P in parameters
     models_data = models_data.reset_index()
 
     # Create loads
+    print('\n\nFROM : ', param.POINT_FROM, ' TO : ', param.POINT_TO)
     result = param.LoadBuilder.build(models_data, param.LOADMAX, plot_load_done=printLoads)
 
     # Choose which wish to send in load based on selected crates and priority order
@@ -399,6 +407,8 @@ for wish in ListApprovedWish:
 #####################################################################################################################
 #                             Try to Make the minimum number of loads for each P2P
 #####################################################################################################################
+print('\n\nSATISFY MINIMUM\n\n')
+
 for param in DATAParams:
     if len(param.LoadBuilder) < param.LOADMIN:  # If the minimum isn't reached
         # create data table
@@ -432,6 +442,7 @@ for param in DATAParams:
         models_data = models_data.reset_index()
 
         # Create loads
+        print('\n\nFROM : ', param.POINT_FROM, ' TO : ', param.POINT_TO)
         result = param.LoadBuilder.build(models_data, param.LOADMIN, plot_load_done=printLoads)
 
         # Choose wish items to put on loads
@@ -455,7 +466,7 @@ for param in DATAParams:
 #####################################################################################################################
 #                               Try to Make the maximum number of loads for each P2P
 #####################################################################################################################
-
+print('\n\nSATISFY MAXIMUM\n\n')
 
 for param in DATAParams:
     # if we haven't reached the max number of loads
@@ -492,6 +503,7 @@ for param in DATAParams:
         models_data = models_data.reset_index()
 
         # Create loads
+        print('\n\nFROM : ', param.POINT_FROM, ' TO : ', param.POINT_TO)
         result = param.LoadBuilder.build(models_data, param.LOADMAX, plot_load_done=printLoads)
 
         # choose wish items to put on loads
