@@ -21,7 +21,7 @@ from math import floor
 
 class LoadBuilder:
 
-    def __init__(self, plant_from, plant_to, trailers_data,
+    def __init__(self, trailers_data,
                  overhang_authorized=40, maximum_trailer_length=636, plc_lb=0.75):
 
         """
@@ -36,8 +36,6 @@ class LoadBuilder:
         self.overhang_authorized = overhang_authorized  # In inches
         self.max_trailer_length = maximum_trailer_length  # In inches
         self.plc_lb = plc_lb
-        self.plant_from = plant_from
-        self.plant_to = plant_to
         self.model_names, self.warehouse, self.remaining_crates = [], LoadObj.Warehouse(), LoadObj.CratesManager()
         self.trailers, self.trailers_done, self.unused_models = [], [], []
         self.all_size_codes = set()
@@ -57,9 +55,8 @@ class LoadBuilder:
 
             # We save the quantity of the model and the plant_to
             qty = models_data['QTY'][i]
-            plant_to = models_data['PLANT_TO'][i]
 
-            if qty > 0 and plant_to == self.plant_to:
+            if qty > 0:
 
                 # We save the name of the model
                 self.model_names.append([models_data['MODEL'][i]]*qty)
@@ -115,10 +112,8 @@ class LoadBuilder:
 
             # We save the quantity, the plant_from and the plant _to
             qty = self.trailers_data['QTY'][i]
-            plant_from = self.trailers_data['PLANT_FROM'][i]
-            plant_to = self.trailers_data['PLANT_TO'][i]
 
-            if qty > 0 and plant_from == self.plant_from and plant_to == self.plant_to:
+            if qty > 0:
 
                 # We save trailer's length
                 t_length = self.trailers_data['LENGTH'][i]
@@ -370,7 +365,12 @@ class LoadBuilder:
         configs = np.array([configs])
 
         # We compute an upper bound for the maximal number of rectangles that can fit in our trailer
-        ub = self.__max_rect_upperbound(trailer, len(self.warehouse) - nb_oversize)
+        nb_rect_to_consider = len(self.warehouse) - nb_oversize
+
+        if nb_rect_to_consider == 0:
+            return []
+
+        ub = self.__max_rect_upperbound(trailer, nb_rect_to_consider)
 
         # We save the number of stack pre-rotated
         nb_of_pre_rotated = configs.shape[1]
@@ -469,8 +469,8 @@ class LoadBuilder:
             new_packer.pack(reset_opened_bins=False)
 
             # We send a message if the second phase of packing was effective
-            if last_res < len(new_packer[0]):
-                print('COMPLETION EFFECTIVE')
+            # if last_res < len(new_packer[0]):
+            #     print('COMPLETION EFFECTIVE')
 
     def __remove_leftover_trailers(self):
 
@@ -540,9 +540,7 @@ class LoadBuilder:
         for key, item in counts.items():
             row_to_change = self.trailers_data.index[(self.trailers_data['CATEGORY'] == key[0]) &
                                                      (self.trailers_data['LENGTH'] == key[1]) &
-                                                     (self.trailers_data['WIDTH'] == key[2]) &
-                                                     (self.trailers_data['PLANT_FROM'] == self.plant_from) &
-                                                     (self.trailers_data['PLANT_TO'] == self.plant_to)].tolist()
+                                                     (self.trailers_data['WIDTH'] == key[2])].tolist()
 
             self.trailers_data.loc[row_to_change[0], 'QTY'] -= item
 
@@ -622,7 +620,7 @@ class LoadBuilder:
         data_frame = data_frame[cols]
 
         # We set indexes
-        data_frame.set_index("TRAILER", inplace=True)
+        #data_frame.set_index("TRAILER", inplace=True)
 
         return data_frame
 
@@ -635,8 +633,11 @@ class LoadBuilder:
         :param models_data: Pandas data frame containing details on models to load
         :param max_load: maximum number of loads
         :param plot_load_done: boolean that indicates if plots of loads are going to be shown
-        :return: list of the models unused
+        :return: list of size code used
         """
+        # We look if models_data is empty
+        if models_data.empty:
+            return []
 
         # We init the warehouse
         self.__warehouse_init(models_data)
@@ -655,7 +656,7 @@ class LoadBuilder:
         total_nb_loads = len(self.trailers_done) + nb_new_loads
 
         if max_load < total_nb_loads:
-            self.__select_top_n(nb_new_loads - (total_nb_loads - max_load))
+            self.__select_top_n(max(nb_new_loads - (total_nb_loads - max_load), 0))
 
         # We update all data
         self.__update_trailers_data()
