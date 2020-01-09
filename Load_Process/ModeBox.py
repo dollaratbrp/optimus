@@ -7,9 +7,16 @@ Author : Nicolas Raymond
 
 from tkinter import *
 
+import sys
+import os
+
+sys.path.append(os.path.dirname(sys.argv[0]))  # We add current directory (of Load_Process) to sys.path
+parent_dir = os.path.dirname(os.path.dirname(sys.argv[0]))
+sys.path.append(os.path.join(parent_dir, 'LoadBuilding'))  # We add directory of LoadBuilding to sys.path
+
+from P2PFullProcess import p2p_full_process
 
 class ModeBox:
-
 
     def __init__(self, master):
         """
@@ -37,7 +44,12 @@ class ModeBox:
         self.second_option.grid(row=1, column=1)
 
     def run_full_process(self):
-        pass
+
+        # We close the window
+        self.master.destroy()
+
+        # We run the full process function
+        p2p_full_process()
 
     def run_fast_loads(self):
         pass
