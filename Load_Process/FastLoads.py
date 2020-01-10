@@ -90,7 +90,8 @@ class FastLoadsBox:
         :return:
         """
         skus_list, qty_list = self.save_skus_and_quantities()
-        self.get_complete_dataframe(skus_list, qty_list)
+        complete_dataframe = self.get_complete_dataframe(skus_list, qty_list)
+        self.split_dataframes(complete_dataframe)
 
         pass
 
@@ -149,15 +150,30 @@ class FastLoadsBox:
         for line in data:
             index_of_qty = skus_list.index(line[0])
             line.insert(0, qty_list[index_of_qty])
-            print(line)
 
         return pd.DataFrame(data=data, columns=columns)
 
-    def complete_dataframe(self):
+    @staticmethod
+    def split_dataframes(complete_dataframe):
         """
-        Completes size_code dataframe by adding 'NBR_PER_CRATE', 'STACK_LIMIT' and 'OVERHANG'
-        :return:
+        Takes the complete dataframe and split it in two
+        First : [QTY | SKU |  MODEL (SIZE_CODE)] to keep track of link between SKUs and size_code
+        Second : [QTY | MODEL (SIZE_CODE) | LENGTH | WIDTH | HEIGHT | NUMBER_PER_CRATE | STACK_LIMIT | OVERHANG ]
+        The second will be group by MODEL
+
+        :return: two pandas data frames
         """
+
+        # We extract both dataframes needed by making copy of some parts on complete dataframe
+        first_df = complete_dataframe[['QTY', 'SKU', 'MODEL']].copy()
+        second_df = complete_dataframe[['QTY', 'MODEL', 'LENGTH', 'WIDTH', 'HEIGHT', 'NBR_PER_CRATE',
+                                       'STACK_LIMIT', 'OVERHANG']].copy()
+
+        # Do a groupby on second dataframe
+        second_df = second_df.groupby(['MODEL', 'LENGTH', 'WIDTH', 'HEIGHT',
+                                       'NBR_PER_CRATE', 'STACK_LIMIT', 'OVERHANG']).sum().reset_index()
+
+        return first_df, second_df
 
 
 def open_fastloads_box():
