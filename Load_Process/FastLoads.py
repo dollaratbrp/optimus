@@ -5,6 +5,7 @@ Author : Nicolas Raymond
 """
 from tkinter import *
 import pandas as pd
+import numpy as np
 from openpyxl import load_workbook
 from Import_Functions import SQLConnection
 
@@ -88,60 +89,69 @@ class FastLoadsBox:
         Run Optimus program on our selection of SKUs
         :return:
         """
-        skus_tuple, skus_list, qty_list = self.save_skus_and_quantities()
-        print(skus_tuple, '\n')
-        print(skus_list, '\n')
-        print(qty_list, '\n')
-        self.get_complete_dataframe(skus_tuple)
+        skus_list, qty_list = self.save_skus_and_quantities()
+        self.get_complete_dataframe(skus_list, qty_list)
 
         pass
 
     def save_skus_and_quantities(self):
         """
         Save definitive lists of SKUs and quantities to use once user push "Run Optimus".
-        Return also a tuple with SKUs to use in our SQL queries
-        :return: tuple of skus, list of skus, list of qty
+        :return: list of skus and list of qty
         """
-        skus_tuple = tuple()  # For the SQL query
-        skus_list = []  # To use as column in pandas dataframe
+
+        skus_list = []  # To find data in sql
         qty_list = []   # To use as column in pandas dataframe
 
-        # We save skus in
+        # We save each sku in a list if their quantity is greater than 0
         for i in range(len(self.labels)):
             qty = int(self.entries[i].get())
             if qty > 0:
-                sku = self.labels[i]['text']
-                skus_tuple += (sku,)
-                skus_list.append(sku)
+                skus_list.append(self.labels[i]['text'])
                 qty_list.append(qty)
 
-        return skus_tuple, skus_list, qty_list
+        return skus_list, qty_list
 
     @staticmethod
-    def get_complete_dataframe(skus_tuple):
+    def get_complete_dataframe(skus_list, qty_list):
         """
         Retrieves size_code and dimensions associated with our SKUs
         plus : 'NBR_PER_CRATE', 'STACK_LIMIT' and 'OVERHANG'
+
+        :param skus_list: list of SKUs used in sql query to get the data
+        :param qty_list: list of quantities associated to each SKU
         :return: pandas dataframe
         """
+        # Initialization of column names for data that will be sent to LoadBuilder
+        columns = ['QTY', 'SKU', 'MODEL', 'LENGTH', 'WIDTH', 'HEIGHT', 'NBR_PER_CRATE', 'STACK_LIMIT', 'OVERHANG']
+
+        # Connection to SQL database that contains data needed
         sql_connect = SQLConnection('CAVLSQLPD2\pbi2', 'Business_Planning', 'OTD_0_MD_D_MATERIAL')
 
-        sql_query = """ SELECT RTRIM(a.Material_Number) 
+        # Writing of our query
+        sql_query = """ SELECT RTRIM(a.Material_Number)
         ,RTRIM(a.Size_Dimensions)
         ,CONVERT(int, CEILING(b.Length))
         ,CONVERT(int, CEILING(b.Width))
-        ,CONVERT(int, CEILING(b.Height))
+        ,CONVERT(int, CEILING(b.HEIGHT))
+        ,CASE WHEN c.SUB_DIVISION = 'RYKER' THEN 2 ELSE 1 END
+        ,CASE WHEN b.HEIGHT = 0 THEN 1 ELSE CONVERT(int, FLOOR(105/b.HEIGHT)) END
+        ,CASE WHEN (CASE WHEN b.HEIGHT = 0 THEN 1 ELSE FLOOR(105/b.HEIGHT) END) = 1 THEN 0 ELSE 1 END
         FROM OTD_0_MD_D_MATERIAL as c LEFT JOIN MasterData.dbo.MD_MARA as a
         on c.MATERIAL_NUMBER = a.Material_Number LEFT JOIN MasterData.dbo.MD_MARA as b
         on b.Material_Number = a.Ref_Mat_Packed_In_Same_Way
-        WHERE a.Material_Number in """ + str(skus_tuple)
+        WHERE a.Material_Number in """ + str(tuple(skus_list))
 
+        # Retrieve the data
         data = sql_connect.GetSQLData(sql_query)
 
-        for i in data:
-            print(i)
+        # Add each qty to the good line of data
+        for line in data:
+            index_of_qty = skus_list.index(line[0])
+            line.insert(0, qty_list[index_of_qty])
+            print(line)
 
-        pass
+        return pd.DataFrame(data=data, columns=columns)
 
     def complete_dataframe(self):
         """
