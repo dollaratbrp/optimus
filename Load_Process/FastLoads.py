@@ -90,8 +90,10 @@ class FastLoadsBox:
         :return:
         """
         skus_list, qty_list = self.save_skus_and_quantities()
-        complete_dataframe = self.get_complete_dataframe(skus_list, qty_list)
-        self.split_dataframes(complete_dataframe)
+
+        if len(skus_list) != 0:
+            complete_dataframe = self.get_complete_dataframe(skus_list, qty_list)
+            df1, df2 = self.split_dataframes(complete_dataframe)
 
         pass
 
@@ -129,6 +131,13 @@ class FastLoadsBox:
         # Connection to SQL database that contains data needed
         sql_connect = SQLConnection('CAVLSQLPD2\pbi2', 'Business_Planning', 'OTD_0_MD_D_MATERIAL')
 
+        # We look length of SKUs list and adapt the code
+        if len(skus_list) == 1:
+            end_of_query = """WHERE a.Material_Number = """ + "'" + str(skus_list[0]) + "'"
+
+        else:
+            end_of_query = """WHERE a.Material_Number in """ + str(tuple(skus_list))
+
         # Writing of our query
         sql_query = """ SELECT RTRIM(a.Material_Number)
         ,RTRIM(a.Size_Dimensions)
@@ -140,13 +149,12 @@ class FastLoadsBox:
         ,CASE WHEN (CASE WHEN b.HEIGHT = 0 THEN 1 ELSE FLOOR(105/b.HEIGHT) END) = 1 THEN 0 ELSE 1 END
         FROM OTD_0_MD_D_MATERIAL as c LEFT JOIN MasterData.dbo.MD_MARA as a
         on c.MATERIAL_NUMBER = a.Material_Number LEFT JOIN MasterData.dbo.MD_MARA as b
-        on b.Material_Number = a.Ref_Mat_Packed_In_Same_Way
-        WHERE a.Material_Number in """ + str(tuple(skus_list))
+        on b.Material_Number = a.Ref_Mat_Packed_In_Same_Way """ + end_of_query
 
         # Retrieve the data
         data = sql_connect.GetSQLData(sql_query)
 
-        # Add each qty to the good line of data
+        # Add each qty at the beginning of the good line of data
         for line in data:
             index_of_qty = skus_list.index(line[0])
             line.insert(0, qty_list[index_of_qty])
