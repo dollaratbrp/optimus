@@ -16,11 +16,12 @@ sys.path.append(os.path.join(parent_dir, 'LoadBuilding'))  # We add directory of
 
 from P2PFullProcess import p2p_full_process
 
+
 class ModeBox:
 
     def __init__(self, master):
         """
-        Generates a box with both loading options
+        Generates a GUI with both loading options
 
         :param master: root of the tkinter window
         """
@@ -29,7 +30,7 @@ class ModeBox:
         master.title('Optimus')
 
         # Label initialization
-        self.title = Label(self.master, text='Optimus Mode Selection')
+        self.title = Label(self.master, text='Optimus Mode Selection', bd=2)
 
         # Label positioning
         self.title.grid(row=0, column=0, columnspan=2)
@@ -59,7 +60,3 @@ def open_mode_box():
     root = Tk()
     mode_box = ModeBox(root)
     root.mainloop()
-
-
-if __name__ == '__main__':
-    open_mode_box()
