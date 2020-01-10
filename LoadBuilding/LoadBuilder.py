@@ -124,12 +124,17 @@ class LoadBuilder:
                 else:
                     trailer_oh = 0
 
+                # We set the priority rank of the trailer
+                if 'PRIORITY_RANK' in self.trailers_data.columns:
+                    rank = self.trailers_data['PRIORITY_RANK'][i]
+                else:
+                    rank = 1
+
                 # We build "qty" trailer that we add to the trailers list
                 for j in range(0, qty):
                     self.trailers.append(LoadObj.Trailer(self.trailers_data['CATEGORY'][i], t_length,
                                                          self.trailers_data['WIDTH'][i],
-                                                         self.trailers_data['HEIGHT'][i],
-                                                         self.trailers_data['PRIORITY_RANK'][i], trailer_oh))
+                                                         self.trailers_data['HEIGHT'][i], rank, trailer_oh))
 
     def __prepare_warehouse(self):
 
