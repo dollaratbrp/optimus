@@ -36,12 +36,12 @@ dest_filename = 'P2P_Summary_'+dayToday  # Name of excel file with today's date
 
 
 def p2p_full_process():
-
     """
     Executes P2P full process
     :return: summary of the full process in at the 'saveFolder' directory
 
     """
+    get_trailers_data([],[])
     if not AutomaticRun:
         if not OpenParameters():  # If user cancel request
             sys.exit()
@@ -264,12 +264,11 @@ def p2p_full_process():
             pass
         sys.exit()
 
-
     timeSinceLastCall('Get SQL DATA')
 
     # If there are missing P2P in parameters table
     if not AutomaticRun:
-        if not DATAMissing:
+        if DATAMissing:
             if not MissingP2PBox(DATAMissing):
                 sys.exit()
 
