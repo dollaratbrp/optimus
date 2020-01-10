@@ -102,6 +102,24 @@ class Included_Inv:
         self.include = Point_Include
 
 
+def get_trailers_data():
+    """
+    Gets the trailers data from SQL
+    :return: list of lists for everyline of data
+    """
+    # Initialization of column names for data that will be sent to LoadBuilder
+    columns = ['QTY', 'TYPE', 'LENGTH', 'WIDTH', 'HEIGHT', 'OVERHANG']
+
+    # Connection to SQL database that contains data needed
+    sql_connect = SQLConnection('CAVLSQLPD2\pbi2', 'Business_Planning', 'OTD_1_P2P_F_TRUCK_PARAMETERS')
+
+    # Writing of our query
+    sql_query = """SELECT * FROM [Business_Planning].[dbo].[OTD_1_P2P_F_TRUCK_PARAMETERS]"""
+
+    # Retrieve the data
+    return sql_connect.GetSQLData(sql_query)
+
+
 def EquivalentPlantFrom(Point1, Point2):
     """" Point1 is shipping_point_from for inv, Point2 is shipping_point_from for wishlist
         Point1 is included in Point2                                                      """
