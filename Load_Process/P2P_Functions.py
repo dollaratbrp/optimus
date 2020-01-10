@@ -107,9 +107,6 @@ def get_trailers_data():
     Gets the trailers data from SQL
     :return: list of lists for everyline of data
     """
-    # Initialization of column names for data that will be sent to LoadBuilder
-    columns = ['QTY', 'TYPE', 'LENGTH', 'WIDTH', 'HEIGHT', 'OVERHANG']
-
     # Connection to SQL database that contains data needed
     sql_connect = SQLConnection('CAVLSQLPD2\pbi2', 'Business_Planning', 'OTD_1_P2P_F_TRUCK_PARAMETERS')
 
