@@ -139,9 +139,13 @@ def get_trailers_data(category_list=[], qty_list=[]):
     data = sql_connect.GetSQLData(sql_query)
 
     # Add each qty at the beginning of the good line of data
-    for line in data:
-        index_of_qty = category_list.index(line[0])
-        line.insert(0, qty_list[index_of_qty])
+    if len(category_list) != 0:
+        for line in data:
+            index_of_qty = category_list.index(line[0])
+            line.insert(0, qty_list[index_of_qty])
+    else:
+        for line in data:
+            line.insert(0, 0)
 
     return pd.DataFrame(data=data, columns=columns)
 
