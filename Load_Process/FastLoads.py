@@ -5,13 +5,16 @@ Author : Nicolas Raymond
 """
 from tkinter import *
 import pandas as pd
-import numpy as np
-from openpyxl import load_workbook
-from Import_Functions import SQLConnection
+from openpyxl import load_workbook, Workbook
+from openpyxl.styles import PatternFill
+from Import_Functions import SQLConnection, savexlsxFile
 from P2P_Functions import get_trailers_data
 from LoadBuilder import LoadBuilder
+from random import randint
 
 workbook_path = 'U:\LoadAutomation\Optimus\FastLoadsSKUs.xlsx'
+
+saving_path = 'U:\LoadAutomation\Optimus\\'
 
 
 class FastLoadsBox:
@@ -58,8 +61,9 @@ class FastLoadsBox:
                                  font=('TkDefaultFont', 12, 'italic'), bg='gray80')
         self.run_button.grid(row=2, columnspan=2, sticky=E+W)
 
-        # Initialization of an empty load builder attribute
+        # Initialization of an empty load builder and an empty tracker attribute
         self.LoadBuilder = None
+        self.tracker = None
 
     @staticmethod
     def create_sku_labels_and_entries(frame, skus_n_qty):
@@ -141,10 +145,13 @@ class FastLoadsBox:
         if len(skus_list) != 0 and number_of_trailers != 0:
 
             # Building of dataframes required for the loading
-            # (df1) Keeps track of link between SKUs and size code
+            # (df1) Use to build an object that keeps track of link between SKUs and size code
             # (df2) Dataframe needed by the load builder
             complete_dataframe = self.get_complete_dataframe(skus_list, qty_list)
             df1, df2 = self.split_dataframes(complete_dataframe)
+
+            # Initialization of the tracker (size_code dictionaries with SKUsContainer as value)
+            self.tracker = self.tracker_initialization(df1)
 
             # Initialization of our LoadBuilder
             self.LoadBuilder = LoadBuilder(trailers_data=self.trailers_data)
@@ -158,7 +165,10 @@ class FastLoadsBox:
 
             # Closing of the GUI and construction of loads
             self.master.destroy()
-            size_code_used = self.LoadBuilder.build(models_data=df2, max_load=max_loads, plot_load_done=True)
+            size_code_used = self.LoadBuilder.build(models_data=df2, max_load=max_loads, plot_load_done=False)
+
+            # We save all the results in a workbook at the path mentioned
+            self.write_results(df2)
 
         pass
 
@@ -196,6 +206,84 @@ class FastLoadsBox:
             number_of_trailers += qty
 
         return number_of_trailers
+
+    def write_results(self, grouped_dataframe):
+        """
+        Saves all the results from the loading in an Excel workbook
+
+        :param grouped_dataframe: pandas dataframe that was passed to our loadbuilder
+        """
+
+        # Initialization of a workbook
+        wb = Workbook()
+        fill = PatternFill(fill_type="solid", start_color="a6a6a6", end_color="a6a6a6")
+
+        # Approved loads worksheet construction and customization
+        wsApproved = wb.active
+        wsApproved.title = "APPROVED"
+        wsApproved.append(['LOAD_NUMBER', 'MATERIAL_NUMBER', 'QUANTITY', 'SIZE_DIMENSIONS'])
+
+        for y in range(1, 5):
+            wsApproved.cell(row=1, column=y).fill = fill
+
+        for letter in ['A', 'B', 'C', 'D']:
+            wsApproved.column_dimensions[letter].width = 20
+
+        # Unused crates worksheet construction and customization
+        wsUnused = wb.create_sheet("UNUSED")
+        wsUnused.append(['MATERIAL_NUMBER', 'QUANTITY'])
+
+        for y in range(1, 3):
+            wsUnused.cell(row=1, column=y).fill = fill
+
+        wsUnused.column_dimensions['A'].width = 15
+        wsUnused.column_dimensions['B'].width = 10
+
+        # Writing of approved loads
+        self.write_approved_loads(wsApproved, grouped_dataframe)
+
+        # Save the xlsx file
+        savexlsxFile(wb=wb, path=saving_path, filename='AdHoc', Time=True)
+
+    def write_approved_loads(self, ws, grouped_dataframe):
+        """
+        Writes the results for the approved loads
+
+        :param ws: worksheet on which we write the results
+        :param grouped_dataframe: pandas dataframe that was passed to our loadbuilder
+        :return:
+        """
+
+        # Retrieving summary of loads done
+        loads = self.LoadBuilder.get_loading_summary()
+        load_number = 0
+
+        if len(self.LoadBuilder) > 0:  # If some loads were created
+
+            # For every line of data in our "loads" dataframe
+            for i in loads.index:
+
+                # For every load of this kind
+                for iteration in range(int(loads["QTY"][i])):
+
+                    load_number += 1
+
+                    # For all the different size_code column in the dataframe
+                    for size_code in loads.columns[4::]:
+
+                        # if there is some quantity for this size_code
+                        if loads[size_code][i] != '':
+
+                            # We save the number of item per crate for this size_code
+                            index = list(grouped_dataframe['MODEL']).index(size_code)
+                            nb_per_crate = grouped_dataframe['NBR_PER_CRATE'][index]
+
+                            # For every unit of this crate on the load
+                            for unit in range(int(loads[size_code][i])):
+
+                                # We pick a random SKU linked with the size_code
+                                sku = self.tracker[size_code].random_pick()
+                                ws.append([load_number, sku, nb_per_crate, size_code])
 
     @staticmethod
     def positive(a):
@@ -274,6 +362,59 @@ class FastLoadsBox:
                                        'NBR_PER_CRATE', 'STACK_LIMIT', 'OVERHANG']).sum().reset_index()
 
         return first_df, second_df
+
+    @staticmethod
+    def tracker_initialization(sku_dataframe):
+        """
+        Initializes a dictionary of size_code (key) with SKUsContainer as value
+        :param sku_dataframe: pandas dataframe containing [QTY | SKU |  MODEL (SIZE_CODE)]
+        :return: dictionary ("tracker")
+        """
+        # We count the number of unique model
+        models = set(sku_dataframe['MODEL'])
+
+        # We intialize our tracker dict and put empty SKUsContainer in it
+        tracker = {}
+        for model in models:
+            tracker[model] = SKUsContainer()
+
+        # We fill every SKUsContainer
+        for i in sku_dataframe.index:
+            tracker[sku_dataframe['MODEL'][i]].add_sku(sku_dataframe['SKU'][i], sku_dataframe['QTY'][i])
+
+        return tracker
+
+
+class SKUsContainer:
+
+    def __init__(self):
+        self.skus_dict = {}
+
+    def add_sku(self, sku, qty):
+        self.skus_dict[sku] = qty
+
+    def __remove_sku(self, sku):
+        self.skus_dict.pop(sku)
+
+    def random_pick(self):
+
+        # We pick a SKU randomly in our dictionary
+        rand_index = randint(0, len(self.skus_dict)-1)
+        skus = list(self.skus_dict.keys())
+        rand_sku = skus[rand_index]
+
+        # We decrease its quantity by one
+        self.skus_dict[rand_sku] -= 1
+
+        # We remove the sku from our dictionary if the quantity is now null
+        if self.skus_dict[rand_sku] == 0:
+            self.__remove_sku(rand_sku)
+
+        # We return the SKU
+        return rand_sku
+
+    def __repr__(self):
+        return str(self.skus_dict)
 
 
 def open_fastloads_box():
