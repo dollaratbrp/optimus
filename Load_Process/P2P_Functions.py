@@ -98,7 +98,7 @@ class Included_Inv:
         self.include = Point_Include
 
 
-def get_trailers_data(category_list, qty_list):
+def get_trailers_data(category_list=[], qty_list=[]):
     """
     Gets the trailers data from SQL
 
@@ -115,8 +115,11 @@ def get_trailers_data(category_list, qty_list):
     sql_connect = SQLConnection('CAVLSQLPD2\pbi2', 'Business_Planning', 'OTD_1_P2P_F_TRUCK_PARAMETERS')
 
     # We look category_list size
-    if len(category_list) == 0:
-        return pd.DataFrame(data=[[]])
+    if len(category_list) != len(qty_list):
+        raise Exception("\nLengths of the two inputs are not the same")
+
+    elif len(category_list) == 0:
+        end_of_query = ""
 
     elif len(category_list) == 1:
         end_of_query = """WHERE RTRIM([TYPE]) = """ + "'" + str(category_list[0]) + "'"
