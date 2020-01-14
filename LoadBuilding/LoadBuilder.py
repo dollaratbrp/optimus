@@ -25,8 +25,6 @@ class LoadBuilder:
                  overhang_authorized=40, maximum_trailer_length=636, plc_lb=0.75):
 
         """
-        :param plant_from: name of the plant from where the item are shipped
-        :param plant_to: name of the plant where the item are shipped
         :param trailers_data: Pandas data frame containing details on trailers available
         :param overhang_authorized: maximum overhanging measure authorized by law for a trailer
         :param maximum_trailer_length: maximum length authorized by law for a trailer
@@ -36,7 +34,9 @@ class LoadBuilder:
         self.overhang_authorized = overhang_authorized  # In inches
         self.max_trailer_length = maximum_trailer_length  # In inches
         self.plc_lb = plc_lb
-        self.model_names, self.warehouse, self.remaining_crates = [], LoadObj.Warehouse(), LoadObj.CratesManager()
+        self.model_names = []
+        self.wood_warehouse, self.wood_remaining_crates = LoadObj.Warehouse(), LoadObj.CratesManager('W')
+        self.metal_warehouse, self.metal_remaining_crates = LoadObj.Warehouse(), LoadObj.CratesManager('M')
         self.trailers, self.trailers_done, self.unused_models = [], [], []
         self.all_size_codes = set()
 
