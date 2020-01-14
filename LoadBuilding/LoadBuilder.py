@@ -84,44 +84,39 @@ class LoadBuilder:
                 # be convert as 0. This way, no individual crate of SP2 will be build if there's less than 2 SP2 left
                 nbr_individual_crates = int((qty - (items_per_stack * nbr_stacks)) / nbr_per_crate)
 
+                stacks_component = [max(models_data['LENGTH'][i], models_data['WIDTH'][i]),
+                                    min(models_data['WIDTH'][i], models_data['LENGTH'][i]),
+                                    models_data['HEIGHT'][i] * stack_limit,
+                                    [models_data['MODEL'][i]] * items_per_stack, overhang]
+
+                crates_component = [[models_data['MODEL'][i]] * nbr_per_crate,
+                                    max(models_data['LENGTH'][i],
+                                    models_data['WIDTH'][i]),
+                                    min(models_data['WIDTH'][i], models_data['LENGTH'][i]),
+                                    models_data['HEIGHT'][i],
+                                    stack_limit, overhang]
+
                 if crate_type == 'W':
                     for j in range(nbr_stacks):
 
                         # We build the stack and send it into the warehouse
-                        self.warehouse.add_stack(LoadObj.Stack(max(models_data['LENGTH'][i], models_data['WIDTH'][i]),
-                                                               min(models_data['WIDTH'][i], models_data['LENGTH'][i]),
-                                                               models_data['HEIGHT'][i] * stack_limit,
-                                                               [models_data['MODEL'][i]] * items_per_stack, overhang))
+                        self.warehouse.add_stack(LoadObj.Stack(*stacks_component))
+
                     for j in range(nbr_individual_crates):
 
                         # We build the crate and send it to the crates manager
-                        self.remaining_crates.add_crate(LoadObj.Crate([models_data['MODEL'][i]] * nbr_per_crate,
-                                                                      max(models_data['LENGTH'][i],
-                                                                          models_data['WIDTH'][i]),
-                                                                      min(models_data['WIDTH'][i],
-                                                                          models_data['LENGTH'][i]),
-                                                                      models_data['HEIGHT'][i],
-                                                                      stack_limit, overhang))
+                        self.remaining_crates.add_crate(LoadObj.Crate(*crates_component))
+
                 elif crate_type == 'M':
                     for j in range(nbr_stacks):
+
                         # We build the stack and send it into the warehouse
-                        self.metal_warehouse.add_stack(LoadObj.Stack(max(models_data['LENGTH'][i],
-                                                                         models_data['WIDTH'][i]),
-                                                                     min(models_data['WIDTH'][i],
-                                                                         models_data['LENGTH'][i]),
-                                                                     models_data['HEIGHT'][i] * stack_limit,
-                                                                     [models_data['MODEL'][i]] * items_per_stack,
-                                                                     overhang))
+                        self.metal_warehouse.add_stack(LoadObj.Stack(*stacks_component))
+
                     for j in range(nbr_individual_crates):
 
                         # We build the crate and send it to the crates manager
-                        self.metal_remaining_crates.add_crate(LoadObj.Crate([models_data['MODEL'][i]] * nbr_per_crate,
-                                                                            max(models_data['LENGTH'][i],
-                                                                            models_data['WIDTH'][i]),
-                                                                            min(models_data['WIDTH'][i],
-                                                                                models_data['LENGTH'][i]),
-                                                                            models_data['HEIGHT'][i],
-                                                                            stack_limit, overhang))
+                        self.metal_remaining_crates.add_crate(LoadObj.Crate(*crates_component))
 
         # We flatten the model_names list
         self.model_names = [item for sublist in self.model_names for item in sublist]
