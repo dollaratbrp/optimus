@@ -88,11 +88,7 @@ class Parameters:
     def new_LoadBuilder(self):
         """"We reset the loadBuilder"""
         self.AssignedWish = []
-        TrailerData = pd.DataFrame(
-            data=[[self.FLATBED, 'FLATBED', 636, 102, 120, 1, 1],
-                  [self.DRYBOX, 'DRYBOX', 628, 98, 120, 0, 1]],
-            columns=['QTY', 'CATEGORY', 'LENGTH', 'WIDTH', 'HEIGHT', 'OVERHANG',
-                     'PRIORITY_RANK'])
+        TrailerData = get_trailers_data(['DRYBOX', 'FLATBED'], [self.DRYBOX, self.FLATBED])
         self.LoadBuilder = LoadBuilder(TrailerData)
 
 
@@ -100,6 +96,58 @@ class Included_Inv:
     def __init__(self, Point_Source, Point_Include):
         self.source = Point_Source
         self.include = Point_Include
+
+
+def get_trailers_data(category_list=[], qty_list=[]):
+    """
+    Gets the trailers data from SQL
+
+    :param category_list: list with the categories of trailer which we need the data
+    :param qty_list: list with quantities of each category of trailer
+
+    *** IMPORTANT *** : Categories and quantities must be in the same order
+    :return: list of lists for every line of data
+    """
+    # Initialization of column names for data that will be sent to LoadBuilder
+    columns = ['QTY', 'CATEGORY', 'LENGTH', 'WIDTH', 'HEIGHT', 'OVERHANG']
+
+    # Connection to SQL database that contains data needed
+    sql_connect = SQLConnection('CAVLSQLPD2\pbi2', 'Business_Planning', 'OTD_1_P2P_F_TRUCK_PARAMETERS')
+
+    # We look category_list size
+    if len(category_list) != len(qty_list):
+        raise Exception("\nLengths of the two inputs are not the same")
+
+    elif len(category_list) == 0:
+        end_of_query = ""
+
+    elif len(category_list) == 1:
+        end_of_query = """WHERE RTRIM([TYPE]) = """ + "'" + str(category_list[0]) + "'"
+
+    else:
+        end_of_query = """WHERE RTRIM([TYPE]) in """ + str(tuple(category_list))
+
+    # Writing of our query
+    sql_query = """SELECT RTRIM([TYPE])
+    ,[LENGTH]
+    ,[INTERIOR_WIDTH]
+    ,[HEIGHT]
+    ,[OVERHANG]
+    FROM [Business_Planning].[dbo].[OTD_1_P2P_F_TRUCK_PARAMETERS] """ + end_of_query
+
+    # Retrieve the data
+    data = sql_connect.GetSQLData(sql_query)
+
+    # Add each qty at the beginning of the good line of data
+    if len(category_list) != 0:
+        for line in data:
+            index_of_qty = category_list.index(line[0])
+            line.insert(0, qty_list[index_of_qty])
+    else:
+        for line in data:
+            line.insert(0, 0)
+
+    return pd.DataFrame(data=data, columns=columns)
 
 
 def EquivalentPlantFrom(Point1, Point2):

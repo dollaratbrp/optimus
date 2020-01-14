@@ -9,24 +9,14 @@ By : Nicolas Raymond
 
 """
 
-
-
 import openpyxl
-import os 
 import smtplib
-from email.mime.application import MIMEApplication
 from email.mime.multipart import MIMEMultipart
 from email.mime.text import MIMEText
 from email.utils import COMMASPACE, formatdate
 from email import encoders
 from email.mime.base import MIMEBase
-import math
-import sqlite3
 import datetime
-from copy import copy,deepcopy
-from openpyxl.utils import range_boundaries
-from openpyxl import Workbook
-import inspect
 import pandas as pd
 import pyodbc
 
@@ -48,7 +38,7 @@ def savexlsxFile(wb, path, filename, Time =False, extension='.xlsx'):
     
     if Time is True:
         tN = pd.datetime.now()
-        tempSave = '_'+str(tN.year)+'_'+str(tN.month)+'_'+str(tN.day)+';'+str(tN.hour)+\
+        tempSave = '_'+str(tN.year)+'.'+str(tN.month)+'.'+str(tN.day)+'__'+str(tN.hour) + \
                    '.'+str(tN.minute)+'.'+str(tN.second)
     else:
         tempSave = ''
