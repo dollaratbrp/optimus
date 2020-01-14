@@ -15,6 +15,7 @@ parent_dir = os.path.dirname(os.path.dirname(sys.argv[0]))
 sys.path.append(os.path.join(parent_dir, 'LoadBuilding'))  # We add directory of LoadBuilding to sys.path
 
 from P2PFullProcess import p2p_full_process
+from FastLoads import open_fastloads_box
 
 
 class ModeBox:
@@ -53,10 +54,19 @@ class ModeBox:
         p2p_full_process()
 
     def run_fast_loads(self):
-        pass
+
+        # We close the window
+        self.master.destroy()
+
+        # We run the fast loads function
+        open_fastloads_box()
 
 
 def open_mode_box():
     root = Tk()
     mode_box = ModeBox(root)
     root.mainloop()
+
+
+if __name__ == '__main__':
+    open_mode_box()
