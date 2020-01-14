@@ -233,9 +233,6 @@ def satisfy_max_or_min(Wishes, Inventory, Parameters, satisfy_min=True, print_lo
     :param print_loads: (bool) indicates if we plot each load or not
     """
 
-    # We initialize a list of column names for the dataframes that will be shoot to the LoadBuilders
-    columns = ['QTY', 'MODEL', 'LENGTH', 'WIDTH', 'HEIGHT', 'NBR_PER_CRATE', 'STACK_LIMIT', 'OVERHANG']
-
     # We save a "trigger" integer value indicating if we want to satisfy min or max
     check_min = int(satisfy_min)  # Will be 1 if we want to satisfy min and 0 instead
 
@@ -284,13 +281,10 @@ def satisfy_max_or_min(Wishes, Inventory, Parameters, satisfy_min=True, print_lo
                                         wish.HEIGHT, 1, wish.STACKABILITY, wish.OVERHANG])
 
             # Construction of the data frame which we'll send to the LoadBuilder of our parameters object (p2p)
-            models_data = pd.DataFrame(data=invData, columns=columns)
-            models_data = models_data.groupby(['MODEL', 'LENGTH', 'WIDTH', 'HEIGHT',
-                                               'NBR_PER_CRATE', 'STACK_LIMIT', 'OVERHANG']).sum()
-            models_data = models_data.reset_index()
+            input_dataframe = loadbuilder_input_dataframe(invData)
 
             # Construction of loadings
-            result = param.LoadBuilder.build(models_data=models_data,
+            result = param.LoadBuilder.build(models_data=input_dataframe,
                                              max_load=(check_min*param.LOADMIN + (1-check_min)*param.LOADMAX),
                                              plot_load_done=print_loads)
 
@@ -310,6 +304,26 @@ def satisfy_max_or_min(Wishes, Inventory, Parameters, satisfy_min=True, print_lo
                     for inv in wish.INV_ITEMS:
                         inv.QUANTITY += 1
                     wish.INV_ITEMS = []
+
+
+def loadbuilder_input_dataframe(data):
+    """
+    Builds the appropriate pandas data frame needed as input of the LoadBuilder
+    :param data: List of lists containing every line of data for our frame
+    :return: pandas dataframe
+    """
+
+    # Creation of the data frame
+    input_frame = pd.DataFrame(data=data, columns=['QTY', 'MODEL', 'LENGTH', 'WIDTH',
+                                                   'HEIGHT', 'NBR_PER_CRATE', 'STACK_LIMIT', 'OVERHANG'])
+    # Group by to sum quantity
+    input_frame = input_frame.groupby(['MODEL', 'LENGTH', 'WIDTH', 'HEIGHT',
+                                       'NBR_PER_CRATE', 'STACK_LIMIT', 'OVERHANG']).sum()
+
+    # Reformatting of the new object as a standard data frame
+    input_frame = input_frame.reset_index()
+
+    return input_frame
 
 
 def EquivalentPlantFrom(Point1, Point2):

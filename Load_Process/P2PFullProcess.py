@@ -333,23 +333,29 @@ def p2p_full_process():
     print('\n\nCREATE FIRST LOADS\n\n')
 
     for param in DATAParams:  # for all P2P in parameters
-        # Create data table to create loads
-        tempoOnLoad = []
-        columnsHead = ['QTY', 'MODEL', 'LENGTH', 'WIDTH', 'HEIGHT', 'NBR_PER_CRATE', 'STACK_LIMIT', 'OVERHANG']
-        invData = []
+
+        # Initialization of empty list
+        tempoOnLoad = []  # List to remember the INVobj that will be sent to the LoadBuilder
+        invData = []  # List that will contain the data to build the frame that will be sent to the LoadBuilder
+
+        # We loop through our wishes list
         for wish in ListApprovedWish:
-            if wish.POINT_FROM == param.POINT_FROM and wish.SHIPPING_POINT == param.POINT_TO and wish.QUANTITY > 0:
+
+            # If the wish is not fulfilled and his POINT FROM and POINT TO are corresponding with the param (p2p)
+            if wish.QUANTITY > 0 and wish.POINT_FROM == param.POINT_FROM and wish.SHIPPING_POINT == param.POINT_TO:
                 tempoOnLoad.append(wish)
+
+                # Here we set QTY and NBR_PER_CRATE to 1 because each line of the wishlist correspond to
+                # one crate and not one unit! Must be done this way to avoid having getting to many size_code
+                # in the returning list of the LoadBuilder
                 invData.append([1, wish.SIZE_DIMENSIONS, wish.LENGTH, wish.WIDTH, wish.HEIGHT, 1,
-                                wish.STACKABILITY, wish.OVERHANG])  # quantity is one, one box for each line
-        models_data = pd.DataFrame(data=invData, columns=columnsHead)
-        models_data = models_data.groupby(['MODEL', 'LENGTH', 'WIDTH', 'HEIGHT',
-                                           'NBR_PER_CRATE', 'STACK_LIMIT', 'OVERHANG']).sum()
-        models_data = models_data.reset_index()
-        print(models_data)
+                                wish.STACKABILITY, wish.OVERHANG])
+
+        # Construction of the data frame which we'll send to the LoadBuilder of our parameters object (p2p)
+        input_dataframe = loadbuilder_input_dataframe(invData)
 
         # Create loads
-        result = param.LoadBuilder.build(models_data, param.LOADMAX, plot_load_done=printLoads)
+        result = param.LoadBuilder.build(input_dataframe, param.LOADMAX, plot_load_done=printLoads)
 
         # Choose which wish to send in load based on selected crates and priority order
         for model in result:
@@ -376,23 +382,21 @@ def p2p_full_process():
     ####################################################################################################################
     #                             Try to Make the minimum number of loads for each P2P
     ####################################################################################################################
-    print('\n\nSATISFY MINIMUM\n\n')
 
     satisfy_max_or_min(DATAWishList, DATAINV, DATAParams)
 
     ####################################################################################################################
     #                               Try to Make the maximum number of loads for each P2P
     ####################################################################################################################
-    print('\n\nSATISFY MAXIMUM\n\n')
 
     satisfy_max_or_min(DATAWishList, DATAINV, DATAParams, satisfy_min=False)
 
     ####################################################################################################################
-    #                                                ### Test to save data
+    #                                           Writing of the results
     ####################################################################################################################
 
-    # to see created loads for each p2p
-    print('\n\n\n\nResults\n\n\n\n')
+    # We display loads create in each p2p for our own purpose
+    print('\n\nResults\n\n')
     for param in DATAParams:
         print('\n\n')
         print(param.POINT_FROM, ' _ ', param.POINT_TO)
