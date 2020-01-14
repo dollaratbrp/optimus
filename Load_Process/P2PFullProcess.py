@@ -42,7 +42,6 @@ def p2p_full_process():
     :return: summary of the full process in at the 'saveFolder' directory
 
     """
-    get_trailers_data([],[])
     if not AutomaticRun:
         if not OpenParameters():  # If user cancel request
             sys.exit()
@@ -325,40 +324,8 @@ def p2p_full_process():
     #                                                Isolate perfect match
     ####################################################################################################################
 
-    ListApprovedWish = []
-
-    # We iterate through wishlist to keep the priority order
-    for wish in DATAWishList:
-        position = 0  # To not loop through all inv Data at each iteration
-        for Iteration in range(wish.QUANTITY):
-            for It, inv in enumerate(DATAINV[position::]):
-                if EquivalentPlantFrom(inv.POINT, wish.POINT_FROM) and wish.MATERIAL_NUMBER == inv.MATERIAL_NUMBER\
-                        and inv.QUANTITY > 0:
-                    if inv.Future:  # QA of tomorrow, need to look if load is for today or later
-                        InvToTake = False
-                        for param in DATAParams:
-                            if wish.POINT_FROM == param.POINT_FROM and wish.SHIPPING_POINT == param.POINT_TO\
-                                    and param.days_to > 0:
-                                InvToTake = True
-                                break
-                        if InvToTake:
-                            inv.QUANTITY -= 1
-                            wish.INV_ITEMS.append(inv)
-                            position += It
-                            break  # no need to look further
-                    else:  # we give the inv to the wish item
-                        inv.QUANTITY -= 1
-                        wish.INV_ITEMS.append(inv)
-                        position += It
-                        break  # no need to look further
-
-        if len(wish.INV_ITEMS) < wish.QUANTITY:  # We give back taken inv if there is not enough units
-            for invToGiveBack in wish.INV_ITEMS:
-                invToGiveBack.QUANTITY += 1
-            wish.INV_ITEMS = []
-        else:
-            ListApprovedWish.append(wish)
-
+    # We initaliaze a list that will contain all wish approved
+    ListApprovedWish = find_perfect_match(DATAWishList, DATAINV, DATAParams)
 
     ####################################################################################################################
     #                                                Create Loads
@@ -370,13 +337,13 @@ def p2p_full_process():
         tempoOnLoad = []
         columnsHead = ['QTY', 'MODEL', 'LENGTH', 'WIDTH', 'HEIGHT', 'NBR_PER_CRATE', 'STACK_LIMIT', 'OVERHANG']
         invData = []
-        # pd.DataFrame([],columns=['QTY','MODEL','PLANT_TO','LENGTH','WIDTH','HEIGHT','NBR_PER_CRATE','STACK_LIMIT','OVERHANG'])
         for wish in ListApprovedWish:
             if wish.POINT_FROM == param.POINT_FROM and wish.SHIPPING_POINT == param.POINT_TO and wish.QUANTITY > 0:
                 tempoOnLoad.append(wish)
                 invData.append([1, wish.SIZE_DIMENSIONS, wish.LENGTH, wish.WIDTH, wish.HEIGHT, 1,
                                 wish.STACKABILITY, wish.OVERHANG])  # quantity is one, one box for each line
         models_data = pd.DataFrame(data=invData, columns=columnsHead)
+        print(models_data)
         models_data = models_data.groupby(['MODEL', 'LENGTH', 'WIDTH', 'HEIGHT',
                                            'NBR_PER_CRATE', 'STACK_LIMIT', 'OVERHANG']).sum()
         models_data = models_data.reset_index()
