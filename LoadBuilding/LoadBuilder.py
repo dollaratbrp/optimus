@@ -84,7 +84,8 @@ class LoadBuilder:
                                                            [models_data['MODEL'][i]] * items_per_stack, overhang))
 
                 # We save the number of individual crates to build and convert it into
-                # integer to avoid conflict with range function
+                # integer to avoid conflict with range function. Also, with int(), every number in [0,1[ will
+                # be convert as 0. This way, no individual crate of SP2 will be build if there's less than 2 SP2 left
                 nbr_individual_crates = int((qty - (items_per_stack * nbr_stacks)) / nbr_per_crate)
 
                 for j in range(nbr_individual_crates):
@@ -645,8 +646,6 @@ class LoadBuilder:
             print('NO INVENTORY AVAILABLE')
             return []
 
-        print(models_data)
-
         # We init the warehouse
         self.__warehouse_init(models_data)
 
@@ -665,8 +664,6 @@ class LoadBuilder:
 
         if max_load < total_nb_loads:
             self.__select_top_n(max(nb_new_loads - (total_nb_loads - max_load), 0))
-
-        print('Number of new loads : ', nb_new_loads)
 
         # We update all data
         self.__update_trailers_data()
