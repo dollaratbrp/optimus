@@ -236,28 +236,32 @@ class FastLoadsBox:
         for y in range(1, 3):
             wsUnused.cell(row=1, column=y).fill = fill
 
-        wsUnused.column_dimensions['A'].width = 15
-        wsUnused.column_dimensions['B'].width = 10
+        wsUnused.column_dimensions['A'].width = 20
+        wsUnused.column_dimensions['B'].width = 20
 
         # Writing of approved loads
         self.write_approved_loads(wsApproved, grouped_dataframe)
+
+        # Writing of unused crates
+        self.write_unused_crates(wsUnused)
 
         # Save the xlsx file
         savexlsxFile(wb=wb, path=saving_path, filename='AdHoc', Time=True)
 
     def write_approved_loads(self, ws, grouped_dataframe):
         """
-        Writes the results for the approved loads
+        Writes the results for the approved loads in the worksheet passed as parameter
 
         :param ws: worksheet on which we write the results
         :param grouped_dataframe: pandas dataframe that was passed to our loadbuilder
-        :return:
         """
 
         # Retrieving summary of loads done
         loads = self.LoadBuilder.get_loading_summary()
         load_number = 0
 
+        # We build the dataframe on which we'll do a groupby to simplify output
+        data = []
         if len(self.LoadBuilder) > 0:  # If some loads were created
 
             # For every line of data in our "loads" dataframe
@@ -279,11 +283,29 @@ class FastLoadsBox:
                             nb_per_crate = grouped_dataframe['NBR_PER_CRATE'][index]
 
                             # For every unit of this crate on the load
-                            for unit in range(int(loads[size_code][i])):
+                            for unit in range(int((loads[size_code][i])/nb_per_crate)):
 
                                 # We pick a random SKU linked with the size_code
-                                sku = self.tracker[size_code].random_pick()
-                                ws.append([load_number, sku, nb_per_crate, size_code])
+                                sku = self.tracker[size_code].random_pick(nb_per_crate)
+                                data.append([load_number, sku, nb_per_crate, size_code])
+
+        dataframe = pd.DataFrame(data=data, columns=['LOAD_NUMBER', 'MATERIAL_NUMBER', 'QUANTITY', 'SIZE_DIMENSIONS'])
+
+        # We do a groupby to sum quantity column for the same SKU on the same load
+        dataframe = dataframe.groupby(by=['LOAD_NUMBER', 'MATERIAL_NUMBER', 'SIZE_DIMENSIONS']).sum().reset_index()
+
+        # We push every line of data in the appropriate worksheet
+        for i in dataframe.index:
+            ws.append(list(dataframe.iloc[i].values))
+
+    def write_unused_crates(self, ws):
+        """
+        Writes the results for the unused crates in the worksheet passed as parameter
+        :param ws: worksheet on which we write the results
+        """
+        for model, sku_container in self.tracker.items():
+            for sku, qty in sku_container.skus_dict.items():
+                ws.append([sku, qty])
 
     @staticmethod
     def positive(a):
@@ -396,15 +418,20 @@ class SKUsContainer:
     def __remove_sku(self, sku):
         self.skus_dict.pop(sku)
 
-    def random_pick(self):
+    def random_pick(self, qty):
+        """
+        Randomly pick a SKU in the SKUsContainer and decrease its quantity by "qty"
+        :param qty: (int) Number of times we pick the randomly chosen SKU
+        :return: (str) SKU picked
+        """
 
         # We pick a SKU randomly in our dictionary
         rand_index = randint(0, len(self.skus_dict)-1)
         skus = list(self.skus_dict.keys())
         rand_sku = skus[rand_index]
 
-        # We decrease its quantity by one
-        self.skus_dict[rand_sku] -= 1
+        # We decrease its quantity by the quantity of this SKU in one crate
+        self.skus_dict[rand_sku] -= qty
 
         # We remove the sku from our dictionary if the quantity is now null
         if self.skus_dict[rand_sku] == 0:
