@@ -643,7 +643,6 @@ class LoadBuilder:
         """
         # We look if models_data is empty
         if models_data.empty:
-            print('NO INVENTORY AVAILABLE')
             return []
 
         # We init the warehouse
