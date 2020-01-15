@@ -246,39 +246,39 @@ class LoadBuilder:
                         # We save the loading configuration (the packer)
                         packers.append((crate_type, packer))
 
-                # We save the index of the best loading configuration that respected the constraint of plc_lb
-                best_packer_index = self.__select_best_packer(packers)
+            # We save the index of the best loading configuration that respected the constraint of plc_lb
+            best_packer_index = self.__select_best_packer(packers)
 
-                # If an index is found (at least one load satisfies the constraint)
-                if best_packer_index is not None:
+            # If an index is found (at least one load satisfies the constraint)
+            if best_packer_index is not None:
 
-                    # We save the specified packer and the crate_type concerned
-                    best_packer = packers[best_packer_index][1]
-                    crate_type = packers[best_packer_index][0]
+                # We save the specified packer and the crate_type concerned
+                best_packer = packers[best_packer_index][1]
+                crate_type = packers[best_packer_index][0]
 
-                    # We determine the warehouse concerned with the crate_type
-                    if crate_type == 'W':
-                        warehouse = self.warehouse
-                    elif crate_type == 'M':
-                        warehouse = self.metal_warehouse
+                # We determine the warehouse concerned with the crate_type
+                if crate_type == 'W':
+                    warehouse = self.warehouse
+                elif crate_type == 'M':
+                    warehouse = self.metal_warehouse
 
-                    # For every stack concerned by this loading configuration of the trailer
-                    for stack in best_packer[0]:
+                # For every stack concerned by this loading configuration of the trailer
+                for stack in best_packer[0]:
 
-                        # We concretely assign the stack to the trailer and note his location index
-                        t.add_stack(warehouse[stack.rid])
-                        stacks_used.append(stack.rid)
+                    # We concretely assign the stack to the trailer and note his location index
+                    t.add_stack(warehouse[stack.rid])
+                    stacks_used.append(stack.rid)
 
-                    # We update the length_used of the trailer
-                    # (using the top of the rectangle that is the most at the edge)
-                    t.length_used = max([rect.top for rect in best_packer[0]])
+                # We update the length_used of the trailer
+                # (using the top of the rectangle that is the most at the edge)
+                t.length_used = max([rect.top for rect in best_packer[0]])
 
-                    # We remove stacks used from the warehouse concerned
-                    warehouse.remove_stacks(stacks_used)
+                # We remove stacks used from the warehouse concerned
+                warehouse.remove_stacks(stacks_used)
 
-                    # We print the loading configuration of the trailer to visualize the result
-                    if plot_enabled:
-                        self.__print_load(best_packer[0], crate_type)
+                # We print the loading configuration of the trailer to visualize the result
+                if plot_enabled:
+                    self.__print_load(best_packer[0], crate_type)
 
         # We remove trailer that we're not used during the loading process
         self.__remove_leftover_trailers()
