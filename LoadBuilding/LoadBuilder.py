@@ -316,11 +316,12 @@ class LoadBuilder:
 
         return best_packer_index
 
-    def __validate_packing(self, packer):
+    def __validate_packing(self, crate_type, packer):
 
         """
         Verifies if the packing satisfies plc_lb constraint (Lower bound of percentage of length that must be covered)
 
+        :param crate_type: 'W' for wood, 'M' for metal
         :param packer: Packer object
         :returns: Boolean indicating if the loading satisfies constraint and number of units in the load
         """
@@ -332,7 +333,11 @@ class LoadBuilder:
         if max([rect.top for rect in trailer]) / trailer.height < self.plc_lb:
             qualified = False
         else:
-            items_used += sum([self.warehouse[rect.rid].nbr_of_models() for rect in trailer])
+            if crate_type == 'W':
+                items_used += sum([self.warehouse[rect.rid].nbr_of_models() for rect in trailer])
+
+            elif crate_type == 'M':
+                items_used += sum([self.metal_warehouse[rect.rid].nbr_of_models() for rect in trailer])
 
         return qualified, items_used
 
