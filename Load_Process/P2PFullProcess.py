@@ -143,6 +143,7 @@ def p2p_full_process():
                   ,[Priority_Rank]
                   ,[X_IF_MANDATORY]
                   ,[OVERHANG]
+                  ,[METAL_WOOD]
               FROM [Business_Planning].[dbo].[OTD_1_P2P_F_PRIORITY_WITHOUT_INVENTORY]
               where [POINT_FROM] <>[SHIPPING_POINT] and Length<>0 and Width <> 0 and Height <> 0
               and concat (POINT_FROM,SHIPPING_POINT) in (select distinct concat([POINT_FROM],[POINT_TO]) from [Business_Planning].[dbo].[OTD_1_P2P_F_PARAMETERS]
@@ -330,7 +331,6 @@ def p2p_full_process():
     ####################################################################################################################
     #                                                Create Loads
     ####################################################################################################################
-    print('\n\nCREATE FIRST LOADS\n\n')
 
     for param in DATAParams:  # for all P2P in parameters
 
@@ -348,7 +348,7 @@ def p2p_full_process():
                 # Here we set QTY and NBR_PER_CRATE to 1 because each line of the wishlist correspond to
                 # one crate and not one unit! Must be done this way to avoid having getting to many size_code
                 # in the returning list of the LoadBuilder
-                invData.append([1, wish.SIZE_DIMENSIONS, wish.LENGTH, wish.WIDTH, wish.HEIGHT, 1,
+                invData.append([1, wish.SIZE_DIMENSIONS, wish.LENGTH, wish.WIDTH, wish.HEIGHT, 1, wish.CRATE_TYPE,
                                 wish.STACKABILITY, wish.OVERHANG])
 
         # Construction of the data frame which we'll send to the LoadBuilder of our parameters object (p2p)
