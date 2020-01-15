@@ -336,20 +336,21 @@ class LoadBuilder:
 
         return qualified, items_used
 
-    def __max_rect_upperbound(self, trailer, last_upper_bound):
+    def __max_rect_upperbound(self, warehouse, trailer, last_upper_bound):
 
         """
         Recursive function that approximates a maximum number of rectangle that can fit in the trailer,
         according to rectangles available that are going to enter in the trailer.
 
+        :param warehouse: Object of class Warehouse
         :param trailer: Object of class Trailer
         :param last_upper_bound: Last upper bound found (int)
         :return: Approximation of the maximal number (int)
         """
 
         # We build a set containing all pairs of objects' width and length in a certain range in the warehouse
-        unique_tuples = set((self.warehouse[i].width, self.warehouse[i].length)
-                            for i in range(min(last_upper_bound, len(self.warehouse))))
+        unique_tuples = set((warehouse[i].width, warehouse[i].length)
+                            for i in range(min(last_upper_bound, len(warehouse))))
 
         # We initialize the shortest length found with the maximal length found
         shortest_length = max(max(dimensions) for dimensions in unique_tuples)
@@ -391,7 +392,7 @@ class LoadBuilder:
             return new_upper_bound
 
         else:
-            return self.__max_rect_upperbound(trailer, new_upper_bound)
+            return self.__max_rect_upperbound(warehouse, trailer, new_upper_bound)
 
     def __create_all_configs(self, warehouse, trailer):
 
