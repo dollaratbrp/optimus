@@ -483,11 +483,13 @@ class LoadBuilder:
 
         return configs
 
-    def __complete_packing(self, trailer, packer, start_index):
+    @staticmethod
+    def __complete_packing(warehouse, trailer, packer, start_index):
 
         """
         Verifies if one (or multiple) item unconsidered in the first part of packing fits at the end of the trailer
 
+        :param warehouse: Object of class warehouse
         :param trailer: Object of class Trailer
         :param packer: Packer object
         :param start_index: If i is the index of the last item we considered in first part, then start_index = i + 1
@@ -495,7 +497,7 @@ class LoadBuilder:
 
         # We look if there are items remaining in the warehouse (that were not considered in the first phase of packing)
         # and if there's still place in the trailer.
-        if len(self.warehouse) != start_index and max([rect.top for rect in packer[0]]) < trailer.length:
+        if len(warehouse) != start_index and max([rect.top for rect in packer[0]]) < trailer.length:
 
             # We save the current number of stack in the trailer
             last_res = len(packer[0])
@@ -504,12 +506,11 @@ class LoadBuilder:
             new_packer = newPacker(rotation=False)
 
             # We add rectangles unconsidered in the first phase of packing
-            for i in range(start_index, len(self.warehouse)):
-                new_packer.add_rect(self.warehouse[i].width, self.warehouse[i].length,
-                                    rid=i, overhang=self.warehouse[i].overhang)
+            for i in range(start_index, len(warehouse)):
+                new_packer.add_rect(warehouse[i].width, warehouse[i].length, rid=i, overhang=warehouse[i].overhang)
 
             # We add a large number of dummy bins
-            for j in range(len(self.warehouse) - start_index + 1):
+            for j in range(len(warehouse) - start_index + 1):
                 new_packer.add_bin(trailer.width, trailer.length, overhang=packer[0].overhang_measure)
 
             # We open the first bin
