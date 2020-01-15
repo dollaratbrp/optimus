@@ -77,7 +77,7 @@ class LoadBuilder:
                 nbr_stacks = int(np.floor(qty / items_per_stack))
 
                 # We save the crate type
-                crate_type = models_data['CRATE_TYPE']
+                crate_type = models_data['CRATE_TYPE'][i]
 
                 # We save the number of individual crates to build and convert it into
                 # integer to avoid conflict with range function. Also, with int(), every number in [0,1[ will
