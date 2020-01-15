@@ -445,7 +445,7 @@ class CratesManager:
                     # We stop the process for this stack to avoid waste of time
                     break
 
-                elif self.crates_type == 'M' and crate.length != self.crates[0].length:
+                if self.crates_type == 'M' and crate.length != self.crates[0].length:
                     stacking_available = False
 
                     # We stop the process for this stack to avoid waste of time
