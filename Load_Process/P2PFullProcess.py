@@ -14,7 +14,8 @@ from ParametersBox import *
 from P2P_Functions import *
 import pandas as pd
 from openpyxl.styles import (PatternFill, colors, Alignment)
-import Builder_tests.Read_And_Write as rw
+from openpyxl import Workbook
+import os
 
 """ Used SQL Table and actions: """
 # [Business_Planning].[dbo].[OTD_1_P2P_F_PARAMETERS_EMAIL_ADDRESS] : Get data, alter, delete, send
@@ -41,7 +42,6 @@ def p2p_full_process():
     :return: summary of the full process in at the 'saveFolder' directory
 
     """
-    get_trailers_data([],[])
     if not AutomaticRun:
         if not OpenParameters():  # If user cancel request
             sys.exit()
@@ -143,6 +143,7 @@ def p2p_full_process():
                   ,[Priority_Rank]
                   ,[X_IF_MANDATORY]
                   ,[OVERHANG]
+                  ,[METAL_WOOD]
               FROM [Business_Planning].[dbo].[OTD_1_P2P_F_PRIORITY_WITHOUT_INVENTORY]
               where [POINT_FROM] <>[SHIPPING_POINT] and Length<>0 and Width <> 0 and Height <> 0
               and concat (POINT_FROM,SHIPPING_POINT) in (select distinct concat([POINT_FROM],[POINT_TO]) from [Business_Planning].[dbo].[OTD_1_P2P_F_PARAMETERS]
@@ -324,65 +325,37 @@ def p2p_full_process():
     #                                                Isolate perfect match
     ####################################################################################################################
 
-    ListApprovedWish = []
-
-    # We iterate through wishlist to keep the priority order
-    for wish in DATAWishList:
-        position = 0  # To not loop through all inv Data at each iteration
-        for Iteration in range(wish.QUANTITY):
-            for It, inv in enumerate(DATAINV[position::]):
-                if EquivalentPlantFrom(inv.POINT, wish.POINT_FROM) and wish.MATERIAL_NUMBER == inv.MATERIAL_NUMBER\
-                        and inv.QUANTITY > 0:
-                    if inv.Future:  # QA of tomorrow, need to look if load is for today or later
-                        InvToTake = False
-                        for param in DATAParams:
-                            if wish.POINT_FROM == param.POINT_FROM and wish.SHIPPING_POINT == param.POINT_TO\
-                                    and param.days_to > 0:
-                                InvToTake = True
-                                break
-                        if InvToTake:
-                            inv.QUANTITY -= 1
-                            wish.INV_ITEMS.append(inv)
-                            position += It
-                            break  # no need to look further
-                    else:  # we give the inv to the wish item
-                        inv.QUANTITY -= 1
-                        wish.INV_ITEMS.append(inv)
-                        position += It
-                        break  # no need to look further
-
-        if len(wish.INV_ITEMS) < wish.QUANTITY:  # We give back taken inv if there is not enough units
-            for invToGiveBack in wish.INV_ITEMS:
-                invToGiveBack.QUANTITY += 1
-            wish.INV_ITEMS = []
-        else:
-            ListApprovedWish.append(wish)
-
+    # We initaliaze a list that will contain all wish approved
+    ListApprovedWish = find_perfect_match(DATAWishList, DATAINV, DATAParams)
 
     ####################################################################################################################
     #                                                Create Loads
     ####################################################################################################################
-    print('\n\nCREATE FIRST LOADS\n\n')
 
     for param in DATAParams:  # for all P2P in parameters
-        # Create data table to create loads
-        tempoOnLoad = []
-        columnsHead = ['QTY', 'MODEL', 'LENGTH', 'WIDTH', 'HEIGHT', 'NBR_PER_CRATE', 'STACK_LIMIT', 'OVERHANG']
-        invData = []
-        # pd.DataFrame([],columns=['QTY','MODEL','PLANT_TO','LENGTH','WIDTH','HEIGHT','NBR_PER_CRATE','STACK_LIMIT','OVERHANG'])
+
+        # Initialization of empty list
+        tempoOnLoad = []  # List to remember the INVobj that will be sent to the LoadBuilder
+        invData = []  # List that will contain the data to build the frame that will be sent to the LoadBuilder
+
+        # We loop through our wishes list
         for wish in ListApprovedWish:
-            if wish.POINT_FROM == param.POINT_FROM and wish.SHIPPING_POINT == param.POINT_TO and wish.QUANTITY > 0:
+
+            # If the wish is not fulfilled and his POINT FROM and POINT TO are corresponding with the param (p2p)
+            if wish.QUANTITY > 0 and wish.POINT_FROM == param.POINT_FROM and wish.SHIPPING_POINT == param.POINT_TO:
                 tempoOnLoad.append(wish)
-                invData.append([1, wish.SIZE_DIMENSIONS, wish.LENGTH, wish.WIDTH, wish.HEIGHT, 1,
-                                wish.STACKABILITY, wish.OVERHANG])  # quantity is one, one box for each line
-        models_data = pd.DataFrame(data=invData, columns=columnsHead)
-        models_data = models_data.groupby(['MODEL', 'LENGTH', 'WIDTH', 'HEIGHT',
-                                           'NBR_PER_CRATE', 'STACK_LIMIT', 'OVERHANG']).sum()
-        models_data = models_data.reset_index()
+
+                # Here we set QTY and NBR_PER_CRATE to 1 because each line of the wishlist correspond to
+                # one crate and not one unit! Must be done this way to avoid having getting to many size_code
+                # in the returning list of the LoadBuilder
+                invData.append([1, wish.SIZE_DIMENSIONS, wish.LENGTH, wish.WIDTH, wish.HEIGHT, 1, wish.CRATE_TYPE,
+                                wish.STACKABILITY, wish.OVERHANG])
+
+        # Construction of the data frame which we'll send to the LoadBuilder of our parameters object (p2p)
+        input_dataframe = loadbuilder_input_dataframe(invData)
 
         # Create loads
-        print('\n\nFROM : ', param.POINT_FROM, ' TO : ', param.POINT_TO)
-        result = param.LoadBuilder.build(models_data, param.LOADMAX, plot_load_done=printLoads)
+        result = param.LoadBuilder.build(input_dataframe, param.LOADMAX, plot_load_done=printLoads)
 
         # Choose which wish to send in load based on selected crates and priority order
         for model in result:
@@ -409,127 +382,21 @@ def p2p_full_process():
     ####################################################################################################################
     #                             Try to Make the minimum number of loads for each P2P
     ####################################################################################################################
-    print('\n\nSATISFY MINIMUM\n\n')
 
-    for param in DATAParams:
-        if len(param.LoadBuilder) < param.LOADMIN:  # If the minimum isn't reached
-            # create data table
-            tempoOnLoad = []
-            columnsHead = ['QTY', 'MODEL', 'LENGTH', 'WIDTH', 'HEIGHT', 'NBR_PER_CRATE', 'STACK_LIMIT', 'OVERHANG']
-            invData = []
-            for wish in DATAWishList:
-                if wish.POINT_FROM == param.POINT_FROM and wish.SHIPPING_POINT == param.POINT_TO and wish.QUANTITY > 0:
-                    position = 0
-                    for Iteration in range(wish.QUANTITY):
-                        for It, inv in enumerate(DATAINV[position::]):
-                            if EquivalentPlantFrom(inv.POINT, wish.POINT_FROM) and\
-                                    inv.MATERIAL_NUMBER == wish.MATERIAL_NUMBER and inv.QUANTITY > 0 and\
-                                    (not inv.Future or inv.Future and param.days_to > 0):
-                                inv.QUANTITY -= 1
-                                wish.INV_ITEMS.append(inv)
-                                position += It
-                                break  # no need to look further
-                    if len(wish.INV_ITEMS) < wish.QUANTITY:  # We give back taken inv
-                        for invToGiveBack in wish.INV_ITEMS:
-                            invToGiveBack.QUANTITY += 1
-                        wish.INV_ITEMS = []
-                    else:
-                        tempoOnLoad.append(wish)
-                        invData.append([1, wish.SIZE_DIMENSIONS, wish.LENGTH, wish.WIDTH,
-                                        wish.HEIGHT, 1, wish.STACKABILITY, wish.OVERHANG])
-
-            models_data = pd.DataFrame(data=invData, columns=columnsHead)
-            models_data = models_data.groupby(['MODEL', 'LENGTH', 'WIDTH', 'HEIGHT',
-                                               'NBR_PER_CRATE', 'STACK_LIMIT', 'OVERHANG']).sum()
-            models_data = models_data.reset_index()
-
-            # Create loads
-            print('\n\nFROM : ', param.POINT_FROM, ' TO : ', param.POINT_TO)
-            result = param.LoadBuilder.build(models_data, param.LOADMIN, plot_load_done=printLoads)
-
-            # Choose wish items to put on loads
-            for model in result:
-                found = False
-                for OnLoad in tempoOnLoad:
-                    if OnLoad.SIZE_DIMENSIONS == model and OnLoad.QUANTITY > 0:
-                        OnLoad.QUANTITY = 0
-                        found = True
-                        param.AssignedWish.append(OnLoad)
-                        break
-                if not found:
-                    print('Error in Perfect Match: impossible result.\n')
-            for wish in tempoOnLoad:  # If it is not on loads, give back inv
-                if wish.QUANTITY > 0:
-                    for inv in wish.INV_ITEMS:
-                        inv.QUANTITY += 1
-                    wish.INV_ITEMS = []
+    satisfy_max_or_min(DATAWishList, DATAINV, DATAParams, print_loads=printLoads)
 
     ####################################################################################################################
     #                               Try to Make the maximum number of loads for each P2P
     ####################################################################################################################
-    print('\n\nSATISFY MAXIMUM\n\n')
 
-    for param in DATAParams:
-        # if we haven't reached the max number of loads
-        if len(param.LoadBuilder) < param.LOADMAX:
-            # Create data table
-            tempoOnLoad = []
-            columnsHead = ['QTY', 'MODEL', 'LENGTH', 'WIDTH', 'HEIGHT', 'NBR_PER_CRATE', 'STACK_LIMIT', 'OVERHANG']
-            invData = []
-            for wish in DATAWishList:
-                if wish.POINT_FROM == param.POINT_FROM and wish.SHIPPING_POINT == param.POINT_TO and wish.QUANTITY > 0:
-                    position = 0
-                    for Iteration in range(wish.QUANTITY):
-                        for It, inv in enumerate(DATAINV[position::]):
-                            if EquivalentPlantFrom(inv.POINT, wish.POINT_FROM) and \
-                                    inv.MATERIAL_NUMBER == wish.MATERIAL_NUMBER and inv.QUANTITY > 0 \
-                                    and (not inv.Future or inv.Future and param.days_to > 0):
-
-                                inv.QUANTITY -= 1
-                                wish.INV_ITEMS.append(inv)
-                                position += It
-                                break  # no need to look further
-                    if len(wish.INV_ITEMS) < wish.QUANTITY:  # We give back taken inv
-                        for invToGiveBack in wish.INV_ITEMS:
-                            invToGiveBack.QUANTITY += 1
-                        wish.INV_ITEMS = []
-                    else:
-                        tempoOnLoad.append(wish)
-                        invData.append([1, wish.SIZE_DIMENSIONS, wish.LENGTH, wish.WIDTH,
-                                        wish.HEIGHT, 1, wish.STACKABILITY, wish.OVERHANG])
-
-            models_data = pd.DataFrame(data=invData, columns=columnsHead)
-            models_data = models_data.groupby(['MODEL', 'LENGTH', 'WIDTH', 'HEIGHT',
-                                               'NBR_PER_CRATE', 'STACK_LIMIT', 'OVERHANG']).sum()
-            models_data = models_data.reset_index()
-
-            # Create loads
-            print('\n\nFROM : ', param.POINT_FROM, ' TO : ', param.POINT_TO)
-            result = param.LoadBuilder.build(models_data, param.LOADMAX, plot_load_done=printLoads)
-
-            # choose wish items to put on loads
-            for model in result:
-                found = False
-                for OnLoad in tempoOnLoad:
-                    if OnLoad.SIZE_DIMENSIONS == model and OnLoad.QUANTITY > 0:
-                        OnLoad.QUANTITY = 0
-                        found = True
-                        param.AssignedWish.append(OnLoad)
-                        break
-                if not found:
-                    print('Error in Perfect Match: impossible result.\n')
-            for wish in tempoOnLoad:  # If it is not on loads, give back inv
-                if wish.QUANTITY > 0:
-                    for inv in wish.INV_ITEMS:
-                        inv.QUANTITY += 1
-                    wish.INV_ITEMS = []
+    satisfy_max_or_min(DATAWishList, DATAINV, DATAParams, satisfy_min=False, print_loads=printLoads)
 
     ####################################################################################################################
-    #                                                ### Test to save data
+    #                                           Writing of the results
     ####################################################################################################################
 
-    # to see created loads for each p2p
-    print('\n\n\n\nResults\n\n\n\n')
+    # We display loads create in each p2p for our own purpose
+    print('\n\nResults\n\n')
     for param in DATAParams:
         print('\n\n')
         print(param.POINT_FROM, ' _ ', param.POINT_TO)
@@ -617,4 +484,4 @@ def p2p_full_process():
 
     reference = [savexlsxFile(wb, saveFolder, dest_filename)]
     send_email(EmailList, dest_filename, '', reference)
-    # os.system('start "excel" "'+str(reference[0])+'"')  # To open excel workbook
+    os.system('start "excel" "'+str(reference[0])+'"')  # To open excel workbook

@@ -381,10 +381,11 @@ class CratesManager:
     that were not stacked and introduced in the main warehouse at first.
     """
 
-    def __init__(self):
+    def __init__(self, crates_type):
 
         self.crates = []                # List of individual crates (used in create_stacks function)
         self.stand_by_crates = []       # List of individual crates (used in create_incomplete_stacks function)
+        self.crates_type = crates_type  # 'W' for wood, "M" for metal
 
     def add_crate(self, crate):
 
@@ -437,7 +438,14 @@ class CratesManager:
             # For all next crates needed
             for crate in [self.crates[i] for i in range(1, crates_needed)]:
 
+                # We apply stacking rules of the crates type considered
                 if crate.width != self.crates[0].width:
+                    stacking_available = False
+
+                    # We stop the process for this stack to avoid waste of time
+                    break
+
+                if self.crates_type == 'M' and crate.length != self.crates[0].length:
                     stacking_available = False
 
                     # We stop the process for this stack to avoid waste of time
@@ -509,10 +517,12 @@ class CratesManager:
             for crate in [self.stand_by_crates[i] for i in range(1, min(len(self.stand_by_crates), crates_wanted))]:
 
                 if crate.width == self.stand_by_crates[0].width:
+                    if self.crates_type == 'W' or (self.crates_type == 'M' and
+                                                   crate.length == self.stand_by_crates[0].length):
 
-                    model_list += crate.model_names
-                    height += crate.height
-                    crates_used += 1
+                        model_list += crate.model_names
+                        height += crate.height
+                        crates_used += 1
 
                 # We stop the process if the next crate can't be on top of the actual one
                 else:

@@ -30,6 +30,12 @@ class FastLoadsBox:
         self.master = master
         self.master.title('Optimus FastLoads')
 
+        # Initialization of a bool indicating if we work with metal crates or not
+        self.crate_type = StringVar()
+        self.crate_type.set('W')
+
+        # Initialization of
+
         # Initialization and positioning of a frame that will contain sku labels and entries
         self.sku_frame = LabelFrame(self.master, borderwidth=2, relief=RIDGE, text='Crates')
         self.sku_frame.grid(row=0, column=0)
@@ -37,6 +43,15 @@ class FastLoadsBox:
         # All single sku labels and qty entries initialization and positioning
         self.sku_labels, self.sku_entries = self.create_sku_labels_and_entries(self.sku_frame,
                                                                                self.read_skus_and_quantities())
+
+        # Initialization of a frame for crate types radio buttons and initialization of the radio buttons themselves
+        self.crate_type_frame = LabelFrame(self.sku_frame, text='Type')
+        self.crate_type_frame.grid(row=len(self.sku_labels)+1, columnspan=2)
+        self.metal_button = Radiobutton(self.crate_type_frame, text='Metal', variable=self.crate_type, value='M')
+        self.wood_button = Radiobutton(self.crate_type_frame, text='Wood', variable=self.crate_type, value='W')
+        self.metal_button.grid(row=0, column=0)
+        self.wood_button.grid(row=0, column=1)
+
         # Recuperation of trailers data
         self.trailers_data = get_trailers_data()
 
@@ -147,7 +162,7 @@ class FastLoadsBox:
             # Building of dataframes required for the loading
             # (df1) Use to build an object that keeps track of link between SKUs and size code
             # (df2) Dataframe needed by the load builder
-            complete_dataframe = self.get_complete_dataframe(skus_list, qty_list)
+            complete_dataframe = self.get_complete_dataframe(skus_list, qty_list, str(self.crate_type.get()))
             df1, df2 = self.split_dataframes(complete_dataframe)
 
             # Initialization of the tracker (size_code dictionaries with SKUsContainer as value)
@@ -318,17 +333,19 @@ class FastLoadsBox:
         raise NotImplementedError
 
     @staticmethod
-    def get_complete_dataframe(skus_list, qty_list):
+    def get_complete_dataframe(skus_list, qty_list, crate_type):
         """
         Retrieves size_code and dimensions associated with our SKUs
         plus : 'NBR_PER_CRATE', 'STACK_LIMIT' and 'OVERHANG'
 
         :param skus_list: list of SKUs used in sql query to get the data
         :param qty_list: list of quantities associated to each SKU
+        :param crate_type: 'W' for wood, 'M' for metal
         :return: pandas dataframe
         """
         # Initialization of column names for data that will be sent to LoadBuilder
-        columns = ['QTY', 'SKU', 'MODEL', 'LENGTH', 'WIDTH', 'HEIGHT', 'NBR_PER_CRATE', 'STACK_LIMIT', 'OVERHANG']
+        columns = ['QTY', 'SKU', 'MODEL', 'LENGTH', 'WIDTH', 'HEIGHT', 'NBR_PER_CRATE',
+                   'CRATE_TYPE', 'STACK_LIMIT', 'OVERHANG']
 
         # Connection to SQL database that contains data needed
         sql_connect = SQLConnection('CAVLSQLPD2\pbi2', 'Business_Planning', 'OTD_0_MD_D_MATERIAL')
@@ -356,10 +373,11 @@ class FastLoadsBox:
         # Retrieve the data
         data = sql_connect.GetSQLData(sql_query)
 
-        # Add each qty at the beginning of the good line of data
+        # Add each qty at the beginning of the good line of data and crate type after the stack limit
         for line in data:
             index_of_qty = skus_list.index(line[0])
             line.insert(0, qty_list[index_of_qty])
+            line.insert(7, crate_type)
 
         return pd.DataFrame(data=data, columns=columns)
 
@@ -368,7 +386,7 @@ class FastLoadsBox:
         """
         Takes the complete dataframe and split it in two
         First : [QTY | SKU |  MODEL (SIZE_CODE)] to keep track of link between SKUs and size_code
-        Second : [QTY | MODEL (SIZE_CODE) | LENGTH | WIDTH | HEIGHT | NUMBER_PER_CRATE | STACK_LIMIT | OVERHANG ]
+        Second : [QTY | MODEL | LENGTH | WIDTH | HEIGHT | NUMBER_PER_CRATE | CRATE_TYPE | STACK_LIMIT | OVERHANG ]
         The second will be group by MODEL
 
         :return: two pandas data frames
@@ -376,11 +394,11 @@ class FastLoadsBox:
 
         # We extract both dataframes needed by making copy of some parts on complete dataframe
         first_df = complete_dataframe[['QTY', 'SKU', 'MODEL']].copy()
-        second_df = complete_dataframe[['QTY', 'MODEL', 'LENGTH', 'WIDTH', 'HEIGHT', 'NBR_PER_CRATE',
+        second_df = complete_dataframe[['QTY', 'MODEL', 'LENGTH', 'WIDTH', 'HEIGHT', 'NBR_PER_CRATE', 'CRATE_TYPE',
                                        'STACK_LIMIT', 'OVERHANG']].copy()
 
         # Do a groupby on second dataframe
-        second_df = second_df.groupby(['MODEL', 'LENGTH', 'WIDTH', 'HEIGHT',
+        second_df = second_df.groupby(['MODEL', 'LENGTH', 'WIDTH', 'HEIGHT', 'CRATE_TYPE',
                                        'NBR_PER_CRATE', 'STACK_LIMIT', 'OVERHANG']).sum().reset_index()
 
         return first_df, second_df

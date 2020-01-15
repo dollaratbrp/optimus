@@ -4,7 +4,7 @@ Author : Olivier Lefebre
 
 This file contained informations on WishlistObj class
 
-Last update : 2020-01-06
+Last update : 2020-01-14
 By : Nicolas Raymond
 
 """
@@ -16,7 +16,7 @@ DATAInclude = []
 
 class WishListObj:
     def __init__(self, SDN, SINU, STN, PF, SP, DIV, MAT_NUM, SIZE, LENG, WIDTH, HEIGHT,
-                 STACK, QTY, RANK, MANDATORY, OVERHANG, IsAdhoc=0):
+                 STACK, QTY, RANK, MANDATORY, OVERHANG, CRATE_TYPE, IsAdhoc=0):
 
         self.SALES_DOCUMENT_NUMBER = SDN
         self.SALES_ITEM_NUMBER = SINU
@@ -35,6 +35,7 @@ class WishListObj:
         self.MANDATORY = MANDATORY
         self.OVERHANG = OVERHANG
         self.IsAdhoc=IsAdhoc
+        self.CRATE_TYPE = CRATE_TYPE
 
         # To keep track of inv origins
         self.INV_ITEMS = []
@@ -59,10 +60,6 @@ class INVObj:
         self.DATE = DATE
         self.STATUS = STATUS
         self.Future = not (weekdays(0) == DATE)  # if available date is not the same as today
-
-        #To see if we took inv
-        #self.ORIGINAL_QUANTITY = QUANTITY
-
         self.unused = 0  # count the number of skus to display on BOOKED_UNUSED worksheet
 
     def lineToXlsx(self):
@@ -148,6 +145,182 @@ def get_trailers_data(category_list=[], qty_list=[]):
             line.insert(0, 0)
 
     return pd.DataFrame(data=data, columns=columns)
+
+
+def find_perfect_match(Wishes, Inventory, Parameters):
+
+    """
+    Finds perfect match between wishes of the wish list, inventory available and p2p available in the parameter box
+    :param Wishes: List of wishes (list of WishlistObj)
+    :param Inventory: List of INVobj
+    :param Parameters: List of Parameters
+    :return: List of whishes approved
+    """
+    # We initialize a list that will contain all wish approved
+    ApprovedWish = []
+
+    # We iterate through wishlist to keep the priority order
+    for wish in Wishes:
+
+        position = 0  # To not loop through all inv Data at each iteration
+
+        # For all unit needed to fulfill our wish
+        for unit_needed in range(wish.QUANTITY):
+
+            # For all pairs of (index, INVobj) of our list of INVobj
+            for It, inv in enumerate(Inventory[position::]):
+
+                # If the wish and inventory POINT FROM are equivalent and material number are the same and the quantity
+                # attribute of the INVobj is greater than 0 (there's still units of this SKU in inventory)
+                if EquivalentPlantFrom(inv.POINT, wish.POINT_FROM) and wish.MATERIAL_NUMBER == inv.MATERIAL_NUMBER \
+                        and inv.QUANTITY > 0:
+
+                    # If the inventory object (INVobj) will be available later than today
+                    if inv.Future:  # QA of tomorrow, need to look if load is for today or later
+
+                        InvToTake = False
+
+                        # We loop through our parameters obj through DATAParams list
+                        # (We can see it as looping through lines of parameter box)
+                        for p2p in Parameters:
+
+                            # If p2p point_from and point_to are corresponding with the wish
+                            if wish.POINT_FROM == p2p.POINT_FROM and wish.SHIPPING_POINT == p2p.POINT_TO \
+                                    and p2p.days_to > 0:
+                                # We must take the item
+                                InvToTake = True
+                                break
+
+                        # If we decided to take the item from the inventory
+                        if InvToTake:
+                            # We decrease its quantity and add the INVobj to the list of inventory items of the wish
+                            inv.QUANTITY -= 1
+                            wish.INV_ITEMS.append(inv)
+                            position += It
+                            break  # no need to look further
+
+                    # Else, the INVobj is available today
+                    else:
+
+                        # we give the inv to the wish item
+                        inv.QUANTITY -= 1
+                        wish.INV_ITEMS.append(inv)
+                        position += It
+                        break  # no need to look further
+
+        # We give back taken inv if there is not enough units to fulfill a wish (build a crate)
+        if len(wish.INV_ITEMS) < wish.QUANTITY:
+            for invToGiveBack in wish.INV_ITEMS:
+                invToGiveBack.QUANTITY += 1
+            wish.INV_ITEMS = []
+        else:
+            ApprovedWish.append(wish)
+
+    return ApprovedWish
+
+
+def satisfy_max_or_min(Wishes, Inventory, Parameters, satisfy_min=True, print_loads=False):
+    """
+    Attributes wishes wisely among p2p'S in Parameters list in order to satisfy their min or their max value
+
+    :param Wishes: List of wishes (list of WishlistObj)
+    :param Inventory: List of INVobj
+    :param Parameters: List of Parameters
+    :param satisfy_min: (bool) if false -> we want to satisfy the max
+    :param print_loads: (bool) indicates if we plot each load or not
+    """
+
+    # We save a "trigger" integer value indicating if we want to satisfy min or max
+    check_min = int(satisfy_min)  # Will be 1 if we want to satisfy min and 0 instead
+
+    # For each parameters in Parameters list
+    for param in Parameters:
+        if len(param.LoadBuilder) < (check_min*param.LOADMIN + (1-check_min)*param.LOADMAX):
+
+            # Initialization of empty list
+            tempoOnLoad = []  # List to remember the INVobj that will be sent to the LoadBuilder
+            invData = []      # List that will contain the data to build the frame that will be sent to the LoadBuilder
+
+            # We loop through our wishes list
+            for wish in Wishes:
+
+                # If the wish is not fulfilled and his POINT FROM and POINT TO are corresponding with the param (p2p)
+                if wish.QUANTITY > 0 and wish.POINT_FROM == param.POINT_FROM and wish.SHIPPING_POINT == param.POINT_TO:
+                    position = 0
+
+                    # We look if there's inventory available to satisfy each unit needed for our wish
+                    for unit_needed in range(wish.QUANTITY):
+
+                        # For all pairs of (index, INVobj) of our list of INVobj
+                        for It, inv in enumerate(Inventory[position::]):
+                            if EquivalentPlantFrom(inv.POINT, wish.POINT_FROM) and\
+                                    inv.MATERIAL_NUMBER == wish.MATERIAL_NUMBER and inv.QUANTITY > 0 and\
+                                    (not inv.Future or inv.Future and param.days_to > 0):
+                                inv.QUANTITY -= 1
+                                wish.INV_ITEMS.append(inv)
+                                position += It
+                                break  # no need to look further
+
+                    # We give back taken inv if there is not enough units to fulfill a wish (build a crate)
+                    if len(wish.INV_ITEMS) < wish.QUANTITY:  # We give back taken inv
+                        for invToGiveBack in wish.INV_ITEMS:
+                            invToGiveBack.QUANTITY += 1
+                        wish.INV_ITEMS = []
+
+                    # If the wish can be satisfied
+                    else:
+                        tempoOnLoad.append(wish)
+
+                        # Here we set QTY and NBR_PER_CRATE to 1 because each line of the wishlist correspond to
+                        # one crate and not one unit! Must be done this way to avoid having getting to many size_code
+                        # in the returning list of the LoadBuilder
+                        invData.append([1, wish.SIZE_DIMENSIONS, wish.LENGTH, wish.WIDTH,
+                                        wish.HEIGHT, 1, wish.CRATE_TYPE, wish.STACKABILITY, wish.OVERHANG])
+
+            # Construction of the data frame which we'll send to the LoadBuilder of our parameters object (p2p)
+            input_dataframe = loadbuilder_input_dataframe(invData)
+
+            # Construction of loadings
+            result = param.LoadBuilder.build(models_data=input_dataframe,
+                                             max_load=(check_min*param.LOADMIN + (1-check_min)*param.LOADMAX),
+                                             plot_load_done=print_loads)
+
+            # Choice the wish items to put on loads
+            for model in result:
+                found = False
+                for OnLoad in tempoOnLoad:
+                    if OnLoad.SIZE_DIMENSIONS == model and OnLoad.QUANTITY > 0:
+                        OnLoad.QUANTITY = 0
+                        found = True
+                        param.AssignedWish.append(OnLoad)
+                        break
+                if not found:
+                    print('Error in Perfect Match: impossible result.\n')
+            for wish in tempoOnLoad:  # If it is not on loads, give back inv
+                if wish.QUANTITY > 0:
+                    for inv in wish.INV_ITEMS:
+                        inv.QUANTITY += 1
+                    wish.INV_ITEMS = []
+
+
+def loadbuilder_input_dataframe(data):
+    """
+    Builds the appropriate pandas data frame needed as input of the LoadBuilder
+    :param data: List of lists containing every line of data for our frame
+    :return: pandas dataframe
+    """
+
+    # Creation of the data frame
+    input_frame = pd.DataFrame(data=data, columns=['QTY', 'MODEL', 'LENGTH', 'WIDTH',
+                                                   'HEIGHT', 'NBR_PER_CRATE', 'CRATE_TYPE', 'STACK_LIMIT', 'OVERHANG'])
+    # Group by to sum quantity
+    input_frame = input_frame.groupby(['MODEL', 'LENGTH', 'WIDTH', 'HEIGHT',
+                                       'NBR_PER_CRATE', 'CRATE_TYPE', 'STACK_LIMIT', 'OVERHANG']).sum()
+
+    # Reformatting of the new object as a standard data frame
+    input_frame = input_frame.reset_index()
+
+    return input_frame
 
 
 def EquivalentPlantFrom(Point1, Point2):

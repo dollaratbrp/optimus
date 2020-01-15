@@ -25,8 +25,6 @@ class LoadBuilder:
                  overhang_authorized=40, maximum_trailer_length=636, plc_lb=0.75):
 
         """
-        :param plant_from: name of the plant from where the item are shipped
-        :param plant_to: name of the plant where the item are shipped
         :param trailers_data: Pandas data frame containing details on trailers available
         :param overhang_authorized: maximum overhanging measure authorized by law for a trailer
         :param maximum_trailer_length: maximum length authorized by law for a trailer
@@ -36,7 +34,9 @@ class LoadBuilder:
         self.overhang_authorized = overhang_authorized  # In inches
         self.max_trailer_length = maximum_trailer_length  # In inches
         self.plc_lb = plc_lb
-        self.model_names, self.warehouse, self.remaining_crates = [], LoadObj.Warehouse(), LoadObj.CratesManager()
+        self.model_names = []
+        self.warehouse, self.remaining_crates = LoadObj.Warehouse(), LoadObj.CratesManager('W')
+        self.metal_warehouse, self.metal_remaining_crates = LoadObj.Warehouse(), LoadObj.CratesManager('M')
         self.trailers, self.trailers_done, self.unused_models = [], [], []
         self.all_size_codes = set()
 
@@ -76,27 +76,47 @@ class LoadBuilder:
                 # We compute the number of stacks that we can build
                 nbr_stacks = int(np.floor(qty / items_per_stack))
 
-                for j in range(nbr_stacks):
-                    # We build the stack and send it into the warehouse
-                    self.warehouse.add_stack(LoadObj.Stack(max(models_data['LENGTH'][i], models_data['WIDTH'][i]),
-                                                           min(models_data['WIDTH'][i], models_data['LENGTH'][i]),
-                                                           models_data['HEIGHT'][i] * stack_limit,
-                                                           [models_data['MODEL'][i]] * items_per_stack, overhang))
+                # We save the crate type
+                crate_type = models_data['CRATE_TYPE'][i]
 
                 # We save the number of individual crates to build and convert it into
                 # integer to avoid conflict with range function. Also, with int(), every number in [0,1[ will
                 # be convert as 0. This way, no individual crate of SP2 will be build if there's less than 2 SP2 left
                 nbr_individual_crates = int((qty - (items_per_stack * nbr_stacks)) / nbr_per_crate)
 
-                for j in range(nbr_individual_crates):
-                    # We build the crate and send it to the crates manager
-                    self.remaining_crates.add_crate(LoadObj.Crate([models_data['MODEL'][i]] * nbr_per_crate,
-                                                                  max(models_data['LENGTH'][i],
-                                                                      models_data['WIDTH'][i]),
-                                                                  min(models_data['WIDTH'][i],
-                                                                      models_data['LENGTH'][i]),
-                                                                  models_data['HEIGHT'][i],
-                                                                  stack_limit, overhang))
+                stacks_component = [max(models_data['LENGTH'][i], models_data['WIDTH'][i]),
+                                    min(models_data['WIDTH'][i], models_data['LENGTH'][i]),
+                                    models_data['HEIGHT'][i] * stack_limit,
+                                    [models_data['MODEL'][i]] * items_per_stack, overhang]
+
+                crates_component = [[models_data['MODEL'][i]] * nbr_per_crate,
+                                    max(models_data['LENGTH'][i],
+                                    models_data['WIDTH'][i]),
+                                    min(models_data['WIDTH'][i], models_data['LENGTH'][i]),
+                                    models_data['HEIGHT'][i],
+                                    stack_limit, overhang]
+
+                if crate_type == 'W':
+                    for j in range(nbr_stacks):
+
+                        # We build the stack and send it into the warehouse
+                        self.warehouse.add_stack(LoadObj.Stack(*stacks_component))
+
+                    for j in range(nbr_individual_crates):
+
+                        # We build the crate and send it to the crates manager
+                        self.remaining_crates.add_crate(LoadObj.Crate(*crates_component))
+
+                elif crate_type == 'M':
+                    for j in range(nbr_stacks):
+
+                        # We build the stack and send it into the warehouse
+                        self.metal_warehouse.add_stack(LoadObj.Stack(*stacks_component))
+
+                    for j in range(nbr_individual_crates):
+
+                        # We build the crate and send it to the crates manager
+                        self.metal_remaining_crates.add_crate(LoadObj.Crate(*crates_component))
 
         # We flatten the model_names list
         self.model_names = [item for sublist in self.model_names for item in sublist]
@@ -142,12 +162,19 @@ class LoadBuilder:
         """
         Finishes stacking procedure with crates that weren't stacked at first
         """
-
+        # Finishing stacking procedure for wooden crates
         if len(self.remaining_crates.crates) > 0:
             self.remaining_crates.create_stacks(self.warehouse)
 
             if len(self.remaining_crates.stand_by_crates) > 0:
                 self.remaining_crates.create_incomplete_stacks(self.warehouse)
+
+        # Finishing stacking for metal crates
+        if len(self.metal_remaining_crates.crates) > 0:
+            self.metal_remaining_crates.create_stacks(self.metal_warehouse)
+
+            if len(self.metal_remaining_crates.stand_by_crates) > 0:
+                self.metal_remaining_crates.create_incomplete_stacks(self.metal_warehouse)
 
     def __trailer_packing(self, plot_enabled=False):
 
@@ -171,82 +198,94 @@ class LoadBuilder:
         for t in self.trailers:
 
             # We initialize a list that will contain stacks stored in the trailer, and a list of different
-            # "packer" loading strategies that were tried.
+            # containing tuples of crate type and "packer" loading strategies that were tried.
             stacks_used, packers = [], []
 
-            # We compute all possible configurations of loading (efficiently) if there's still stacks available
-            if len(self.warehouse) != 0:
-                self.warehouse.sort_by_volume()
-                all_configs = self.__create_all_configs(t)
+            # We try to fill the trailer the best way as possible considering best configurations between
+            # wooden warehouse and metal warehouse
+            for crate_type, warehouse in [('W', self.warehouse), ('M', self.metal_warehouse)]:
 
-            else:
-                all_configs = []
+                # We compute all possible configurations of loading (efficiently) if there's still stacks available
+                if len(warehouse) != 0:
+                    warehouse.sort_by_volume()
+                    all_configs = self.__create_all_configs(warehouse, t)
 
-            # If there's possible configurations
-            if len(all_configs) != 0:
+                else:
+                    all_configs = []
 
-                for config in all_configs:
+                # If there's possible configurations
+                if len(all_configs) != 0:
 
-                    # We initialize a packer with default parameter (except rotation)
-                    packer = newPacker(rotation=False)
+                    for config in all_configs:
 
-                    # We add stacks to load in the trailer (the rectangles)
-                    for i in range(len(config)):
+                        # We initialize a packer with default parameter (except rotation)
+                        packer = newPacker(rotation=False)
 
-                        # If the rectangle is rotated
-                        if config[i]:
-                            packer.add_rect(self.warehouse[i].length, self.warehouse[i].width, rid=i,
-                                            overhang=self.warehouse[i].overhang)
+                        # We add stacks to load in the trailer (the rectangles)
+                        for i in range(len(config)):
 
-                        else:
-                            packer.add_rect(self.warehouse[i].width, self.warehouse[i].length, rid=i,
-                                            overhang=self.warehouse[i].overhang)
+                            # If the rectangle is rotated
+                            if config[i]:
+                                packer.add_rect(warehouse[i].length, warehouse[i].width, rid=i,
+                                                overhang=warehouse[i].overhang)
 
-                    # We add two other dummy bins to store rectangles that do not enter in our trailer (first bin)
-                    for i in range(2):
-                        packer.add_bin(t.width, t.length, bid=None, overhang=t.oh)
+                            else:
+                                packer.add_rect(warehouse[i].width, warehouse[i].length, rid=i,
+                                                overhang=warehouse[i].overhang)
 
-                    # We execute the packing
-                    packer.pack()
+                        # We add two other dummy bins to store rectangles that do not enter in our trailer (first bin)
+                        for i in range(2):
+                            packer.add_bin(t.width, t.length, bid=None, overhang=t.oh)
 
-                    # We complete the packing (look if some unconsidered rectangles could enter at the end)
-                    self.__complete_packing(t, packer, len(config))
+                        # We execute the packing
+                        packer.pack()
 
-                    # We save the loading configuration (the packer)
-                    packers.append(packer)
+                        # We complete the packing (look if some unconsidered rectangles could enter at the end)
+                        self.__complete_packing(warehouse, t, packer, len(config))
 
-                # We save the index of the best loading configuration that respected the constraint of plc_lb
-                best_packer_index = self.__select_best_packer(packers)
+                        # We save the loading configuration (the packer)
+                        packers.append((crate_type, packer))
 
-                # If an index is found (at least one load satisfies the constraint)
-                if best_packer_index is not None:
+            # We save the index of the best loading configuration that respected the constraint of plc_lb
+            best_packer_index = self.__select_best_packer(packers)
 
-                    # We save the specified packer
-                    best_packer = packers[best_packer_index]
+            # If an index is found (at least one load satisfies the constraint)
+            if best_packer_index is not None:
 
-                    # For every stack concerned by this loading configuration of the trailer
-                    for stack in best_packer[0]:
+                # We save the specified packer and the crate_type concerned
+                best_packer = packers[best_packer_index][1]
+                crate_type = packers[best_packer_index][0]
 
-                        # We concretely assign the stack to the trailer and note his location (index) in the warehouse
-                        t.add_stack(self.warehouse[stack.rid])
-                        stacks_used.append(stack.rid)
+                # We determine the warehouse concerned with the crate_type
+                if crate_type == 'W':
+                    warehouse = self.warehouse
+                elif crate_type == 'M':
+                    warehouse = self.metal_warehouse
 
-                    # We update the length_used of the trailer
-                    # (using the top of the rectangle that is the most at the edge)
-                    t.length_used = max([rect.top for rect in best_packer[0]])
+                # For every stack concerned by this loading configuration of the trailer
+                for stack in best_packer[0]:
 
-                    # We remove stacks used from the warehouse
-                    self.warehouse.remove_stacks(stacks_used)
+                    # We concretely assign the stack to the trailer and note his location index
+                    t.add_stack(warehouse[stack.rid])
+                    stacks_used.append(stack.rid)
 
-                    # We print the loading configuration of the trailer to visualize the result
-                    if plot_enabled:
-                        self.__print_load(best_packer[0])
+                # We update the length_used of the trailer
+                # (using the top of the rectangle that is the most at the edge)
+                t.length_used = max([rect.top for rect in best_packer[0]])
+
+                # We remove stacks used from the warehouse concerned
+                warehouse.remove_stacks(stacks_used)
+
+                # We print the loading configuration of the trailer to visualize the result
+                if plot_enabled:
+                    self.__print_load(best_packer[0], crate_type)
 
         # We remove trailer that we're not used during the loading process
         self.__remove_leftover_trailers()
 
-        # We save unused models
+        # We save unused models from both warehouses
         self.warehouse.save_unused_crates(self.unused_models)
+        self.metal_warehouse.save_unused_crates(self.unused_models)
 
     def __select_best_packer(self, packers_list):
 
@@ -254,7 +293,7 @@ class LoadBuilder:
         Pick the best loading configuration done (the best packer) among the list according to the number of units
         placed in the trailer.
 
-        :param packers_list: List containing packers object
+        :param packers_list: List containing tuples with crate_types and packers object
         :return: Index of the location of the best packer
         """
 
@@ -262,10 +301,10 @@ class LoadBuilder:
         best_packer_index = None
         best_nb_items_used = 0
 
-        for packer in packers_list:
+        for crate_type, packer in packers_list:
 
             # We check if packing respect plc lower bound and how many items it contains
-            qualified, items_used = self.__validate_packing(packer)
+            qualified, items_used = self.__validate_packing(crate_type, packer)
 
             # If the packing respect constraints and has more items than the best one yet,
             # we change our best packer for this one.
@@ -277,11 +316,12 @@ class LoadBuilder:
 
         return best_packer_index
 
-    def __validate_packing(self, packer):
+    def __validate_packing(self, crate_type, packer):
 
         """
         Verifies if the packing satisfies plc_lb constraint (Lower bound of percentage of length that must be covered)
 
+        :param crate_type: 'W' for wood, 'M' for metal
         :param packer: Packer object
         :returns: Boolean indicating if the loading satisfies constraint and number of units in the load
         """
@@ -293,24 +333,29 @@ class LoadBuilder:
         if max([rect.top for rect in trailer]) / trailer.height < self.plc_lb:
             qualified = False
         else:
-            items_used += sum([self.warehouse[rect.rid].nbr_of_models() for rect in trailer])
+            if crate_type == 'W':
+                items_used += sum([self.warehouse[rect.rid].nbr_of_models() for rect in trailer])
+
+            elif crate_type == 'M':
+                items_used += sum([self.metal_warehouse[rect.rid].nbr_of_models() for rect in trailer])
 
         return qualified, items_used
 
-    def __max_rect_upperbound(self, trailer, last_upper_bound):
+    def __max_rect_upperbound(self, warehouse, trailer, last_upper_bound):
 
         """
         Recursive function that approximates a maximum number of rectangle that can fit in the trailer,
         according to rectangles available that are going to enter in the trailer.
 
+        :param warehouse: Object of class Warehouse
         :param trailer: Object of class Trailer
         :param last_upper_bound: Last upper bound found (int)
         :return: Approximation of the maximal number (int)
         """
 
         # We build a set containing all pairs of objects' width and length in a certain range in the warehouse
-        unique_tuples = set((self.warehouse[i].width, self.warehouse[i].length)
-                            for i in range(min(last_upper_bound, len(self.warehouse))))
+        unique_tuples = set((warehouse[i].width, warehouse[i].length)
+                            for i in range(min(last_upper_bound, len(warehouse))))
 
         # We initialize the shortest length found with the maximal length found
         shortest_length = max(max(dimensions) for dimensions in unique_tuples)
@@ -352,31 +397,32 @@ class LoadBuilder:
             return new_upper_bound
 
         else:
-            return self.__max_rect_upperbound(trailer, new_upper_bound)
+            return self.__max_rect_upperbound(warehouse, trailer, new_upper_bound)
 
-    def __create_all_configs(self, trailer):
+    def __create_all_configs(self, warehouse, trailer):
 
         """
-        Creates all configurations of loading that can be done for the trailer. To avoid considering
-        a large number of bad configurations and enhance the efficiency of the algorithm, we will pre-set
-        wisely the positions of rectangles for a certain range of the trailer and THEN consider
+        Creates all configurations of loading (using warehouse units) that can be done for the trailer.
+        To avoid considering a large number of bad configurations and enhance the efficiency of the algorithm,
+        we will pre-set wisely the positions of rectangles for a certain range of the trailer and THEN consider
         all possible configurations for the end of the loading of the trailer.
 
+        :param warehouse: Object of class warehouse
         :param trailer: Object of class Trailer
         :return: List of list of boolean indicating permission of rotation
         """
 
         # We initialize a numpy array of configurations (only one configuration for now)
-        configs, nb_oversize = self.warehouse.merge_for_trailer(trailer)
+        configs, nb_oversize = warehouse.merge_for_trailer(trailer)
         configs = np.array([configs])
 
         # We compute an upper bound for the maximal number of rectangles that can fit in our trailer
-        nb_rect_to_consider = len(self.warehouse) - nb_oversize
+        nb_rect_to_consider = len(warehouse) - nb_oversize
 
         if nb_rect_to_consider == 0:
             return []
 
-        ub = self.__max_rect_upperbound(trailer, nb_rect_to_consider)
+        ub = self.__max_rect_upperbound(warehouse, trailer, nb_rect_to_consider)
 
         # We save the number of stack pre-rotated
         nb_of_pre_rotated = configs.shape[1]
@@ -386,7 +432,7 @@ class LoadBuilder:
 
         # We set the start index and the end index of research to build possible configurations
         i = nb_of_pre_rotated
-        end_index = min(len(self.warehouse), ub)
+        end_index = min(len(warehouse), ub)
 
         while i < end_index:
 
@@ -397,14 +443,15 @@ class LoadBuilder:
             new_configs = np.array([[]])
 
             # If it's possible to rotate the i-th item in the warehouse for this trailer
-            if trailer.fit(self.warehouse[i], rotated=True):
+            if trailer.fit(warehouse[i], rotated=True):
                 # We add the rotated rectangle indicator (True) to all configs found until now
                 true_vec = [[True]] * len(configs)
                 new_configs = np.append(np.copy(configs), true_vec, axis=1)
                 fit = True
 
             # If the i-th item fit not rotated in this trailer
-            if trailer.fit(self.warehouse[i]):
+            if trailer.fit(warehouse[i]):
+
                 # We add the rotated rectangle indicator (False) to all configs found until now
                 false_vec = [[False]] * len(configs)
                 configs = np.append(configs, false_vec, axis=1)
@@ -416,7 +463,7 @@ class LoadBuilder:
                 leftover.append(i)
 
                 # (If possible) We extend our research space cause we didn't enter the current stack in our configs
-                end_index = min(len(self.warehouse), end_index + 1)
+                end_index = min(len(warehouse), end_index + 1)
 
             else:
                 # We update configurations
@@ -431,16 +478,18 @@ class LoadBuilder:
         # We push leftover at the end of the warehouse to avoid conflict during loading process
         if len(leftover) > 0:
             for j in leftover:
-                self.warehouse.add_stack(self.warehouse[j])
-            self.warehouse.remove_stacks(leftover)
+                warehouse.add_stack(warehouse[j])
+            warehouse.remove_stacks(leftover)
 
         return configs
 
-    def __complete_packing(self, trailer, packer, start_index):
+    @staticmethod
+    def __complete_packing(warehouse, trailer, packer, start_index):
 
         """
         Verifies if one (or multiple) item unconsidered in the first part of packing fits at the end of the trailer
 
+        :param warehouse: Object of class warehouse
         :param trailer: Object of class Trailer
         :param packer: Packer object
         :param start_index: If i is the index of the last item we considered in first part, then start_index = i + 1
@@ -448,7 +497,7 @@ class LoadBuilder:
 
         # We look if there are items remaining in the warehouse (that were not considered in the first phase of packing)
         # and if there's still place in the trailer.
-        if len(self.warehouse) != start_index and max([rect.top for rect in packer[0]]) < trailer.length:
+        if len(warehouse) != start_index and max([rect.top for rect in packer[0]]) < trailer.length:
 
             # We save the current number of stack in the trailer
             last_res = len(packer[0])
@@ -457,12 +506,11 @@ class LoadBuilder:
             new_packer = newPacker(rotation=False)
 
             # We add rectangles unconsidered in the first phase of packing
-            for i in range(start_index, len(self.warehouse)):
-                new_packer.add_rect(self.warehouse[i].width, self.warehouse[i].length,
-                                    rid=i, overhang=self.warehouse[i].overhang)
+            for i in range(start_index, len(warehouse)):
+                new_packer.add_rect(warehouse[i].width, warehouse[i].length, rid=i, overhang=warehouse[i].overhang)
 
             # We add a large number of dummy bins
-            for j in range(len(self.warehouse) - start_index + 1):
+            for j in range(len(warehouse) - start_index + 1):
                 new_packer.add_bin(trailer.width, trailer.length, overhang=packer[0].overhang_measure)
 
             # We open the first bin
@@ -555,11 +603,12 @@ class LoadBuilder:
         self.trailers.clear()
 
     @staticmethod
-    def __print_load(trailer):
+    def __print_load(trailer, crate_type):
 
         """
-        Plots a the loading configuration of the trailer
+        Plots the loading configuration of the trailer
 
+        :param crate_type: 'W' for wood, 'M' for metal
         :param trailer: Object of class Trailer
         """
 
@@ -577,7 +626,13 @@ class LoadBuilder:
             ]
 
             path = Path(vertices, codes)
-            patch = patches.PathPatch(path, facecolor="yellow", lw=2)
+
+            if crate_type == 'W':
+                patch = patches.PathPatch(path, facecolor="brown", lw=2)
+
+            else:  # crate_type == 'M'
+                patch = patches.PathPatch(path, facecolor="grey", lw=2)
+
             ax.add_patch(patch)
 
         plt.axis('scaled')
@@ -626,7 +681,7 @@ class LoadBuilder:
         data_frame = data_frame[cols]
 
         # We set indexes
-        #data_frame.set_index("TRAILER", inplace=True)
+        # data_frame.set_index("TRAILER", inplace=True)
 
         return data_frame
 
@@ -643,7 +698,6 @@ class LoadBuilder:
         """
         # We look if models_data is empty
         if models_data.empty:
-            print('NO INVENTORY AVAILABLE')
             return []
 
         # We init the warehouse
