@@ -16,7 +16,7 @@ DATAInclude = []
 
 class WishListObj:
     def __init__(self, SDN, SINU, STN, PF, SP, DIV, MAT_NUM, SIZE, LENG, WIDTH, HEIGHT,
-                 STACK, QTY, RANK, MANDATORY, OVERHANG, IsAdhoc=0):
+                 STACK, QTY, RANK, MANDATORY, OVERHANG, CRATE_TYPE, IsAdhoc=0):
 
         self.SALES_DOCUMENT_NUMBER = SDN
         self.SALES_ITEM_NUMBER = SINU
@@ -35,6 +35,7 @@ class WishListObj:
         self.MANDATORY = MANDATORY
         self.OVERHANG = OVERHANG
         self.IsAdhoc=IsAdhoc
+        self.CRATE_TYPE = CRATE_TYPE
 
         # To keep track of inv origins
         self.INV_ITEMS = []
@@ -278,7 +279,7 @@ def satisfy_max_or_min(Wishes, Inventory, Parameters, satisfy_min=True, print_lo
                         # one crate and not one unit! Must be done this way to avoid having getting to many size_code
                         # in the returning list of the LoadBuilder
                         invData.append([1, wish.SIZE_DIMENSIONS, wish.LENGTH, wish.WIDTH,
-                                        wish.HEIGHT, 1, wish.STACKABILITY, wish.OVERHANG])
+                                        wish.HEIGHT, 1, wish.CRATE_TYPE, wish.STACKABILITY, wish.OVERHANG])
 
             # Construction of the data frame which we'll send to the LoadBuilder of our parameters object (p2p)
             input_dataframe = loadbuilder_input_dataframe(invData)
@@ -315,10 +316,10 @@ def loadbuilder_input_dataframe(data):
 
     # Creation of the data frame
     input_frame = pd.DataFrame(data=data, columns=['QTY', 'MODEL', 'LENGTH', 'WIDTH',
-                                                   'HEIGHT', 'NBR_PER_CRATE', 'STACK_LIMIT', 'OVERHANG'])
+                                                   'HEIGHT', 'NBR_PER_CRATE', 'CRATE_TYPE', 'STACK_LIMIT', 'OVERHANG'])
     # Group by to sum quantity
     input_frame = input_frame.groupby(['MODEL', 'LENGTH', 'WIDTH', 'HEIGHT',
-                                       'NBR_PER_CRATE', 'STACK_LIMIT', 'OVERHANG']).sum()
+                                       'NBR_PER_CRATE', 'CRATE_TYPE', 'STACK_LIMIT', 'OVERHANG']).sum()
 
     # Reformatting of the new object as a standard data frame
     input_frame = input_frame.reset_index()
