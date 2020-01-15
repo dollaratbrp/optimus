@@ -603,11 +603,12 @@ class LoadBuilder:
         self.trailers.clear()
 
     @staticmethod
-    def __print_load(trailer):
+    def __print_load(trailer, crate_type):
 
         """
         Plots the loading configuration of the trailer
 
+        :param crate_type: 'W' for wood, 'M' for metal
         :param trailer: Object of class Trailer
         """
 
@@ -625,7 +626,13 @@ class LoadBuilder:
             ]
 
             path = Path(vertices, codes)
-            patch = patches.PathPatch(path, facecolor="yellow", lw=2)
+
+            if crate_type == 'W':
+                patch = patches.PathPatch(path, facecolor="brown", lw=2)
+
+            else:  # crate_type == 'M'
+                patch = patches.PathPatch(path, facecolor="grey", lw=2)
+
             ax.add_patch(patch)
 
         plt.axis('scaled')
@@ -674,7 +681,7 @@ class LoadBuilder:
         data_frame = data_frame[cols]
 
         # We set indexes
-        #data_frame.set_index("TRAILER", inplace=True)
+        # data_frame.set_index("TRAILER", inplace=True)
 
         return data_frame
 
