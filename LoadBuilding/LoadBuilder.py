@@ -198,49 +198,53 @@ class LoadBuilder:
         for t in self.trailers:
 
             # We initialize a list that will contain stacks stored in the trailer, and a list of different
-            # "packer" loading strategies that were tried.
+            # containing tuples of crate type and "packer" loading strategies that were tried.
             stacks_used, packers = [], []
 
-            # We compute all possible configurations of loading (efficiently) if there's still stacks available
-            if len(self.warehouse) != 0:
-                self.warehouse.sort_by_volume()
-                all_configs = self.__create_all_configs(t)
+            # We try to fill the trailer the best way as possible considering best configurations between
+            # wooden warehouse and metal warehouse
+            for crate_type, warehouse in [('W', self.warehouse), ('M', self.metal_warehouse)]:
 
-            else:
-                all_configs = []
+                # We compute all possible configurations of loading (efficiently) if there's still stacks available
+                if len(warehouse) != 0:
+                    warehouse.sort_by_volume()
+                    all_configs = self.__create_all_configs(warehouse, t)
 
-            # If there's possible configurations
-            if len(all_configs) != 0:
+                else:
+                    all_configs = []
 
-                for config in all_configs:
+                # If there's possible configurations
+                if len(all_configs) != 0:
 
-                    # We initialize a packer with default parameter (except rotation)
-                    packer = newPacker(rotation=False)
+                    for config in all_configs:
 
-                    # We add stacks to load in the trailer (the rectangles)
-                    for i in range(len(config)):
+                        # We initialize a packer with default parameter (except rotation)
+                        packer = newPacker(rotation=False)
 
-                        # If the rectangle is rotated
-                        if config[i]:
-                            packer.add_rect(self.warehouse[i].length, self.warehouse[i].width, rid=i,
-                                            overhang=self.warehouse[i].overhang)
+                        # We add stacks to load in the trailer (the rectangles)
+                        for i in range(len(config)):
 
-                        else:
-                            packer.add_rect(self.warehouse[i].width, self.warehouse[i].length, rid=i,
-                                            overhang=self.warehouse[i].overhang)
+                            # If the rectangle is rotated
+                            if config[i]:
+                                packer.add_rect(warehouse[i].length, warehouse[i].width, rid=i,
+                                                overhang=warehouse[i].overhang)
 
-                    # We add two other dummy bins to store rectangles that do not enter in our trailer (first bin)
-                    for i in range(2):
-                        packer.add_bin(t.width, t.length, bid=None, overhang=t.oh)
+                            else:
+                                packer.add_rect(warehouse[i].width, warehouse[i].length, rid=i,
+                                                overhang=warehouse[i].overhang)
 
-                    # We execute the packing
-                    packer.pack()
+                        # We add two other dummy bins to store rectangles that do not enter in our trailer (first bin)
+                        for i in range(2):
+                            packer.add_bin(t.width, t.length, bid=None, overhang=t.oh)
 
-                    # We complete the packing (look if some unconsidered rectangles could enter at the end)
-                    self.__complete_packing(t, packer, len(config))
+                        # We execute the packing
+                        packer.pack()
 
-                    # We save the loading configuration (the packer)
-                    packers.append(packer)
+                        # We complete the packing (look if some unconsidered rectangles could enter at the end)
+                        self.__complete_packing(warehouse, t, packer, len(config))
+
+                        # We save the loading configuration (the packer)
+                        packers.append((crate_type, packer))
 
                 # We save the index of the best loading configuration that respected the constraint of plc_lb
                 best_packer_index = self.__select_best_packer(packers)
@@ -248,32 +252,40 @@ class LoadBuilder:
                 # If an index is found (at least one load satisfies the constraint)
                 if best_packer_index is not None:
 
-                    # We save the specified packer
-                    best_packer = packers[best_packer_index]
+                    # We save the specified packer and the crate_type concerned
+                    best_packer = packers[best_packer_index][1]
+                    crate_type = packers[best_packer_index][0]
+
+                    # We determine the warehouse concerned with the crate_type
+                    if crate_type == 'W':
+                        warehouse = self.warehouse
+                    elif crate_type == 'M':
+                        warehouse = self.metal_warehouse
 
                     # For every stack concerned by this loading configuration of the trailer
                     for stack in best_packer[0]:
 
-                        # We concretely assign the stack to the trailer and note his location (index) in the warehouse
-                        t.add_stack(self.warehouse[stack.rid])
+                        # We concretely assign the stack to the trailer and note his location index
+                        t.add_stack(warehouse[stack.rid])
                         stacks_used.append(stack.rid)
 
                     # We update the length_used of the trailer
                     # (using the top of the rectangle that is the most at the edge)
                     t.length_used = max([rect.top for rect in best_packer[0]])
 
-                    # We remove stacks used from the warehouse
-                    self.warehouse.remove_stacks(stacks_used)
+                    # We remove stacks used from the warehouse concerned
+                    warehouse.remove_stacks(stacks_used)
 
                     # We print the loading configuration of the trailer to visualize the result
                     if plot_enabled:
-                        self.__print_load(best_packer[0])
+                        self.__print_load(best_packer[0], crate_type)
 
         # We remove trailer that we're not used during the loading process
         self.__remove_leftover_trailers()
 
-        # We save unused models
+        # We save unused models from both warehouses
         self.warehouse.save_unused_crates(self.unused_models)
+        self.metal_warehouse.save_unused_crates(self.unused_models)
 
     def __select_best_packer(self, packers_list):
 
@@ -432,6 +444,7 @@ class LoadBuilder:
 
             # If the i-th item fit not rotated in this trailer
             if trailer.fit(self.warehouse[i]):
+
                 # We add the rotated rectangle indicator (False) to all configs found until now
                 false_vec = [[False]] * len(configs)
                 configs = np.append(configs, false_vec, axis=1)
@@ -585,7 +598,7 @@ class LoadBuilder:
     def __print_load(trailer):
 
         """
-        Plots a the loading configuration of the trailer
+        Plots the loading configuration of the trailer
 
         :param trailer: Object of class Trailer
         """
