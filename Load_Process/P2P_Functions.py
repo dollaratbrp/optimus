@@ -60,10 +60,6 @@ class INVObj:
         self.DATE = DATE
         self.STATUS = STATUS
         self.Future = not (weekdays(0) == DATE)  # if available date is not the same as today
-
-        #To see if we took inv
-        #self.ORIGINAL_QUANTITY = QUANTITY
-
         self.unused = 0  # count the number of skus to display on BOOKED_UNUSED worksheet
 
     def lineToXlsx(self):

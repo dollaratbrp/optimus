@@ -383,13 +383,13 @@ def p2p_full_process():
     #                             Try to Make the minimum number of loads for each P2P
     ####################################################################################################################
 
-    satisfy_max_or_min(DATAWishList, DATAINV, DATAParams)
+    satisfy_max_or_min(DATAWishList, DATAINV, DATAParams, print_loads=printLoads)
 
     ####################################################################################################################
     #                               Try to Make the maximum number of loads for each P2P
     ####################################################################################################################
 
-    satisfy_max_or_min(DATAWishList, DATAINV, DATAParams, satisfy_min=False)
+    satisfy_max_or_min(DATAWishList, DATAINV, DATAParams, satisfy_min=False, print_loads=printLoads)
 
     ####################################################################################################################
     #                                           Writing of the results
