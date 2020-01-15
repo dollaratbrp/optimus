@@ -162,12 +162,19 @@ class LoadBuilder:
         """
         Finishes stacking procedure with crates that weren't stacked at first
         """
-
+        # Finishing stacking procedure for wooden crates
         if len(self.remaining_crates.crates) > 0:
             self.remaining_crates.create_stacks(self.warehouse)
 
             if len(self.remaining_crates.stand_by_crates) > 0:
                 self.remaining_crates.create_incomplete_stacks(self.warehouse)
+
+        # Finishing stacking for metal crates
+        if len(self.metal_remaining_crates.crates) > 0:
+            self.metal_remaining_crates.create_stacks(self.metal_warehouse)
+
+            if len(self.metal_remaining_crates.stand_by_crates) > 0:
+                self.metal_remaining_crates.create_incomplete_stacks(self.metal_warehouse)
 
     def __trailer_packing(self, plot_enabled=False):
 
