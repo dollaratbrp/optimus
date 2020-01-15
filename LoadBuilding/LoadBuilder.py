@@ -293,7 +293,7 @@ class LoadBuilder:
         Pick the best loading configuration done (the best packer) among the list according to the number of units
         placed in the trailer.
 
-        :param packers_list: List containing packers object
+        :param packers_list: List containing tuples with crate_types and packers object
         :return: Index of the location of the best packer
         """
 
@@ -301,10 +301,10 @@ class LoadBuilder:
         best_packer_index = None
         best_nb_items_used = 0
 
-        for packer in packers_list:
+        for crate_type, packer in packers_list:
 
             # We check if packing respect plc lower bound and how many items it contains
-            qualified, items_used = self.__validate_packing(packer)
+            qualified, items_used = self.__validate_packing(crate_type, packer)
 
             # If the packing respect constraints and has more items than the best one yet,
             # we change our best packer for this one.
