@@ -319,15 +319,13 @@ def loadbuilder_input_dataframe(data):
     input_frame = pd.DataFrame(data=data, columns=['QTY', 'MODEL', 'LENGTH', 'WIDTH',
                                                    'HEIGHT', 'NBR_PER_CRATE', 'CRATE_TYPE',
                                                    'STACK_LIMIT', 'NB_OF_X', 'OVERHANG'])
-    print(input_frame, '\n')
+
     # Group by to sum quantity
     input_frame = input_frame.groupby(['MODEL', 'LENGTH', 'WIDTH', 'HEIGHT',
                                        'NBR_PER_CRATE', 'CRATE_TYPE', 'STACK_LIMIT', 'OVERHANG']).sum()
 
     # Reformatting of the new object as a standard data frame
     input_frame = input_frame.reset_index()
-
-    print(input_frame, '\n\n\n')
 
     return input_frame
 
