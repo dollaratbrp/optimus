@@ -149,7 +149,7 @@ def p2p_full_process():
               and concat (POINT_FROM,SHIPPING_POINT) in (select distinct concat([POINT_FROM],[POINT_TO]) from [Business_Planning].[dbo].[OTD_1_P2P_F_PARAMETERS]
               where IMPORT_DATE = (select max(IMPORT_DATE) from [Business_Planning].[dbo].[OTD_1_P2P_F_PARAMETERS])
               and SKIP = 0)
-              order by [X_IF_MANDATORY] desc, Priority_Rank
+              order by Priority_Rank
             """
 
             OriginalDATAWishList = SQLWishList.GetSQLData(QueryWishList)
