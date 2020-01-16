@@ -122,7 +122,7 @@ def p2p_full_process():
 
             headerWishList = 'SALES_DOCUMENT_NUMBER,SALES_ITEM_NUMBER,SOLD_TO_NUMBER,POINT_FROM,' \
                              'SHIPPING_POINT,DIVISION,MATERIAL_NUMBER,Size_Dimensions,Lenght,Width,' \
-                             'Height,stackability,Quantity,Priority_Rank,X_IF_MANDATORY'
+                             'Height,stackability,Quantity,Priority_Rank,X_IF_MANDATORY, METAL_WOOD'
 
             SQLWishList = SQLConnection('CAVLSQLPD2\pbi2', 'Business_Planning',
                                         'OTD_2_PRIORITY_F_P2P', headers=headerWishList)
@@ -161,16 +161,6 @@ def p2p_full_process():
 
             headerINV = ''  # Not important here
             SQLINV = SQLConnection('CAVLSQLPD2\pbi2', 'Business_Planning', 'OTD_1_P2P_F_INVENTORY', headers=headerINV)
-
-            # QueryINV = """SELECT  [SHIPPING_POINT]
-            #       ,[MATERIAL_NUMBER]
-            #       ,case when [QUANTITY] <0 then 0 else convert(int,QUANTITY) end as qty
-            #       ,[AVAILABLE_DATE]
-            #       ,[STATUS]
-            #   FROM [Business_Planning].[dbo].[OTD_1_P2P_F_INVENTORY]
-            #   where status = 'INVENTORY'
-            #   order by SHIPPING_POINT, MATERIAL_NUMBER
-            # """
 
             QueryINV = """select distinct SHIPPING_POINT
                   ,RTRIM([MATERIAL_NUMBER]) as MATERIAL_NUMBER
@@ -349,7 +339,7 @@ def p2p_full_process():
                 # one crate and not one unit! Must be done this way to avoid having getting to many size_code
                 # in the returning list of the LoadBuilder
                 invData.append([1, wish.SIZE_DIMENSIONS, wish.LENGTH, wish.WIDTH, wish.HEIGHT, 1, wish.CRATE_TYPE,
-                                wish.STACKABILITY, wish.OVERHANG])
+                                wish.STACKABILITY, int(wish.MANDATORY), wish.OVERHANG])
 
         # Construction of the data frame which we'll send to the LoadBuilder of our parameters object (p2p)
         input_dataframe = loadbuilder_input_dataframe(invData)

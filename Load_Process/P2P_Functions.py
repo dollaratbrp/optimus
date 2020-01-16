@@ -278,7 +278,8 @@ def satisfy_max_or_min(Wishes, Inventory, Parameters, satisfy_min=True, print_lo
                         # one crate and not one unit! Must be done this way to avoid having getting to many size_code
                         # in the returning list of the LoadBuilder
                         invData.append([1, wish.SIZE_DIMENSIONS, wish.LENGTH, wish.WIDTH,
-                                        wish.HEIGHT, 1, wish.CRATE_TYPE, wish.STACKABILITY, wish.OVERHANG])
+                                        wish.HEIGHT, 1, wish.CRATE_TYPE, wish.STACKABILITY,
+                                        int(wish.MANDATORY), wish.OVERHANG])
 
             # Construction of the data frame which we'll send to the LoadBuilder of our parameters object (p2p)
             input_dataframe = loadbuilder_input_dataframe(invData)
@@ -299,6 +300,7 @@ def satisfy_max_or_min(Wishes, Inventory, Parameters, satisfy_min=True, print_lo
                         break
                 if not found:
                     print('Error in Perfect Match: impossible result.\n')
+
             for wish in tempoOnLoad:  # If it is not on loads, give back inv
                 if wish.QUANTITY > 0:
                     for inv in wish.INV_ITEMS:
@@ -315,13 +317,17 @@ def loadbuilder_input_dataframe(data):
 
     # Creation of the data frame
     input_frame = pd.DataFrame(data=data, columns=['QTY', 'MODEL', 'LENGTH', 'WIDTH',
-                                                   'HEIGHT', 'NBR_PER_CRATE', 'CRATE_TYPE', 'STACK_LIMIT', 'OVERHANG'])
+                                                   'HEIGHT', 'NBR_PER_CRATE', 'CRATE_TYPE',
+                                                   'STACK_LIMIT', 'NB_OF_X', 'OVERHANG'])
+    print(input_frame, '\n')
     # Group by to sum quantity
     input_frame = input_frame.groupby(['MODEL', 'LENGTH', 'WIDTH', 'HEIGHT',
                                        'NBR_PER_CRATE', 'CRATE_TYPE', 'STACK_LIMIT', 'OVERHANG']).sum()
 
     # Reformatting of the new object as a standard data frame
     input_frame = input_frame.reset_index()
+
+    print(input_frame, '\n\n\n')
 
     return input_frame
 
