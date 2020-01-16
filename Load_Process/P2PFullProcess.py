@@ -173,7 +173,7 @@ def p2p_full_process():
             # """
 
             QueryINV = """select distinct SHIPPING_POINT
-                  ,[MATERIAL_NUMBER]
+                  ,RTRIM([MATERIAL_NUMBER]) as MATERIAL_NUMBER
                   ,case when sum(tempo.[QUANTITY]) <0 then 0 else convert(int,sum(tempo.QUANTITY)) end as [QUANTITY]
                   , convert(DATE,GETDATE()) as [AVAILABLE_DATE]
                   ,'INVENTORY' as [STATUS]
@@ -209,7 +209,7 @@ def p2p_full_process():
             #                     QA HOLD Query
             ####################################################################################
             Query_QA = """ SELECT  [SHIPPING_POINT]
-                  ,[MATERIAL_NUMBER]
+                  ,RTRIM([MATERIAL_NUMBER]) as MATERIAL_NUMBER
                   , [QUANTITY]
                   ,convert (DATE,[AVAILABLE_DATE]) as AVAILABLE_DATE
                   ,[STATUS]
