@@ -32,7 +32,7 @@ class WishListObj:
         self.STACKABILITY = STACK
         self.QUANTITY = QTY
         self.RANK = RANK
-        self.MANDATORY = MANDATORY
+        self.MANDATORY = (MANDATORY == 'X')
         self.OVERHANG = OVERHANG
         self.IsAdhoc=IsAdhoc
         self.CRATE_TYPE = CRATE_TYPE
