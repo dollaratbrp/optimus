@@ -380,7 +380,7 @@ class Box(Frame):
         """To add a new line of values"""
         keyF = frame(self.verticalBar, TOP)
         global Project
-        self.lignes.append(ligne(self, keyF, LEFT, '0000', '0000', 0, '', '', '', 0, 0, False, 0, largeurColonne))
+        self.lignes.append(ligne(self, keyF, LEFT, '0000', '0000', 0, 0, '', '', 0, 0, False, 0, largeurColonne))
 
 
 def changeEmail():
@@ -512,11 +512,11 @@ def MissingP2PBox(MissingP2P):
     errorMess = 'Missing these P2P (point_from - point_to) : \n'
     for p2p in MissingP2P:
         errorMess += str(p2p) + '\n'
-    # root = tk.Tk()
-    # root.withdraw()
-    return messagebox.askokcancel("Warning", errorMess + '\n Continue execution? \n')
-    # messagebox.showwarning("Warning", errorMess)
-    # root.destroy()
+    temp_root = Tk()
+    temp_root.withdraw()
+    response = messagebox.askokcancel("Warning", errorMess + '\n Continue execution? \n')
+    temp_root.destroy()
+    return response
 
 
 def OpenParameters(projectName='P2P'):
