@@ -187,12 +187,14 @@ def find_perfect_match(Wishes, Inventory, Parameters):
                             # If p2p point_from and point_to are corresponding with the wish
                             if wish.POINT_FROM == p2p.POINT_FROM and wish.SHIPPING_POINT == p2p.POINT_TO \
                                     and p2p.days_to > 0:
+
                                 # We must take the item
                                 InvToTake = True
                                 break
 
                         # If we decided to take the item from the inventory
                         if InvToTake:
+
                             # We decrease its quantity and add the INVobj to the list of inventory items of the wish
                             inv.QUANTITY -= 1
                             wish.INV_ITEMS.append(inv)
@@ -256,6 +258,7 @@ def satisfy_max_or_min(Wishes, Inventory, Parameters, satisfy_min=True, print_lo
                             if EquivalentPlantFrom(inv.POINT, wish.POINT_FROM) and\
                                     inv.MATERIAL_NUMBER == wish.MATERIAL_NUMBER and inv.QUANTITY > 0 and\
                                     (not inv.Future or inv.Future and param.days_to > 0):
+
                                 inv.QUANTITY -= 1
                                 wish.INV_ITEMS.append(inv)
                                 position += It
