@@ -20,7 +20,7 @@ class Crate:
 
     """
 
-    def __init__(self, m_n, l, w, h, s_l, oh):
+    def __init__(self, m_n, l, w, h, s_l, oh, mandatory):
 
         """
 
@@ -30,6 +30,7 @@ class Crate:
         :param h: height of the crate
         :param s_l: maximal quantity of the same crate than can be piled one above the other
         :param oh: boolean that specifies if the crate is allowed to exceed trailer's length (overhang)
+        :param mandatory: boolean that indicates if the crate is marked as "MANDATORY"
         """
 
         self.model_names = m_n
@@ -38,6 +39,7 @@ class Crate:
         self.height = h
         self.stack_limit = s_l
         self.overhang = oh
+        self.mandatory = mandatory
 
     def __repr__(self):
         return self.model_names
@@ -50,7 +52,7 @@ class Stack:
 
     """
 
-    def __init__(self, l, w, h, models, oh):
+    def __init__(self, l, w, h, models, oh, nb_of_mandatory):
 
         """
 
@@ -59,6 +61,7 @@ class Stack:
         :param h: height of the stack
         :param models: list containing names of the models inside the crate
         :param oh: boolean that specifies if the stack is allowed to exceed trailer's length (overhang)
+        :param nb_of_mandatory: number of models marked as "MANDATORY" in the stack
         """
         self.length = l
         self.width = w
@@ -66,6 +69,7 @@ class Stack:
         self.volume = l*w*h
         self.models = models
         self.overhang = oh
+        self.nb_of_mandatory = nb_of_mandatory
 
     def nbr_of_models(self):
 
