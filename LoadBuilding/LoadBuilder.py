@@ -79,6 +79,12 @@ class LoadBuilder:
                 # We save the crate type
                 crate_type = models_data['CRATE_TYPE'][i]
 
+                # We save the number of MANDATORY crates if it's available in the input data frame
+                if 'NB_OF_X' in models_data.columns:
+                    total_of_mandatory = int(models_data['NB_OF_X'][i])
+                else:
+                    total_of_mandatory = 0
+
                 # We save the number of individual crates to build and convert it into
                 # integer to avoid conflict with range function. Also, with int(), every number in [0,1[ will
                 # be convert as 0. This way, no individual crate of SP2 will be build if there's less than 2 SP2 left
@@ -96,27 +102,39 @@ class LoadBuilder:
                                     models_data['HEIGHT'][i],
                                     stack_limit, overhang]
 
+                # We select the good type of storage of the stacks and crates that will be build
                 if crate_type == 'W':
-                    for j in range(nbr_stacks):
-
-                        # We build the stack and send it into the warehouse
-                        self.warehouse.add_stack(LoadObj.Stack(*stacks_component))
-
-                    for j in range(nbr_individual_crates):
-
-                        # We build the crate and send it to the crates manager
-                        self.remaining_crates.add_crate(LoadObj.Crate(*crates_component))
+                    warehouse = self.warehouse
+                    crates_manager = self.remaining_crates
 
                 elif crate_type == 'M':
-                    for j in range(nbr_stacks):
+                    warehouse = self.metal_warehouse
+                    crates_manager = self.metal_remaining_crates
 
-                        # We build the stack and send it into the warehouse
-                        self.metal_warehouse.add_stack(LoadObj.Stack(*stacks_component))
+                for j in range(nbr_stacks):
 
-                    for j in range(nbr_individual_crates):
+                    # We compute the number of mandatory crates in the stack
+                    mandatory_crates = min(total_of_mandatory, stack_limit)
 
-                        # We build the crate and send it to the crates manager
-                        self.metal_remaining_crates.add_crate(LoadObj.Crate(*crates_component))
+                    # We add the missing number of mandatory crates to the stacks component list
+                    temp_components = stacks_component + [mandatory_crates]
+
+                    # We build the stack and send it into the warehouse
+                    warehouse.add_stack(LoadObj.Stack(*temp_components))
+
+                    # We update the total number of mandatory left
+                    total_of_mandatory -= mandatory_crates
+
+                for j in range(nbr_individual_crates):
+
+                    # We add the missing number of mandatory crates to the stacks component list
+                    temp_components = crates_component + [total_of_mandatory > 0]
+
+                    # We build the crate and send it to the crates manager
+                    crates_manager.add_crate(LoadObj.Crate(*temp_components))
+
+                    # We update the total number of mandatory left
+                    total_of_mandatory -= 1
 
         # We flatten the model_names list
         self.model_names = [item for sublist in self.model_names for item in sublist]
