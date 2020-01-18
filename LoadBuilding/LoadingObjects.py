@@ -280,6 +280,12 @@ class Warehouse:
         """
         self.stacks_to_ship.sort(key=lambda s: s.volume, reverse=True)
 
+    def sort_by_ranking_and_volume(self):
+        """
+        Sorts stacks to ship by their average ranking, and their volume if their avg ranking is the same
+        """
+        self.stacks_to_ship.sort(key=lambda s: (s.average_ranking, -1*s.volume))
+
     def save_unused_crates(self, unused_crates_list):
 
         """
