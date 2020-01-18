@@ -43,12 +43,18 @@ class LoadBuilder:
     def __len__(self):
         return len(self.trailers_done)
 
-    def __warehouse_init(self, models_data):
+    def __warehouse_init(self, models_data, ranking={}):
 
         """
         Initializes a warehouse according to the models available in model data
 
+        :param: models_data : pandas dataframe with the following columns
+        [QTY | MODEL | LENGTH | WIDTH | HEIGHT | NUMBER_PER_CRATE | CRATE_TYPE | STACK_LIMIT | OVERHANG ]
+
+        :param ranking: dictionary with size code as keys and lists of integers as value
         """
+        print(models_data)
+        tot = 0
 
         # For all lines of the data frame
         for i in models_data.index:
@@ -85,6 +91,8 @@ class LoadBuilder:
                 else:
                     total_of_mandatory = 0
 
+                tot += total_of_mandatory
+
                 # We save the number of individual crates to build and convert it into
                 # integer to avoid conflict with range function. Also, with int(), every number in [0,1[ will
                 # be convert as 0. This way, no individual crate of SP2 will be build if there's less than 2 SP2 left
@@ -111,33 +119,41 @@ class LoadBuilder:
                     warehouse = self.metal_warehouse
                     crates_manager = self.metal_remaining_crates
 
+                # We take the list of ranking associate with the size code or create one filled with 0
+                # and start an index to navigate through ranking list
+                r = ranking.get(models_data['MODEL'][i], [0]*qty)
+                index = 0
+
                 for j in range(nbr_stacks):
 
                     # We compute the number of mandatory crates in the stack
                     mandatory_crates = min(total_of_mandatory, stack_limit)
 
-                    # We add the missing number of mandatory crates to the stacks component list
-                    temp_components = stacks_component + [mandatory_crates]
+                    # We add the missing number of mandatory crates and avg ranking to the stacks component list
+                    temp_components = stacks_component + [mandatory_crates] + [np.mean(r[index:(index+stack_limit)])]
 
                     # We build the stack and send it into the warehouse
                     warehouse.add_stack(LoadObj.Stack(*temp_components))
 
-                    # We update the total number of mandatory left
+                    # We update the total number of mandatory left and move our index
                     total_of_mandatory -= mandatory_crates
+                    index += stack_limit
 
                 for j in range(nbr_individual_crates):
 
                     # We add the missing number of mandatory crates to the stacks component list
-                    temp_components = crates_component + [total_of_mandatory > 0]
+                    temp_components = crates_component + [total_of_mandatory > 0] + [r[index]]
 
                     # We build the crate and send it to the crates manager
                     crates_manager.add_crate(LoadObj.Crate(*temp_components))
 
-                    # We update the total number of mandatory left
+                    # We update the total number of mandatory left and increment the index
                     total_of_mandatory -= 1
+                    index += 1
 
         # We flatten the model_names list
         self.model_names = [item for sublist in self.model_names for item in sublist]
+        print('TOTAL OF MANDATORY :', tot)
 
     def __trailers_init(self):
 
@@ -194,6 +210,9 @@ class LoadBuilder:
             if len(self.metal_remaining_crates.stand_by_crates) > 0:
                 self.metal_remaining_crates.create_incomplete_stacks(self.metal_warehouse)
 
+        print('NB OF X IN WOOD STACKS :', sum([stack.nb_of_mandatory for stack in self.warehouse.stacks_to_ship]))
+        print('NB OF X IN METAL STACKS :', sum([stack.nb_of_mandatory for stack in self.metal_warehouse.stacks_to_ship]))
+
     def __trailer_packing(self, plot_enabled=False):
 
         """
@@ -226,6 +245,8 @@ class LoadBuilder:
                 # We compute all possible configurations of loading (efficiently) if there's still stacks available
                 if len(warehouse) != 0:
                     warehouse.sort_by_volume()
+                    print(crate_type + 'STACKS POSITIONNING :',
+                          [(stack.nbr_of_models(), stack.nb_of_mandatory) for stack in warehouse])
                     all_configs = self.__create_all_configs(warehouse, t)
 
                 else:
