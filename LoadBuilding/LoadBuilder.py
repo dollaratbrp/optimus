@@ -21,6 +21,8 @@ from math import floor
 
 class LoadBuilder:
 
+    score_multiplicator_basis = 1.02  # used to boost the score of a load when there's mandatory crates
+
     def __init__(self, trailers_data,
                  overhang_authorized=40, maximum_trailer_length=636, plc_lb=0.75):
 
@@ -30,6 +32,7 @@ class LoadBuilder:
         :param maximum_trailer_length: maximum length authorized by law for a trailer
         :param plc_lb: lower bound of length percentage covered that must be satisfied for all trailer
         """
+
         self.trailers_data = trailers_data
         self.overhang_authorized = overhang_authorized  # In inches
         self.max_trailer_length = maximum_trailer_length  # In inches
@@ -244,7 +247,7 @@ class LoadBuilder:
 
                 # We compute all possible configurations of loading (efficiently) if there's still stacks available
                 if len(warehouse) != 0:
-                    warehouse.sort_by_volume()
+                    warehouse.sort_by_ranking_and_volume()
                     print(crate_type + 'STACKS POSITIONNING :',
                           [(stack.nbr_of_models(), stack.nb_of_mandatory) for stack in warehouse])
                     all_configs = self.__create_all_configs(warehouse, t)
@@ -338,17 +341,17 @@ class LoadBuilder:
 
         i = 0
         best_packer_index = None
-        best_nb_items_used = 0
+        best_score = 0
 
         for crate_type, packer in packers_list:
 
             # We check if packing respect plc lower bound and how many items it contains
-            qualified, items_used = self.__validate_packing(crate_type, packer)
+            qualified, score = self.__validate_packing(crate_type, packer)
 
             # If the packing respect constraints and has more items than the best one yet,
             # we change our best packer for this one.
-            if qualified and items_used > best_nb_items_used:
-                best_nb_items_used = items_used
+            if qualified and score > best_score:
+                best_score = score
                 best_packer_index = i
 
             i += 1
@@ -362,23 +365,29 @@ class LoadBuilder:
 
         :param crate_type: 'W' for wood, 'M' for metal
         :param packer: Packer object
-        :returns: Boolean indicating if the loading satisfies constraint and number of units in the load
+        :returns: Boolean indicating if the loading satisfies constraint and a score for the load
         """
 
-        items_used = 0
+        mandatory_crates = 0
+        score = 0
         qualified = True
         trailer = packer[0]
 
         if max([rect.top for rect in trailer]) / trailer.height < self.plc_lb:
             qualified = False
         else:
+            used_area = trailer.used_area()
             if crate_type == 'W':
-                items_used += sum([self.warehouse[rect.rid].nbr_of_models() for rect in trailer])
+                mandatory_crates += sum([self.warehouse[rect.rid].nb_of_mandatory for rect in trailer])
+                score_boost = self.score_multiplicator_basis**mandatory_crates
+                score = used_area*score_boost
 
             elif crate_type == 'M':
-                items_used += sum([self.metal_warehouse[rect.rid].nbr_of_models() for rect in trailer])
+                mandatory_crates += sum([self.metal_warehouse[rect.rid].nb_of_mandatory for rect in trailer])
+                score_boost = self.score_multiplicator_basis**mandatory_crates
+                score = used_area * score_boost
 
-        return qualified, items_used
+        return qualified, score
 
     def __max_rect_upperbound(self, warehouse, trailer, last_upper_bound):
 
