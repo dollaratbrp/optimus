@@ -289,7 +289,7 @@ class LoadBuilder:
                         packers.append((crate_type, packer))
 
             # We save the index of the best loading configuration that respected the constraint of plc_lb
-            best_packer_index = self.__select_best_packer(packers)
+            best_packer_index, score = self.__select_best_packer(packers)
 
             # If an index is found (at least one load satisfies the constraint)
             if best_packer_index is not None:
@@ -315,6 +315,9 @@ class LoadBuilder:
                 # (using the top of the rectangle that is the most at the edge)
                 t.length_used = max([rect.top for rect in best_packer[0]])
 
+                # We save the score associated to the trailer
+                t.score = score
+
                 # We remove stacks used from the warehouse concerned
                 warehouse.remove_stacks(stacks_used)
 
@@ -336,7 +339,7 @@ class LoadBuilder:
         placed in the trailer.
 
         :param packers_list: List containing tuples with crate_types and packers object
-        :return: Index of the location of the best packer
+        :return: Index of the location of the best packer and the best score
         """
 
         i = 0
@@ -356,7 +359,7 @@ class LoadBuilder:
 
             i += 1
 
-        return best_packer_index
+        return best_packer_index, best_score
 
     def __validate_packing(self, crate_type, packer):
 
@@ -594,8 +597,8 @@ class LoadBuilder:
         """
         Selects the n best trailers in terms of units in the load
         """
-        # We sort trailer in decreasing order with their number of units
-        self.trailers.sort(key=lambda t: t.nbr_of_units(), reverse=True)
+        # We sort trailer in decreasing order by their score
+        self.trailers.sort(key=lambda t: t.score, reverse=True)
 
         # We initialize an index at the end of the list containing trailers
         i = len(self.trailers) - 1
