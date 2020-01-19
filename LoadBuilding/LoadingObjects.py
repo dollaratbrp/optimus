@@ -127,6 +127,7 @@ class Trailer:
         self.load = []                          # List that will contain the stack objects
         self.priority = p
         self.oh = oh
+        self.score = 0
 
     def __repr__(self):
         return self.category
