@@ -328,6 +328,9 @@ def p2p_full_process():
         tempoOnLoad = []  # List to remember the INVobj that will be sent to the LoadBuilder
         invData = []  # List that will contain the data to build the frame that will be sent to the LoadBuilder
 
+        # Initialization of an empty ranking dictionary
+        ranking = {}
+
         # We loop through our wishes list
         for wish in ListApprovedWish:
 
@@ -341,11 +344,17 @@ def p2p_full_process():
                 invData.append([1, wish.SIZE_DIMENSIONS, wish.LENGTH, wish.WIDTH, wish.HEIGHT, 1, wish.CRATE_TYPE,
                                 wish.STACKABILITY, int(wish.MANDATORY), wish.OVERHANG])
 
+                # We add the ranking of the wish in the ranking dictionary
+                if wish.SIZE_DIMENSIONS in ranking:
+                    ranking[wish.SIZE_DIMENSIONS] += [wish.RANK]
+                else:
+                    ranking[wish.SIZE_DIMENSIONS] = [wish.RANK]
+
         # Construction of the data frame which we'll send to the LoadBuilder of our parameters object (p2p)
         input_dataframe = loadbuilder_input_dataframe(invData)
 
         # Create loads
-        result = param.LoadBuilder.build(input_dataframe, param.LOADMAX, plot_load_done=printLoads)
+        result = param.LoadBuilder.build(input_dataframe, param.LOADMAX, ranking=ranking, plot_load_done=printLoads)
 
         # Choose which wish to send in load based on selected crates and priority order
         for model in result:

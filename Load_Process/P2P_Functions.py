@@ -243,6 +243,9 @@ def satisfy_max_or_min(Wishes, Inventory, Parameters, satisfy_min=True, print_lo
             tempoOnLoad = []  # List to remember the INVobj that will be sent to the LoadBuilder
             invData = []      # List that will contain the data to build the frame that will be sent to the LoadBuilder
 
+            # Initialization of an empty ranking dictionary
+            ranking = {}
+
             # We loop through our wishes list
             for wish in Wishes:
 
@@ -281,13 +284,20 @@ def satisfy_max_or_min(Wishes, Inventory, Parameters, satisfy_min=True, print_lo
                                         wish.HEIGHT, 1, wish.CRATE_TYPE, wish.STACKABILITY,
                                         int(wish.MANDATORY), wish.OVERHANG])
 
+                        # We add the ranking of the wish in the ranking dictionary
+                        if wish.SIZE_DIMENSIONS in ranking:
+                            ranking[wish.SIZE_DIMENSIONS] += [wish.RANK]
+                        else:
+                            ranking[wish.SIZE_DIMENSIONS] = [wish.RANK]
+
             # Construction of the data frame which we'll send to the LoadBuilder of our parameters object (p2p)
             input_dataframe = loadbuilder_input_dataframe(invData)
 
             # Construction of loadings
             result = param.LoadBuilder.build(models_data=input_dataframe,
                                              max_load=(check_min*param.LOADMIN + (1-check_min)*param.LOADMAX),
-                                             plot_load_done=print_loads)
+                                             plot_load_done=print_loads,
+                                             ranking=ranking)
 
             # Choice the wish items to put on loads
             for model in result:
