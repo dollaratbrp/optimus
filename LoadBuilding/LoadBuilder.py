@@ -249,7 +249,7 @@ class LoadBuilder:
                 if len(warehouse) != 0:
                     warehouse.sort_by_ranking_and_volume()
                     print(crate_type + 'STACKS POSITIONNING :',
-                          [(stack.nbr_of_models(), stack.nb_of_mandatory) for stack in warehouse])
+                          [(stack.average_ranking, stack.volume) for stack in warehouse])
                     all_configs = self.__create_all_configs(warehouse, t)
 
                 else:
@@ -733,7 +733,7 @@ class LoadBuilder:
 
         return data_frame
 
-    def build(self, models_data, max_load, plot_load_done=False):
+    def build(self, models_data, max_load, plot_load_done=False, ranking={}):
 
         """
         This is the core of the object.
@@ -749,7 +749,7 @@ class LoadBuilder:
             return []
 
         # We init the warehouse
-        self.__warehouse_init(models_data)
+        self.__warehouse_init(models_data, ranking)
 
         # We init the list of trailers
         self.__trailers_init()
