@@ -158,6 +158,7 @@ class Trailer:
         fig, ax = plt.subplots()
         codes = [Path.MOVETO, Path.LINETO, Path.LINETO, Path.LINETO, Path.CLOSEPOLY]
         rect_list = [self.packer[0][i] for i in range(len(self.packer[0]))]
+        print(rect_list)
 
         for rect in rect_list:
             vertices = [
@@ -180,10 +181,10 @@ class Trailer:
 
         plt.axis('scaled')
         ax.set_xlim(0, self.width)
-        ax.set_ylim(0, self.height + self.overhang_measure)
+        ax.set_ylim(0, self.length + self.oh)
 
         if self.oh != 0:
-            line = plt.axhline(self.height, color='black', ls='--')
+            line = plt.axhline(self.length, color='black', ls='--')
 
         plt.show()
         plt.close()
