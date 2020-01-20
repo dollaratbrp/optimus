@@ -213,8 +213,7 @@ class LoadBuilder:
         print('NB OF X IN WOOD STACKS :', sum([stack.nb_of_mandatory for stack in self.warehouse.stacks_to_ship]))
         print('NB OF X IN METAL STACKS :', sum([stack.nb_of_mandatory for stack in self.metal_warehouse.stacks_to_ship]))
 
-    def __trailer_packing(self, plot_enabled=False):
-
+    def __trailer_packing(self):
         """
 
         Using a modified version of Skyline 2D bin packing algorithms provided by the rectpack library,
@@ -224,8 +223,6 @@ class LoadBuilder:
         Check https://github.com/secnot/rectpack for more informations on source code and
         http://citeseerx.ist.psu.edu/viewdoc/download;jsessionid=3A00D5E102A95EF7C941408817666342?doi=10.1.1.695.2918&rep=rep1&type=pdf
         for more information on algorithms implemented themselves.
-
-        :param plot_enabled: Bool indicating if plotting is enable to visualize every load
 
         """
 
@@ -712,7 +709,7 @@ class LoadBuilder:
         self.__prepare_warehouse()
 
         # We execute the loading of the trailers
-        self.__trailer_packing(plot_enabled=plot_load_done)
+        self.__trailer_packing()
 
         # We consider the max
         nb_new_loads = len(self.trailers)
@@ -720,6 +717,11 @@ class LoadBuilder:
 
         if max_load < total_nb_loads:
             self.__select_top_n(max(nb_new_loads - (total_nb_loads - max_load), 0))
+
+        # We plot every new loads if the user wants to
+        if plot_load_done:
+            for trailer in self.trailers:
+                trailer.plot_load()
 
         # We update all data
         self.__update_trailers_data()
