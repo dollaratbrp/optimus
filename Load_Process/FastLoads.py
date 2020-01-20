@@ -308,6 +308,7 @@ class FastLoadsBox:
 
         # We do a groupby to sum quantity column for the same SKU on the same load
         dataframe = dataframe.groupby(by=['LOAD_NUMBER', 'MATERIAL_NUMBER', 'SIZE_DIMENSIONS']).sum().reset_index()
+        dataframe = dataframe[['LOAD_NUMBER', 'MATERIAL_NUMBER', 'QUANTITY', 'SIZE_DIMENSIONS']]
 
         # We push every line of data in the appropriate worksheet
         for i in dataframe.index:

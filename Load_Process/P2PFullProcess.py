@@ -122,7 +122,7 @@ def p2p_full_process():
 
             headerWishList = 'SALES_DOCUMENT_NUMBER,SALES_ITEM_NUMBER,SOLD_TO_NUMBER,POINT_FROM,' \
                              'SHIPPING_POINT,DIVISION,MATERIAL_NUMBER,Size_Dimensions,Lenght,Width,' \
-                             'Height,stackability,Quantity,Priority_Rank,X_IF_MANDATORY'
+                             'Height,stackability,Quantity,Priority_Rank,X_IF_MANDATORY, METAL_WOOD'
 
             SQLWishList = SQLConnection('CAVLSQLPD2\pbi2', 'Business_Planning',
                                         'OTD_2_PRIORITY_F_P2P', headers=headerWishList)
@@ -149,7 +149,7 @@ def p2p_full_process():
               and concat (POINT_FROM,SHIPPING_POINT) in (select distinct concat([POINT_FROM],[POINT_TO]) from [Business_Planning].[dbo].[OTD_1_P2P_F_PARAMETERS]
               where IMPORT_DATE = (select max(IMPORT_DATE) from [Business_Planning].[dbo].[OTD_1_P2P_F_PARAMETERS])
               and SKIP = 0)
-              order by [X_IF_MANDATORY] desc, Priority_Rank
+              order by Priority_Rank
             """
 
             OriginalDATAWishList = SQLWishList.GetSQLData(QueryWishList)
@@ -161,16 +161,6 @@ def p2p_full_process():
 
             headerINV = ''  # Not important here
             SQLINV = SQLConnection('CAVLSQLPD2\pbi2', 'Business_Planning', 'OTD_1_P2P_F_INVENTORY', headers=headerINV)
-
-            # QueryINV = """SELECT  [SHIPPING_POINT]
-            #       ,[MATERIAL_NUMBER]
-            #       ,case when [QUANTITY] <0 then 0 else convert(int,QUANTITY) end as qty
-            #       ,[AVAILABLE_DATE]
-            #       ,[STATUS]
-            #   FROM [Business_Planning].[dbo].[OTD_1_P2P_F_INVENTORY]
-            #   where status = 'INVENTORY'
-            #   order by SHIPPING_POINT, MATERIAL_NUMBER
-            # """
 
             QueryINV = """select distinct SHIPPING_POINT
                   ,RTRIM([MATERIAL_NUMBER]) as MATERIAL_NUMBER
@@ -338,6 +328,9 @@ def p2p_full_process():
         tempoOnLoad = []  # List to remember the INVobj that will be sent to the LoadBuilder
         invData = []  # List that will contain the data to build the frame that will be sent to the LoadBuilder
 
+        # Initialization of an empty ranking dictionary
+        ranking = {}
+
         # We loop through our wishes list
         for wish in ListApprovedWish:
 
@@ -349,13 +342,19 @@ def p2p_full_process():
                 # one crate and not one unit! Must be done this way to avoid having getting to many size_code
                 # in the returning list of the LoadBuilder
                 invData.append([1, wish.SIZE_DIMENSIONS, wish.LENGTH, wish.WIDTH, wish.HEIGHT, 1, wish.CRATE_TYPE,
-                                wish.STACKABILITY, wish.OVERHANG])
+                                wish.STACKABILITY, int(wish.MANDATORY), wish.OVERHANG])
+
+                # We add the ranking of the wish in the ranking dictionary
+                if wish.SIZE_DIMENSIONS in ranking:
+                    ranking[wish.SIZE_DIMENSIONS] += [wish.RANK]
+                else:
+                    ranking[wish.SIZE_DIMENSIONS] = [wish.RANK]
 
         # Construction of the data frame which we'll send to the LoadBuilder of our parameters object (p2p)
         input_dataframe = loadbuilder_input_dataframe(invData)
 
         # Create loads
-        result = param.LoadBuilder.build(input_dataframe, param.LOADMAX, plot_load_done=printLoads)
+        result = param.LoadBuilder.build(input_dataframe, param.LOADMAX, ranking=ranking, plot_load_done=printLoads)
 
         # Choose which wish to send in load based on selected crates and priority order
         for model in result:

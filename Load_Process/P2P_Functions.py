@@ -32,7 +32,7 @@ class WishListObj:
         self.STACKABILITY = STACK
         self.QUANTITY = QTY
         self.RANK = RANK
-        self.MANDATORY = MANDATORY
+        self.MANDATORY = (MANDATORY == 'X')
         self.OVERHANG = OVERHANG
         self.IsAdhoc=IsAdhoc
         self.CRATE_TYPE = CRATE_TYPE
@@ -243,6 +243,9 @@ def satisfy_max_or_min(Wishes, Inventory, Parameters, satisfy_min=True, print_lo
             tempoOnLoad = []  # List to remember the INVobj that will be sent to the LoadBuilder
             invData = []      # List that will contain the data to build the frame that will be sent to the LoadBuilder
 
+            # Initialization of an empty ranking dictionary
+            ranking = {}
+
             # We loop through our wishes list
             for wish in Wishes:
 
@@ -278,7 +281,14 @@ def satisfy_max_or_min(Wishes, Inventory, Parameters, satisfy_min=True, print_lo
                         # one crate and not one unit! Must be done this way to avoid having getting to many size_code
                         # in the returning list of the LoadBuilder
                         invData.append([1, wish.SIZE_DIMENSIONS, wish.LENGTH, wish.WIDTH,
-                                        wish.HEIGHT, 1, wish.CRATE_TYPE, wish.STACKABILITY, wish.OVERHANG])
+                                        wish.HEIGHT, 1, wish.CRATE_TYPE, wish.STACKABILITY,
+                                        int(wish.MANDATORY), wish.OVERHANG])
+
+                        # We add the ranking of the wish in the ranking dictionary
+                        if wish.SIZE_DIMENSIONS in ranking:
+                            ranking[wish.SIZE_DIMENSIONS] += [wish.RANK]
+                        else:
+                            ranking[wish.SIZE_DIMENSIONS] = [wish.RANK]
 
             # Construction of the data frame which we'll send to the LoadBuilder of our parameters object (p2p)
             input_dataframe = loadbuilder_input_dataframe(invData)
@@ -286,7 +296,8 @@ def satisfy_max_or_min(Wishes, Inventory, Parameters, satisfy_min=True, print_lo
             # Construction of loadings
             result = param.LoadBuilder.build(models_data=input_dataframe,
                                              max_load=(check_min*param.LOADMIN + (1-check_min)*param.LOADMAX),
-                                             plot_load_done=print_loads)
+                                             plot_load_done=print_loads,
+                                             ranking=ranking)
 
             # Choice the wish items to put on loads
             for model in result:
@@ -299,6 +310,7 @@ def satisfy_max_or_min(Wishes, Inventory, Parameters, satisfy_min=True, print_lo
                         break
                 if not found:
                     print('Error in Perfect Match: impossible result.\n')
+
             for wish in tempoOnLoad:  # If it is not on loads, give back inv
                 if wish.QUANTITY > 0:
                     for inv in wish.INV_ITEMS:
@@ -315,7 +327,9 @@ def loadbuilder_input_dataframe(data):
 
     # Creation of the data frame
     input_frame = pd.DataFrame(data=data, columns=['QTY', 'MODEL', 'LENGTH', 'WIDTH',
-                                                   'HEIGHT', 'NBR_PER_CRATE', 'CRATE_TYPE', 'STACK_LIMIT', 'OVERHANG'])
+                                                   'HEIGHT', 'NBR_PER_CRATE', 'CRATE_TYPE',
+                                                   'STACK_LIMIT', 'NB_OF_X', 'OVERHANG'])
+
     # Group by to sum quantity
     input_frame = input_frame.groupby(['MODEL', 'LENGTH', 'WIDTH', 'HEIGHT',
                                        'NBR_PER_CRATE', 'CRATE_TYPE', 'STACK_LIMIT', 'OVERHANG']).sum()

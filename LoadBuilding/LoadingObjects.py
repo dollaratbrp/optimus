@@ -11,7 +11,9 @@ By : Nicolas Raymond
 """
 
 import numpy as np
-
+import matplotlib.pyplot as plt
+from matplotlib.path import Path
+import matplotlib.patches as patches
 
 class Crate:
 
@@ -20,7 +22,7 @@ class Crate:
 
     """
 
-    def __init__(self, m_n, l, w, h, s_l, oh):
+    def __init__(self, m_n, l, w, h, s_l, oh, mandatory, ranking):
 
         """
 
@@ -30,6 +32,8 @@ class Crate:
         :param h: height of the crate
         :param s_l: maximal quantity of the same crate than can be piled one above the other
         :param oh: boolean that specifies if the crate is allowed to exceed trailer's length (overhang)
+        :param mandatory: boolean that indicates if the crate is marked as "MANDATORY"
+        :param ranking: integer representing the ranking of the crate
         """
 
         self.model_names = m_n
@@ -38,6 +42,8 @@ class Crate:
         self.height = h
         self.stack_limit = s_l
         self.overhang = oh
+        self.mandatory = mandatory
+        self.ranking = ranking
 
     def __repr__(self):
         return self.model_names
@@ -50,7 +56,7 @@ class Stack:
 
     """
 
-    def __init__(self, l, w, h, models, oh):
+    def __init__(self, l, w, h, models, oh, nb_of_mandatory, average_ranking):
 
         """
 
@@ -59,6 +65,8 @@ class Stack:
         :param h: height of the stack
         :param models: list containing names of the models inside the crate
         :param oh: boolean that specifies if the stack is allowed to exceed trailer's length (overhang)
+        :param nb_of_mandatory: number of models marked as "MANDATORY" in the stack
+        :param average_ranking: average ranking of the boxes inside the stacks
         """
         self.length = l
         self.width = w
@@ -66,6 +74,8 @@ class Stack:
         self.volume = l*w*h
         self.models = models
         self.overhang = oh
+        self.nb_of_mandatory = nb_of_mandatory
+        self.average_ranking = average_ranking
 
     def nbr_of_models(self):
 
@@ -119,9 +129,51 @@ class Trailer:
         self.load = []                          # List that will contain the stack objects
         self.priority = p
         self.oh = oh
+        self.score = 0
+        self.crate_type = None
+        self.packer = None
 
     def __repr__(self):
         return self.category
+
+    def plot_load(self):
+        """
+        Plots the loading configuration of the trailer
+        :return: plot
+        """
+        fig, ax = plt.subplots()
+        codes = [Path.MOVETO, Path.LINETO, Path.LINETO, Path.LINETO, Path.CLOSEPOLY]
+        rect_list = [self.packer[0][i] for i in range(len(self.packer[0]))]
+        print(rect_list)
+
+        for rect in rect_list:
+            vertices = [
+                (rect.left, rect.bottom),  # Left, bottom
+                (rect.left, rect.top),  # Left, top
+                (rect.right, rect.top),  # Right, top
+                (rect.right, rect.bottom),  # Right, bottom
+                (rect.left, rect.bottom),  # Ignored
+            ]
+
+            path = Path(vertices, codes)
+
+            if self.crate_type == 'W':
+                patch = patches.PathPatch(path, facecolor="brown", lw=2)
+
+            else:  # crate_type == 'M'
+                patch = patches.PathPatch(path, facecolor="grey", lw=2)
+
+            ax.add_patch(patch)
+
+        plt.axis('scaled')
+        ax.set_xlim(0, self.width)
+        ax.set_ylim(0, self.length + self.oh)
+
+        if self.oh != 0:
+            line = plt.axhline(self.length, color='black', ls='--')
+
+        plt.show()
+        plt.close()
 
     def area(self):
 
@@ -271,6 +323,12 @@ class Warehouse:
         Sorts stacks to ship by their volumes
         """
         self.stacks_to_ship.sort(key=lambda s: s.volume, reverse=True)
+
+    def sort_by_ranking_and_volume(self):
+        """
+        Sorts stacks to ship by their average ranking, and their volume if their avg ranking is the same
+        """
+        self.stacks_to_ship.sort(key=lambda s: (s.average_ranking, -1*s.volume))
 
     def save_unused_crates(self, unused_crates_list):
 
@@ -462,8 +520,10 @@ class CratesManager:
                 # We build the stack and send it to the warehouse
                 stack_height = np.sum([crate.height for crate in crates_list])
                 stack_models = sum([crate.model_names for crate in crates_list], [])
+                nb_of_mandatory = sum([crate.mandatory for crate in crates_list])
+                stack_avg_rank = np.mean([crate.ranking for crate in crates_list])
                 warehouse.add_stack(Stack(self.crates[0].length, self.crates[0].width, stack_height,
-                                          stack_models, self.crates[0].overhang))
+                                          stack_models, not self.crates[0].overhang, nb_of_mandatory, stack_avg_rank))
 
                 # We remove crates from the list
                 self.remove_crates(index_list)
@@ -510,6 +570,10 @@ class CratesManager:
             # We initialize the height of the stack that we are building
             height = self.stand_by_crates[0].height
 
+            # We initialize the nb of mandatory crates of the stack that we are building and the sum of rank
+            nb_of_mandatory = int(self.stand_by_crates[0].mandatory)
+            ranking_list = [self.stand_by_crates[0].ranking]
+
             # We initialize a counter of crates used
             crates_used = 1
 
@@ -522,6 +586,8 @@ class CratesManager:
 
                         model_list += crate.model_names
                         height += crate.height
+                        nb_of_mandatory += crate.mandatory
+                        ranking_list += [crate.ranking]
                         crates_used += 1
 
                 # We stop the process if the next crate can't be on top of the actual one
@@ -529,8 +595,9 @@ class CratesManager:
                     break
 
             # We build the stack and send it to the specified warehouse
+            avg_ranking = np.mean(ranking_list)
             warehouse.add_stack(Stack(self.stand_by_crates[0].length, self.stand_by_crates[0].width, height,
-                                      model_list, self.stand_by_crates[0].overhang))
+                                      model_list, self.stand_by_crates[0].overhang, nb_of_mandatory, avg_ranking))
 
             # We remove the crates from the stand by crates list
             self.remove_crates(range(crates_used), option=2)
