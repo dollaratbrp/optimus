@@ -10,7 +10,7 @@ By : Nicolas Raymond
 """
 
 from LoadBuilder import LoadBuilder
-from Import_Functions import *
+from ImportFunctions import *
 DATAInclude = []
 
 
