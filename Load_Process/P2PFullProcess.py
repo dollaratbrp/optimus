@@ -117,73 +117,21 @@ def p2p_full_process():
             P2POrder = SQLParams.GetSQLData(QueryOrder)
 
             ####################################################################################
-            #                     WishList Query
+            #                     WishList recuperation
             ####################################################################################
 
             DATAWishList = get_wish_list()
 
             ####################################################################################
-            #                     INV Query
+            #                     Inventory recuperation
             ####################################################################################
 
-            headerINV = ''  # Not important here
-            SQLINV = SQLConnection('CAVLSQLPD2\pbi2', 'Business_Planning', 'OTD_1_P2P_F_INVENTORY', headers=headerINV)
-
-            QueryINV = """select distinct SHIPPING_POINT
-                  ,RTRIM([MATERIAL_NUMBER]) as MATERIAL_NUMBER
-                  ,case when sum(tempo.[QUANTITY]) <0 then 0 else convert(int,sum(tempo.QUANTITY)) end as [QUANTITY]
-                  , convert(DATE,GETDATE()) as [AVAILABLE_DATE]
-                  ,'INVENTORY' as [STATUS]
-                  from(
-            
-              SELECT  [SHIPPING_POINT]
-                  ,[MATERIAL_NUMBER]
-                  , [QUANTITY]
-                  ,[AVAILABLE_DATE]
-                  ,[STATUS]
-              FROM [Business_Planning].[dbo].[OTD_1_P2P_F_INVENTORY]
-              where status = 'INVENTORY'
-    
-              union( select [SHIPPING_POINT]
-                  ,[MATERIAL_NUMBER]
-                  , [QUANTITY]
-                  ,GETDATE() as [AVAILABLE_DATE]
-                  ,'INVENTORY' as [STATUS]
-                   FROM [Business_Planning].[dbo].[OTD_1_P2P_F_INVENTORY]
-              where status in ('QA HOLD') and AVAILABLE_DATE between convert(DATE,GETDATE()-1) and GETDATE() --(select case when DATEPART(WEEKDAY,getdate()) = 6 then convert(DATE,GETDATE()+3) else convert(DATE,GETDATE() +1) end)
-             )) as tempo
-             group by SHIPPING_POINT
-                  ,[MATERIAL_NUMBER]
-                  ,  [AVAILABLE_DATE]
-                  , [STATUS]
-             order by SHIPPING_POINT, MATERIAL_NUMBER
-                    """
-
-            OriginalDATAINV = SQLINV.GetSQLData(QueryINV)
-            DATAINV = [INVObj(*obj) for obj in OriginalDATAINV]
-
-            ####################################################################################
-            #                     QA HOLD Query
-            ####################################################################################
-            Query_QA = """ SELECT  [SHIPPING_POINT]
-                  ,RTRIM([MATERIAL_NUMBER]) as MATERIAL_NUMBER
-                  , [QUANTITY]
-                  ,convert (DATE,[AVAILABLE_DATE]) as AVAILABLE_DATE
-                  ,[STATUS]
-              FROM [Business_Planning].[dbo].[OTD_1_P2P_F_INVENTORY]
-              where status = 'QA HOLD'
-              and AVAILABLE_DATE = (case when DATEPART(WEEKDAY,getdate()) = 6 then convert(DATE,GETDATE()+3) else convert(DATE,GETDATE() +1) end)
-                            """
-
-            OriginalDATA_QA = SQLINV.GetSQLData(Query_QA)
-            # DATA_QA = []
-            for obj in OriginalDATA_QA:
-                DATAINV.append(INVObj(*obj))  # add QA HOLD with inv
-                                              # we want the QA at the end of inv list, so the skus in QA will be the last to be chose
+            DATAINV = get_inventory_and_qa()
 
             ####################################################################################
             #  Included Shipping_point
             ####################################################################################
+
             headerInclude = ''  # Not important here
             SQLInclude = SQLConnection('CAVLSQLPD2\pbi2', 'Business_Planning',
                                        'OTD_1_P2P_D_INCLUDED_INVENTORY', headers=headerInclude)
