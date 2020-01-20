@@ -9,13 +9,10 @@ By : Nicolas Raymond
 
 """
 import numpy as np
-import matplotlib.pyplot as plt
-import matplotlib.patches as patches
 import LoadingObjects as LoadObj
 import pandas as pd
 from collections import Counter
 from packer import newPacker
-from matplotlib.path import Path
 from math import floor
 
 
@@ -315,15 +312,12 @@ class LoadBuilder:
                 # (using the top of the rectangle that is the most at the edge)
                 t.length_used = max([rect.top for rect in best_packer[0]])
 
-                # We save the score associated to the trailer
+                # We set the score associated to the trailer and save the packer object
                 t.set_score(raw_score)
+                t.packer = best_packer
 
                 # We remove stacks used from the warehouse concerned
                 warehouse.remove_stacks(stacks_used)
-
-                # We print the loading configuration of the trailer to visualize the result
-                if plot_enabled:
-                    self.__print_load(best_packer[0], crate_type)
 
         # We remove trailer that we're not used during the loading process
         self.__remove_leftover_trailers()
@@ -652,49 +646,6 @@ class LoadBuilder:
         # We save trailers done and clear the current trailers list
         self.trailers_done += self.trailers.copy()
         self.trailers.clear()
-
-    @staticmethod
-    def __print_load(trailer, crate_type):
-
-        """
-        Plots the loading configuration of the trailer
-
-        :param crate_type: 'W' for wood, 'M' for metal
-        :param trailer: Object of class Trailer
-        """
-
-        fig, ax = plt.subplots()
-        codes = [Path.MOVETO, Path.LINETO, Path.LINETO, Path.LINETO, Path.CLOSEPOLY]
-        rect_list = [trailer[i] for i in range(len(trailer))]
-
-        for rect in rect_list:
-            vertices = [
-                (rect.left, rect.bottom),  # Left, bottom
-                (rect.left, rect.top),  # Left, top
-                (rect.right, rect.top),  # Right, top
-                (rect.right, rect.bottom),  # Right, bottom
-                (rect.left, rect.bottom),  # Ignored
-            ]
-
-            path = Path(vertices, codes)
-
-            if crate_type == 'W':
-                patch = patches.PathPatch(path, facecolor="brown", lw=2)
-
-            else:  # crate_type == 'M'
-                patch = patches.PathPatch(path, facecolor="grey", lw=2)
-
-            ax.add_patch(patch)
-
-        plt.axis('scaled')
-        ax.set_xlim(0, trailer.width)
-        ax.set_ylim(0, trailer.height + trailer.overhang_measure)
-
-        if trailer.overhang_measure != 0:
-            line = plt.axhline(trailer.height, color='black', ls='--')
-
-        plt.show()
-        plt.close()
 
     def get_loading_summary(self):
 
