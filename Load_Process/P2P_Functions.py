@@ -89,10 +89,10 @@ class Parameters:
         self.LoadBuilder = LoadBuilder(TrailerData)
 
 
-class Included_Inv:
-    def __init__(self, Point_Source, Point_Include):
-        self.source = Point_Source
-        self.include = Point_Include
+class NestedSourcePoints:
+    def __init__(self, point_source, point_include):
+        self.source = point_source
+        self.include = point_include
 
 
 def get_wish_list():
@@ -191,10 +191,31 @@ def get_inventory_and_qa():
     data = connection.GetSQLData(qa_query)
 
     # we want the QA at the end of inv list, so the skus in QA will be the last to be chose
-    for obj in data:
-        inventory.append(INVObj(*obj))  # add QA HOLD with inv
+    for line in data:
+        inventory.append(INVObj(*line))  # add QA HOLD with inv
 
     return inventory
+
+
+def get_nested_source_points(l):
+
+    """
+    Gets all information on which plant inventory is included in which other (from SQL)
+    and push it in l
+
+    :param l: list that will contained the NestedSourcePoints
+    """
+
+    connection = SQLConnection('CAVLSQLPD2\pbi2', 'Business_Planning',
+                               'OTD_1_P2P_D_INCLUDED_INVENTORY', headers='')
+
+    query = """select SHIPPING_POINT_SOURCE ,SHIPPING_POINT_INCLUDE
+                                   from OTD_1_P2P_D_INCLUDED_INVENTORY
+                   """
+    data = connection.GetSQLData(query)
+
+    for line in data:
+        l.append(NestedSourcePoints(*line))
 
 
 def get_trailers_data(category_list=[], qty_list=[]):
@@ -448,7 +469,6 @@ def EquivalentPlantFrom(Point1, Point2):
     if Point1 == Point2:
         return True
     else:
-        global DATAInclude
         for equiv in DATAInclude:
             if equiv.source == Point2 and equiv.include == Point1:
                 return True

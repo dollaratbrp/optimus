@@ -75,8 +75,6 @@ def p2p_full_process():
 
             # GET SQL DATA
             EmailList = [item for sublist in SQLEmail.GetSQLData(QueryEmail) for item in sublist]
-            # [ sublist for sublist in SQLEmail.GetSQLData(QueryEmail) ]
-            # #[ item for sublist in SQLEmail.GetSQLData(SQLEmail) for item in sublist]
 
             ####################################################################################
             #                     Parameters Query
@@ -129,20 +127,11 @@ def p2p_full_process():
             DATAINV = get_inventory_and_qa()
 
             ####################################################################################
-            #  Included Shipping_point
+            #                     Nested Shipping_point recuperation
             ####################################################################################
 
-            headerInclude = ''  # Not important here
-            SQLInclude = SQLConnection('CAVLSQLPD2\pbi2', 'Business_Planning',
-                                       'OTD_1_P2P_D_INCLUDED_INVENTORY', headers=headerInclude)
-            QueryInclude = """select SHIPPING_POINT_SOURCE ,SHIPPING_POINT_INCLUDE
-                                from OTD_1_P2P_D_INCLUDED_INVENTORY
-                """
-            OriginalDATAInclude = SQLInclude.GetSQLData(QueryInclude)
-            # DATAInclude = [] # defined in P2P_Functions
             global DATAInclude
-            for obj in OriginalDATAInclude:
-                DATAInclude.append(Included_Inv(*obj))
+            get_nested_source_points(DATAInclude)
 
             ####################################################################################
             #  Look if all point_from + shipping_point are in parameters
@@ -158,6 +147,7 @@ def p2p_full_process():
                 and [POINT_FROM] <>[SHIPPING_POINT] 
             """
             DATAMissing = SQLMissing.GetSQLData(QueryMissing)
+
         except:
             downloaded = False
             print('SQL Query failed')
