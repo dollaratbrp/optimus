@@ -478,8 +478,9 @@ class CratesManager:
                 stack_height = np.sum([crate.height for crate in crates_list])
                 stack_models = sum([crate.model_names for crate in crates_list], [])
                 nb_of_mandatory = sum([crate.mandatory for crate in crates_list])
+                stack_avg_rank = np.mean([crate.ranking for crate in crates_list])
                 warehouse.add_stack(Stack(self.crates[0].length, self.crates[0].width, stack_height,
-                                          stack_models, not self.crates[0].overhang, nb_of_mandatory))
+                                          stack_models, not self.crates[0].overhang, nb_of_mandatory, stack_avg_rank))
 
                 # We remove crates from the list
                 self.remove_crates(index_list)
