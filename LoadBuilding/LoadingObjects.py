@@ -11,7 +11,9 @@ By : Nicolas Raymond
 """
 
 import numpy as np
-
+import matplotlib.pyplot as plt
+from matplotlib.path import Path
+import matplotlib.patches as patches
 
 class Crate:
 
@@ -127,7 +129,9 @@ class Trailer:
         self.load = []                          # List that will contain the stack objects
         self.priority = p
         self.oh = oh
-        self.score = 0                          # Score returned by the LoadBuilder
+        self.score = 0
+        self.crate_type = None
+        self.packer = None
 
     def __repr__(self):
         return self.category
@@ -145,6 +149,44 @@ class Trailer:
         # This way we maximize the area used and the number of mandatory crates while minimizing the ranking
         # of the boxes inside
         self.score = raw_score/avg_ranking
+
+    def plot_load(self):
+        """
+        Plots the loading configuration of the trailer
+        :return: plot
+        """
+        fig, ax = plt.subplots()
+        codes = [Path.MOVETO, Path.LINETO, Path.LINETO, Path.LINETO, Path.CLOSEPOLY]
+        rect_list = [self.packer[0][i] for i in range(len(self.packer[0]))]
+
+        for rect in rect_list:
+            vertices = [
+                (rect.left, rect.bottom),  # Left, bottom
+                (rect.left, rect.top),  # Left, top
+                (rect.right, rect.top),  # Right, top
+                (rect.right, rect.bottom),  # Right, bottom
+                (rect.left, rect.bottom),  # Ignored
+            ]
+
+            path = Path(vertices, codes)
+
+            if self.crate_type == 'W':
+                patch = patches.PathPatch(path, facecolor="brown", lw=2)
+
+            else:  # crate_type == 'M'
+                patch = patches.PathPatch(path, facecolor="grey", lw=2)
+
+            ax.add_patch(patch)
+
+        plt.axis('scaled')
+        ax.set_xlim(0, self.width)
+        ax.set_ylim(0, self.height + self.overhang_measure)
+
+        if self.oh != 0:
+            line = plt.axhline(self.height, color='black', ls='--')
+
+        plt.show()
+        plt.close()
 
     def area(self):
 
