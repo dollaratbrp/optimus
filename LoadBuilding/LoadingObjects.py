@@ -527,8 +527,9 @@ class CratesManager:
             # We initialize the height of the stack that we are building
             height = self.stand_by_crates[0].height
 
-            # We initialize the nb of mandatory crates of the stack that we are building
+            # We initialize the nb of mandatory crates of the stack that we are building and the sum of rank
             nb_of_mandatory = int(self.stand_by_crates[0].mandatory)
+            ranking_list = [self.stand_by_crates[0].ranking]
 
             # We initialize a counter of crates used
             crates_used = 1
@@ -543,6 +544,7 @@ class CratesManager:
                         model_list += crate.model_names
                         height += crate.height
                         nb_of_mandatory += crate.mandatory
+                        ranking_list += [crate.ranking]
                         crates_used += 1
 
                 # We stop the process if the next crate can't be on top of the actual one
@@ -550,8 +552,9 @@ class CratesManager:
                     break
 
             # We build the stack and send it to the specified warehouse
+            avg_ranking = np.mean(ranking_list)
             warehouse.add_stack(Stack(self.stand_by_crates[0].length, self.stand_by_crates[0].width, height,
-                                      model_list, self.stand_by_crates[0].overhang, nb_of_mandatory))
+                                      model_list, self.stand_by_crates[0].overhang, nb_of_mandatory, avg_ranking))
 
             # We remove the crates from the stand by crates list
             self.remove_crates(range(crates_used), option=2)
