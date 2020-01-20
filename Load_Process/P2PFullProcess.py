@@ -11,7 +11,7 @@ By : Nicolas Raymond
 
 # from Import_Functions import *
 from ParametersBox import *
-from P2P_Functions import *
+from P2PFunctions import *
 import pandas as pd
 from openpyxl.styles import (PatternFill, colors, Alignment)
 from openpyxl import Workbook
