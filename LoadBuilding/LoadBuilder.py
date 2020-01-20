@@ -289,7 +289,7 @@ class LoadBuilder:
                         packers.append((crate_type, packer))
 
             # We save the index of the best loading configuration that respected the constraint of plc_lb
-            best_packer_index, score = self.__select_best_packer(packers)
+            best_packer_index, raw_score = self.__select_best_packer(packers)
 
             # If an index is found (at least one load satisfies the constraint)
             if best_packer_index is not None:
@@ -316,7 +316,7 @@ class LoadBuilder:
                 t.length_used = max([rect.top for rect in best_packer[0]])
 
                 # We save the score associated to the trailer
-                t.score = score
+                t.set_score(raw_score)
 
                 # We remove stacks used from the warehouse concerned
                 warehouse.remove_stacks(stacks_used)
