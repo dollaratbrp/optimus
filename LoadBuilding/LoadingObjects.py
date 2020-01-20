@@ -136,20 +136,6 @@ class Trailer:
     def __repr__(self):
         return self.category
 
-    def set_score(self, raw_score):
-        """
-        Set the final score associated to trailer
-        :param raw_score: score attributed in first place by the LoadBuilder considering the area used and the number
-                          of mandatory crates
-        """
-        # We compute the average ranking of all the stacks in the trailer
-        avg_ranking = np.mean([stack.average_ranking for stack in self.load])
-
-        # We set the score by dividing raw score by avg_ranking
-        # This way we maximize the area used and the number of mandatory crates while minimizing the ranking
-        # of the boxes inside
-        self.score = raw_score/avg_ranking
-
     def plot_load(self):
         """
         Plots the loading configuration of the trailer
