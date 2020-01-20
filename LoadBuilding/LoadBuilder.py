@@ -53,8 +53,6 @@ class LoadBuilder:
 
         :param ranking: dictionary with size code as keys and lists of integers as value
         """
-        print(models_data)
-        tot = 0
 
         # For all lines of the data frame
         for i in models_data.index:
@@ -90,8 +88,6 @@ class LoadBuilder:
                     total_of_mandatory = int(models_data['NB_OF_X'][i])
                 else:
                     total_of_mandatory = 0
-
-                tot += total_of_mandatory
 
                 # We save the number of individual crates to build and convert it into
                 # integer to avoid conflict with range function. Also, with int(), every number in [0,1[ will
@@ -153,7 +149,6 @@ class LoadBuilder:
 
         # We flatten the model_names list
         self.model_names = [item for sublist in self.model_names for item in sublist]
-        print('TOTAL OF MANDATORY :', tot)
 
     def __trailers_init(self):
 
@@ -210,9 +205,6 @@ class LoadBuilder:
             if len(self.metal_remaining_crates.stand_by_crates) > 0:
                 self.metal_remaining_crates.create_incomplete_stacks(self.metal_warehouse)
 
-        print('NB OF X IN WOOD STACKS :', sum([stack.nb_of_mandatory for stack in self.warehouse.stacks_to_ship]))
-        print('NB OF X IN METAL STACKS :', sum([stack.nb_of_mandatory for stack in self.metal_warehouse.stacks_to_ship]))
-
     def __trailer_packing(self):
         """
 
@@ -242,8 +234,6 @@ class LoadBuilder:
                 # We compute all possible configurations of loading (efficiently) if there's still stacks available
                 if len(warehouse) != 0:
                     warehouse.sort_by_ranking_and_volume()
-                    print(crate_type + 'STACKS POSITIONNING :',
-                          [(stack.average_ranking, stack.volume) for stack in warehouse])
                     all_configs = self.__create_all_configs(warehouse, t)
 
                 else:
