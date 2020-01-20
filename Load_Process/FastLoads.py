@@ -7,7 +7,7 @@ from tkinter import *
 import pandas as pd
 from openpyxl import load_workbook, Workbook
 from openpyxl.styles import PatternFill
-from Import_Functions import SQLConnection, savexlsxFile
+from ImportFunctions import SQLConnection, savexlsxFile
 from P2P_Functions import get_trailers_data
 from LoadBuilder import LoadBuilder
 from random import randint
