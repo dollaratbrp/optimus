@@ -95,6 +95,46 @@ class Included_Inv:
         self.include = Point_Include
 
 
+def get_wish_list():
+
+    """Recuperates the whish list from SQL"""
+
+    wishlist_headers = 'SALES_DOCUMENT_NUMBER,SALES_ITEM_NUMBER,SOLD_TO_NUMBER,POINT_FROM,' \
+                       'SHIPPING_POINT,DIVISION,MATERIAL_NUMBER,Size_Dimensions,Lenght,Width,' \
+                       'Height,stackability,Quantity,Priority_Rank,X_IF_MANDATORY, METAL_WOOD'
+
+    wishlist_connection = SQLConnection('CAVLSQLPD2\pbi2', 'Business_Planning',
+                                        'OTD_2_PRIORITY_F_P2P', headers=wishlist_headers)
+
+    query = """SELECT  [SALES_DOCUMENT_NUMBER]
+                      ,[SALES_ITEM_NUMBER]
+                      ,[SOLD_TO_NUMBER]
+                      ,[POINT_FROM]
+                      ,[SHIPPING_POINT]
+                      ,[DIVISION]
+                      ,RTRIM([MATERIAL_NUMBER])
+                      ,RTRIM([Size_Dimensions])
+                      ,convert(int,CEILING([Length]))
+                      ,convert(int,CEILING([Width]))
+                      ,convert(int,CEILING([Height]))
+                      ,convert(int,[stackability])
+                      ,[Quantity]
+                      ,[Priority_Rank]
+                      ,[X_IF_MANDATORY]
+                      ,[OVERHANG]
+                      ,[METAL_WOOD]
+                  FROM [Business_Planning].[dbo].[OTD_1_P2P_F_PRIORITY_WITHOUT_INVENTORY]
+                  where [POINT_FROM] <>[SHIPPING_POINT] and Length<>0 and Width <> 0 and Height <> 0
+                  and concat (POINT_FROM,SHIPPING_POINT) in (select distinct concat([POINT_FROM],[POINT_TO]) from [Business_Planning].[dbo].[OTD_1_P2P_F_PARAMETERS]
+                  where IMPORT_DATE = (select max(IMPORT_DATE) from [Business_Planning].[dbo].[OTD_1_P2P_F_PARAMETERS])
+                  and SKIP = 0)
+                  order by Priority_Rank
+                """
+
+    data = wishlist_connection.GetSQLData(query)
+    return [WishListObj(*line) for line in data]
+
+
 def get_trailers_data(category_list=[], qty_list=[]):
     """
     Gets the trailers data from SQL
