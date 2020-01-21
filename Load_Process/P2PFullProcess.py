@@ -83,26 +83,7 @@ def p2p_full_process():
             #                     Parameters Query
             ####################################################################################
 
-            headerParams = 'POINT_FROM,POINT_TO,LOAD_MIN,LOAD_MAX,DRYBOX,FLATBED,TRANSIT,PRIORITY_ORDER,SKIP'
-            SQLParams = SQLConnection('CAVLSQLPD2\pbi2', 'Business_Planning',
-                                      'OTD_1_P2P_F_PARAMETERS', headers=headerParams)
-            QueryParams = """ SELECT  [POINT_FROM]
-                  ,[POINT_TO]
-                  ,[LOAD_MIN]
-                  ,[LOAD_MAX]
-                  ,[DRYBOX]
-                  ,[FLATBED]
-                  ,[TRANSIT]
-                  ,[PRIORITY_ORDER]
-                  ,DAYS_TO
-              FROM [Business_Planning].[dbo].[OTD_1_P2P_F_PARAMETERS]
-              where IMPORT_DATE = (select max(IMPORT_DATE) from [Business_Planning].[dbo].[OTD_1_P2P_F_PARAMETERS])
-              and SKIP = 0
-              order by PRIORITY_ORDER
-            """
-            # GET SQL DATA
-            DATAParams = [Parameters(*sublist) for sublist in SQLParams.GetSQLData(QueryParams)]
-            # [ item for sublist in SQLEmail.GetSQLData(SQLEmail) for item in sublist]
+            DATAParams, param_connection = get_parameter_grid()
 
             ####################################################################################
             #                     Parameters P2P ORDER (for excel sheet order)
@@ -115,7 +96,7 @@ def p2p_full_process():
               order by [POINT_FROM],[POINT_TO]
             """
             # GET SQL DATA
-            P2POrder = SQLParams.GetSQLData(QueryOrder)
+            P2POrder = param_connection.GetSQLData(QueryOrder)
 
             ####################################################################################
             #                     WishList recuperation
