@@ -13,7 +13,7 @@
 # None
 
 from ParametersBox import *
-from P2P_Functions import *
+from P2PFunctions import *
 
 AutomaticRun = False # set to True to automate code
 

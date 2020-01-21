@@ -11,7 +11,8 @@ By : Nicolas Raymond
 
 # from Import_Functions import *
 from ParametersBox import *
-from P2P_Functions import *
+from P2PFunctions import *
+from ProcessValidation import validate_process
 import pandas as pd
 from openpyxl.styles import (PatternFill, colors, Alignment)
 from openpyxl import Workbook
@@ -33,12 +34,14 @@ dayTodayComplete = pd.datetime.now().replace(second=0, microsecond=0)  # date to
 dayToday = weekdays(0)  # Date to display in report
 printLoads = False  # Print created loads
 AutomaticRun = False  # set to True to automate code
+validation = True     # set to True to validate the results received after the process
 dest_filename = 'P2P_Summary_'+dayToday  # Name of excel file with today's date
 
 
 def p2p_full_process():
     """
     Executes P2P full process
+
     :return: summary of the full process in at the 'saveFolder' directory
 
     """
@@ -75,33 +78,12 @@ def p2p_full_process():
 
             # GET SQL DATA
             EmailList = [item for sublist in SQLEmail.GetSQLData(QueryEmail) for item in sublist]
-            # [ sublist for sublist in SQLEmail.GetSQLData(QueryEmail) ]
-            # #[ item for sublist in SQLEmail.GetSQLData(SQLEmail) for item in sublist]
 
             ####################################################################################
             #                     Parameters Query
             ####################################################################################
 
-            headerParams = 'POINT_FROM,POINT_TO,LOAD_MIN,LOAD_MAX,DRYBOX,FLATBED,TRANSIT,PRIORITY_ORDER,SKIP'
-            SQLParams = SQLConnection('CAVLSQLPD2\pbi2', 'Business_Planning',
-                                      'OTD_1_P2P_F_PARAMETERS', headers=headerParams)
-            QueryParams = """ SELECT  [POINT_FROM]
-                  ,[POINT_TO]
-                  ,[LOAD_MIN]
-                  ,[LOAD_MAX]
-                  ,[DRYBOX]
-                  ,[FLATBED]
-                  ,[TRANSIT]
-                  ,[PRIORITY_ORDER]
-                  ,DAYS_TO
-              FROM [Business_Planning].[dbo].[OTD_1_P2P_F_PARAMETERS]
-              where IMPORT_DATE = (select max(IMPORT_DATE) from [Business_Planning].[dbo].[OTD_1_P2P_F_PARAMETERS])
-              and SKIP = 0
-              order by PRIORITY_ORDER
-            """
-            # GET SQL DATA
-            DATAParams = [Parameters(*sublist) for sublist in SQLParams.GetSQLData(QueryParams)]
-            # [ item for sublist in SQLEmail.GetSQLData(SQLEmail) for item in sublist]
+            DATAParams, param_connection = get_parameter_grid()
 
             ####################################################################################
             #                     Parameters P2P ORDER (for excel sheet order)
@@ -114,120 +96,26 @@ def p2p_full_process():
               order by [POINT_FROM],[POINT_TO]
             """
             # GET SQL DATA
-            P2POrder = SQLParams.GetSQLData(QueryOrder)
+            P2POrder = param_connection.GetSQLData(QueryOrder)
 
             ####################################################################################
-            #                     WishList Query
+            #                     WishList recuperation
             ####################################################################################
 
-            headerWishList = 'SALES_DOCUMENT_NUMBER,SALES_ITEM_NUMBER,SOLD_TO_NUMBER,POINT_FROM,' \
-                             'SHIPPING_POINT,DIVISION,MATERIAL_NUMBER,Size_Dimensions,Lenght,Width,' \
-                             'Height,stackability,Quantity,Priority_Rank,X_IF_MANDATORY, METAL_WOOD'
-
-            SQLWishList = SQLConnection('CAVLSQLPD2\pbi2', 'Business_Planning',
-                                        'OTD_2_PRIORITY_F_P2P', headers=headerWishList)
-
-            QueryWishList = """SELECT  [SALES_DOCUMENT_NUMBER]
-                  ,[SALES_ITEM_NUMBER]
-                  ,[SOLD_TO_NUMBER]
-                  ,[POINT_FROM]
-                  ,[SHIPPING_POINT]
-                  ,[DIVISION]
-                  ,RTRIM([MATERIAL_NUMBER])
-                  ,RTRIM([Size_Dimensions])
-                  ,convert(int,CEILING([Length]))
-                  ,convert(int,CEILING([Width]))
-                  ,convert(int,CEILING([Height]))
-                  ,convert(int,[stackability])
-                  ,[Quantity]
-                  ,[Priority_Rank]
-                  ,[X_IF_MANDATORY]
-                  ,[OVERHANG]
-                  ,[METAL_WOOD]
-              FROM [Business_Planning].[dbo].[OTD_1_P2P_F_PRIORITY_WITHOUT_INVENTORY]
-              where [POINT_FROM] <>[SHIPPING_POINT] and Length<>0 and Width <> 0 and Height <> 0
-              and concat (POINT_FROM,SHIPPING_POINT) in (select distinct concat([POINT_FROM],[POINT_TO]) from [Business_Planning].[dbo].[OTD_1_P2P_F_PARAMETERS]
-              where IMPORT_DATE = (select max(IMPORT_DATE) from [Business_Planning].[dbo].[OTD_1_P2P_F_PARAMETERS])
-              and SKIP = 0)
-              order by Priority_Rank
-            """
-
-            OriginalDATAWishList = SQLWishList.GetSQLData(QueryWishList)
-            DATAWishList = [WishListObj(*obj) for obj in OriginalDATAWishList]
+            DATAWishList = get_wish_list()
 
             ####################################################################################
-            #                     INV Query
+            #                     Inventory recuperation
             ####################################################################################
 
-            headerINV = ''  # Not important here
-            SQLINV = SQLConnection('CAVLSQLPD2\pbi2', 'Business_Planning', 'OTD_1_P2P_F_INVENTORY', headers=headerINV)
-
-            QueryINV = """select distinct SHIPPING_POINT
-                  ,RTRIM([MATERIAL_NUMBER]) as MATERIAL_NUMBER
-                  ,case when sum(tempo.[QUANTITY]) <0 then 0 else convert(int,sum(tempo.QUANTITY)) end as [QUANTITY]
-                  , convert(DATE,GETDATE()) as [AVAILABLE_DATE]
-                  ,'INVENTORY' as [STATUS]
-                  from(
-            
-              SELECT  [SHIPPING_POINT]
-                  ,[MATERIAL_NUMBER]
-                  , [QUANTITY]
-                  ,[AVAILABLE_DATE]
-                  ,[STATUS]
-              FROM [Business_Planning].[dbo].[OTD_1_P2P_F_INVENTORY]
-              where status = 'INVENTORY'
-    
-              union( select [SHIPPING_POINT]
-                  ,[MATERIAL_NUMBER]
-                  , [QUANTITY]
-                  ,GETDATE() as [AVAILABLE_DATE]
-                  ,'INVENTORY' as [STATUS]
-                   FROM [Business_Planning].[dbo].[OTD_1_P2P_F_INVENTORY]
-              where status in ('QA HOLD') and AVAILABLE_DATE between convert(DATE,GETDATE()-1) and GETDATE() --(select case when DATEPART(WEEKDAY,getdate()) = 6 then convert(DATE,GETDATE()+3) else convert(DATE,GETDATE() +1) end)
-             )) as tempo
-             group by SHIPPING_POINT
-                  ,[MATERIAL_NUMBER]
-                  ,  [AVAILABLE_DATE]
-                  , [STATUS]
-             order by SHIPPING_POINT, MATERIAL_NUMBER
-                    """
-
-            OriginalDATAINV = SQLINV.GetSQLData(QueryINV)
-            DATAINV = [INVObj(*obj) for obj in OriginalDATAINV]
+            DATAINV = get_inventory_and_qa()
 
             ####################################################################################
-            #                     QA HOLD Query
+            #                     Nested Shipping_point recuperation
             ####################################################################################
-            Query_QA = """ SELECT  [SHIPPING_POINT]
-                  ,RTRIM([MATERIAL_NUMBER]) as MATERIAL_NUMBER
-                  , [QUANTITY]
-                  ,convert (DATE,[AVAILABLE_DATE]) as AVAILABLE_DATE
-                  ,[STATUS]
-              FROM [Business_Planning].[dbo].[OTD_1_P2P_F_INVENTORY]
-              where status = 'QA HOLD'
-              and AVAILABLE_DATE = (case when DATEPART(WEEKDAY,getdate()) = 6 then convert(DATE,GETDATE()+3) else convert(DATE,GETDATE() +1) end)
-                            """
 
-            OriginalDATA_QA = SQLINV.GetSQLData(Query_QA)
-            # DATA_QA = []
-            for obj in OriginalDATA_QA:
-                DATAINV.append(INVObj(*obj))  # add QA HOLD with inv
-                                              # we want the QA at the end of inv list, so the skus in QA will be the last to be chose
-
-            ####################################################################################
-            #  Included Shipping_point
-            ####################################################################################
-            headerInclude = ''  # Not important here
-            SQLInclude = SQLConnection('CAVLSQLPD2\pbi2', 'Business_Planning',
-                                       'OTD_1_P2P_D_INCLUDED_INVENTORY', headers=headerInclude)
-            QueryInclude = """select SHIPPING_POINT_SOURCE ,SHIPPING_POINT_INCLUDE
-                                from OTD_1_P2P_D_INCLUDED_INVENTORY
-                """
-            OriginalDATAInclude = SQLInclude.GetSQLData(QueryInclude)
-            # DATAInclude = [] # defined in P2P_Functions
             global DATAInclude
-            for obj in OriginalDATAInclude:
-                DATAInclude.append(Included_Inv(*obj))
+            get_nested_source_points(DATAInclude)
 
             ####################################################################################
             #  Look if all point_from + shipping_point are in parameters
@@ -243,6 +131,7 @@ def p2p_full_process():
                 and [POINT_FROM] <>[SHIPPING_POINT] 
             """
             DATAMissing = SQLMissing.GetSQLData(QueryMissing)
+
         except:
             downloaded = False
             print('SQL Query failed')
@@ -325,7 +214,7 @@ def p2p_full_process():
     for param in DATAParams:  # for all P2P in parameters
 
         # Initialization of empty list
-        tempoOnLoad = []  # List to remember the INVobj that will be sent to the LoadBuilder
+        tempoOnLoad = []  # List to remember the INVobjs that will be sent to the LoadBuilder
         invData = []  # List that will contain the data to build the frame that will be sent to the LoadBuilder
 
         # Initialization of an empty ranking dictionary
@@ -395,7 +284,7 @@ def p2p_full_process():
     ####################################################################################################################
 
     # We display loads create in each p2p for our own purpose
-    print('\n\nResults\n\n')
+    print('\n\nResults')
     for param in DATAParams:
         print('\n\n')
         print(param.POINT_FROM, ' _ ', param.POINT_TO)
@@ -481,6 +370,16 @@ def p2p_full_process():
         if inv.QUANTITY - inv.unused > 0:
             wsUnbooked.append([inv.POINT, inv.MATERIAL_NUMBER, inv.QUANTITY-inv.unused])
 
+    # We save the workbook and the reference
     reference = [savexlsxFile(wb, saveFolder, dest_filename)]
+
+    # We send the emails
     send_email(EmailList, dest_filename, '', reference)
-    os.system('start "excel" "'+str(reference[0])+'"')  # To open excel workbook
+
+    # We validate the process' results if the user wants to
+    if validation:
+        workbook_path = saveFolder + dest_filename + '.xlsx'
+        validate_process(workbook_path)
+
+    # We open excel workbook
+    os.system('start "excel" "'+str(reference[0])+'"')

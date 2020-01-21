@@ -1,6 +1,7 @@
 """
 
-Author : Olivier Lefebre
+Author : Olivier Lefebre,
+         Nicolas Raymond
 
 This file contained informations on WishlistObj class
 
@@ -10,89 +11,264 @@ By : Nicolas Raymond
 """
 
 from LoadBuilder import LoadBuilder
-from Import_Functions import *
+from ImportFunctions import *
 DATAInclude = []
 
 
-class WishListObj:
-    def __init__(self, SDN, SINU, STN, PF, SP, DIV, MAT_NUM, SIZE, LENG, WIDTH, HEIGHT,
-                 STACK, QTY, RANK, MANDATORY, OVERHANG, CRATE_TYPE, IsAdhoc=0):
+class Wish:
 
-        self.SALES_DOCUMENT_NUMBER = SDN
-        self.SALES_ITEM_NUMBER = SINU
-        self.SOLD_TO_NUMBER = STN
-        self.POINT_FROM = PF
-        self.SHIPPING_POINT = SP
-        self.DIVISION = DIV
-        self.MATERIAL_NUMBER = MAT_NUM
-        self.SIZE_DIMENSIONS = SIZE
-        self.LENGTH = LENG
-        self.WIDTH = WIDTH
-        self.HEIGHT = HEIGHT
-        self.STACKABILITY = STACK
-        self.QUANTITY = QTY
-        self.RANK = RANK
-        self.MANDATORY = (MANDATORY == 'X')
-        self.OVERHANG = OVERHANG
-        self.IsAdhoc=IsAdhoc
-        self.CRATE_TYPE = CRATE_TYPE
+    """
+    Represents a wish from the wishlist
+    """
+
+    def __init__(self, sdn, sin, stn, point_from, shipping_point, div, mat_num, size, length, width, height,
+                 stackability, qty, rank, mandatory, overhang, crate_type, is_adhoc=0):
+
+        self.SALES_DOCUMENT_NUMBER = sdn
+        self.SALES_ITEM_NUMBER = sin
+        self.SOLD_TO_NUMBER = stn
+        self.POINT_FROM = point_from
+        self.SHIPPING_POINT = shipping_point
+        self.DIVISION = div
+        self.MATERIAL_NUMBER = mat_num
+        self.SIZE_DIMENSIONS = size
+        self.LENGTH = length
+        self.WIDTH = width
+        self.HEIGHT = height
+        self.STACKABILITY = stackability
+        self.QUANTITY = qty
+        self.RANK = rank
+        self.MANDATORY = (mandatory == 'X')
+        self.OVERHANG = overhang
+        self.IsAdhoc = is_adhoc
+        self.CRATE_TYPE = crate_type
 
         # To keep track of inv origins
         self.INV_ITEMS = []
-        self.ORIGINAL_QUANTITY = QTY
+        self.ORIGINAL_QUANTITY = qty
 
         # If the item is assigned to a Load in excel workbook
         self.Finished = False
         self.EndDate = None
 
-    def lineToXlsx(self, dateToday):
+    def lineToXlsx(self, date_today):
+        """
+        Return a list of all the details needed on a wish to write a line in a .xlsx forecast report
+        :param date_today: today's date
+        """
         return [(self.SALES_DOCUMENT_NUMBER, self.SALES_ITEM_NUMBER, self.SOLD_TO_NUMBER, self.POINT_FROM,
                  self.SHIPPING_POINT, self.DIVISION, self.MATERIAL_NUMBER, self.SIZE_DIMENSIONS,
                  self.LENGTH, self.WIDTH, self.HEIGHT, self.STACKABILITY, self.OVERHANG, self.ORIGINAL_QUANTITY,
-                 self.RANK, self.MANDATORY, self.EndDate, dateToday, self.IsAdhoc)]
+                 self.RANK, self.MANDATORY, self.EndDate, date_today, self.IsAdhoc)]
 
 
 class INVObj:
-    def __init__(self, POINT, MATERIAL_NUMBER, QUANTITY, DATE, STATUS):
-        self.POINT = POINT
-        self.MATERIAL_NUMBER = MATERIAL_NUMBER
-        self.QUANTITY = QUANTITY
-        self.DATE = DATE
-        self.STATUS = STATUS
-        self.Future = not (weekdays(0) == DATE)  # if available date is not the same as today
+
+    """
+    Represent an inventory line of the inventory data from SQL
+    """
+    def __init__(self, point, mat_num, qty, date, status):
+        self.POINT = point
+        self.MATERIAL_NUMBER = mat_num
+        self.QUANTITY = qty
+        self.DATE = date
+        self.STATUS = status
+        self.Future = not (weekdays(0) == date)  # if available date is not the same as today
         self.unused = 0  # count the number of skus to display on BOOKED_UNUSED worksheet
 
     def lineToXlsx(self):
+        """
+        Return a list of all the details needed on a inventory object to write a line in a .xlsx forecast report
+        """
         return [self.POINT, self.MATERIAL_NUMBER, self.QUANTITY, self.DATE, self.STATUS]
 
 
 class Parameters:
-    def __init__(self, POINT_FROM, POINT_TO, LOADMIN, LOADMAX, DRYBOX, FLATBED, TRANSIT, PRIORITY, days_to):
-        self.POINT_FROM = POINT_FROM
-        self.POINT_TO = POINT_TO
-        self.LOADMIN = LOADMIN
-        self.LOADMAX = LOADMAX
-        self.DRYBOX = DRYBOX
-        self.FLATBED = FLATBED
-        self.PRIORITY = PRIORITY
-        self.TRANSIT = TRANSIT
+
+    """
+    Represents a line of parameters from the ParameterBox GUI
+    """
+    def __init__(self, point_from, point_to, loadmin, loadmax, drybox, flatbed, transit, priority, days_to):
+        self.POINT_FROM = point_from
+        self.POINT_TO = point_to
+        self.LOADMIN = loadmin
+        self.LOADMAX = loadmax
+        self.DRYBOX = drybox
+        self.FLATBED = flatbed
+        self.TRANSIT = transit
+        self.PRIORITY = priority
         self.days_to = days_to
 
         self.LoadBuilder = []
-        self.new_LoadBuilder()
         self.AssignedWish = []
+        self.new_LoadBuilder()
 
     def new_LoadBuilder(self):
-        """"We reset the loadBuilder"""
-        self.AssignedWish = []
-        TrailerData = get_trailers_data(['DRYBOX', 'FLATBED'], [self.DRYBOX, self.FLATBED])
-        self.LoadBuilder = LoadBuilder(TrailerData)
+        """"
+        We initialize the loadBuilder
+        """
+        trailer_data = get_trailers_data(['DRYBOX', 'FLATBED'], [self.DRYBOX, self.FLATBED])
+        self.LoadBuilder = LoadBuilder(trailer_data)
 
 
-class Included_Inv:
-    def __init__(self, Point_Source, Point_Include):
-        self.source = Point_Source
-        self.include = Point_Include
+class NestedSourcePoints:
+    def __init__(self, point_source, point_include):
+        self.source = point_source
+        self.include = point_include
+
+
+def get_parameter_grid():
+    """
+    Recuperates the ParameterBox data from SQL
+
+    :return: list of Parameters and the established SQL connection
+    """
+    headers = 'POINT_FROM,POINT_TO,LOAD_MIN,LOAD_MAX,DRYBOX,FLATBED,TRANSIT,PRIORITY_ORDER,SKIP'
+
+    connection = SQLConnection('CAVLSQLPD2\pbi2', 'Business_Planning', 'OTD_1_P2P_F_PARAMETERS', headers=headers)
+
+    query = """ SELECT  [POINT_FROM]
+                      ,[POINT_TO]
+                      ,[LOAD_MIN]
+                      ,[LOAD_MAX]
+                      ,[DRYBOX]
+                      ,[FLATBED]
+                      ,[TRANSIT]
+                      ,[PRIORITY_ORDER]
+                      ,DAYS_TO
+                  FROM [Business_Planning].[dbo].[OTD_1_P2P_F_PARAMETERS]
+                  where IMPORT_DATE = (select max(IMPORT_DATE) from [Business_Planning].[dbo].[OTD_1_P2P_F_PARAMETERS])
+                  and SKIP = 0
+                  order by PRIORITY_ORDER
+                """
+    # GET SQL DATA
+    data = connection.GetSQLData(query)
+    return [Parameters(*line) for line in data], connection
+
+
+def get_wish_list():
+
+    """
+    Recuperates the whish list from SQL
+    :return : list of Wish object
+    """
+
+    wishlist_headers = 'SALES_DOCUMENT_NUMBER,SALES_ITEM_NUMBER,SOLD_TO_NUMBER,POINT_FROM,' \
+                       'SHIPPING_POINT,DIVISION,MATERIAL_NUMBER,Size_Dimension,Lenght,Width,' \
+                       'Height,stackability,Quantity,Priority_Rank,X_IF_MANDATORY, METAL_WOOD'
+
+    wishlist_connection = SQLConnection('CAVLSQLPD2\pbi2', 'Business_Planning',
+                                        'OTD_2_PRIORITY_F_P2P', headers=wishlist_headers)
+
+    query = """SELECT  [SALES_DOCUMENT_NUMBER]
+                      ,[SALES_ITEM_NUMBER]
+                      ,[SOLD_TO_NUMBER]
+                      ,[POINT_FROM]
+                      ,[SHIPPING_POINT]
+                      ,[DIVISION]
+                      ,RTRIM([MATERIAL_NUMBER])
+                      ,RTRIM([Size_Dimension])
+                      ,convert(int,CEILING([Length]))
+                      ,convert(int,CEILING([Width]))
+                      ,convert(int,CEILING([Height]))
+                      ,convert(int,[stackability])
+                      ,[Quantity]
+                      ,[Priority_Rank]
+                      ,[X_IF_MANDATORY]
+                      ,[OVERHANG]
+                      ,[METAL_WOOD]
+                  FROM [Business_Planning].[dbo].[OTD_1_P2P_F_PRIORITY_WITHOUT_INVENTORY]
+                  where [POINT_FROM] <>[SHIPPING_POINT] and Length<>0 and Width <> 0 and Height <> 0
+                  and concat (POINT_FROM,SHIPPING_POINT) in (select distinct concat([POINT_FROM],[POINT_TO]) from [Business_Planning].[dbo].[OTD_1_P2P_F_PARAMETERS]
+                  where IMPORT_DATE = (select max(IMPORT_DATE) from [Business_Planning].[dbo].[OTD_1_P2P_F_PARAMETERS])
+                  and SKIP = 0)
+                  order by Priority_Rank
+                """
+    data = wishlist_connection.GetSQLData(query)
+    return [Wish(*line) for line in data]
+
+
+def get_inventory_and_qa():
+
+    """Recuperates the inventory and QA HOLD data from SQL"""
+
+    # We first get the inventory
+    connection = SQLConnection('CAVLSQLPD2\pbi2', 'Business_Planning',
+                                         'OTD_1_P2P_F_INVENTORY', headers='')
+
+    inventory_query = """ SELECT *
+        FROM (
+        SELECT DISTINCT SHIPPING_POINT
+          ,RTRIM([MATERIAL_NUMBER]) as MATERIAL_NUMBER
+          ,CASE WHEN sum(tempo.[QUANTITY]) <0 then 0 else convert(int,sum(tempo.QUANTITY)) end as [QUANTITY]
+          ,CONVERT(DATE,GETDATE()) as [AVAILABLE_DATE]
+          ,'INVENTORY' as [STATUS]
+          FROM(
+      SELECT  [SHIPPING_POINT]
+          ,[MATERIAL_NUMBER]
+          ,[QUANTITY]
+          ,[AVAILABLE_DATE]
+          ,[STATUS]
+      FROM [Business_Planning].[dbo].[OTD_1_P2P_F_INVENTORY]
+      WHERE STATUS = 'INVENTORY'
+      UNION 
+      (SELECT [SHIPPING_POINT]
+          ,[MATERIAL_NUMBER]
+          ,[QUANTITY]
+          ,GETDATE() as [AVAILABLE_DATE]
+          ,'INVENTORY' as [STATUS]
+           FROM [Business_Planning].[dbo].[OTD_1_P2P_F_INVENTORY]
+      WHERE STATUS in ('QA HOLD') and AVAILABLE_DATE between convert(DATE,GETDATE()-1) and GETDATE())) as tempo
+     GROUP BY SHIPPING_POINT
+          ,[MATERIAL_NUMBER]
+          ,  [AVAILABLE_DATE]
+          , [STATUS] ) as tempo2
+     WHERE QUANTITY > 0
+     ORDER BY SHIPPING_POINT, MATERIAL_NUMBER
+                        """
+
+    data = connection.GetSQLData(inventory_query)
+    inventory = [INVObj(*line) for line in connection.GetSQLData(inventory_query)]
+
+    # We then take the QA HOLD
+    qa_query = """ SELECT  [SHIPPING_POINT]
+                      ,RTRIM([MATERIAL_NUMBER]) as MATERIAL_NUMBER
+                      ,convert(int,[QUANTITY]) as QUANTITY
+                      ,convert (DATE,[AVAILABLE_DATE]) as AVAILABLE_DATE
+                      ,[STATUS]
+                  FROM [Business_Planning].[dbo].[OTD_1_P2P_F_INVENTORY]
+                  where STATUS = 'QA HOLD' and QUANTITY > 0
+                  and AVAILABLE_DATE = (case when DATEPART(WEEKDAY,getdate()) = 6 then convert(DATE,GETDATE()+3) else convert(DATE,GETDATE() +1) end)
+                    """
+
+    data = connection.GetSQLData(qa_query)
+
+    # we want the QA at the end of inv list, so the skus in QA will be the last to be chose
+    for line in data:
+        inventory.append(INVObj(*line))  # add QA HOLD with inv
+
+    return inventory
+
+
+def get_nested_source_points(l):
+
+    """
+    Gets all information on which plant inventory is included in which other (from SQL)
+    and push it in l
+
+    :param l: list that will contained the NestedSourcePoints
+    """
+
+    connection = SQLConnection('CAVLSQLPD2\pbi2', 'Business_Planning',
+                               'OTD_1_P2P_D_INCLUDED_INVENTORY', headers='')
+
+    query = """select SHIPPING_POINT_SOURCE ,SHIPPING_POINT_INCLUDE
+                                   from OTD_1_P2P_D_INCLUDED_INVENTORY
+                   """
+    data = connection.GetSQLData(query)
+
+    for line in data:
+        l.append(NestedSourcePoints(*line))
 
 
 def get_trailers_data(category_list=[], qty_list=[]):
@@ -251,6 +427,7 @@ def satisfy_max_or_min(Wishes, Inventory, Parameters, satisfy_min=True, print_lo
 
                 # If the wish is not fulfilled and his POINT FROM and POINT TO are corresponding with the param (p2p)
                 if wish.QUANTITY > 0 and wish.POINT_FROM == param.POINT_FROM and wish.SHIPPING_POINT == param.POINT_TO:
+
                     position = 0
 
                     # We look if there's inventory available to satisfy each unit needed for our wish
@@ -260,7 +437,7 @@ def satisfy_max_or_min(Wishes, Inventory, Parameters, satisfy_min=True, print_lo
                         for It, inv in enumerate(Inventory[position::]):
                             if EquivalentPlantFrom(inv.POINT, wish.POINT_FROM) and\
                                     inv.MATERIAL_NUMBER == wish.MATERIAL_NUMBER and inv.QUANTITY > 0 and\
-                                    (not inv.Future or inv.Future and param.days_to > 0):
+                                    (not inv.Future or (inv.Future and param.days_to > 0)):
 
                                 inv.QUANTITY -= 1
                                 wish.INV_ITEMS.append(inv)
@@ -346,7 +523,6 @@ def EquivalentPlantFrom(Point1, Point2):
     if Point1 == Point2:
         return True
     else:
-        global DATAInclude
         for equiv in DATAInclude:
             if equiv.source == Point2 and equiv.include == Point1:
                 return True
