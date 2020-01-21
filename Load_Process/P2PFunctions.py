@@ -84,6 +84,10 @@ class INVObj:
 
 
 class Parameters:
+
+    """
+    Represents a line of parameters from the ParameterBox GUI
+    """
     def __init__(self, point_from, point_to, loadmin, loadmax, drybox, flatbed, transit, priority, days_to):
         self.POINT_FROM = point_from
         self.POINT_TO = point_to
@@ -113,9 +117,41 @@ class NestedSourcePoints:
         self.include = point_include
 
 
+def get_parameter_grid():
+    """
+    Recuperates the ParameterBox data from SQL
+
+    :return: list of Parameters and the established SQL connection
+    """
+    headers = 'POINT_FROM,POINT_TO,LOAD_MIN,LOAD_MAX,DRYBOX,FLATBED,TRANSIT,PRIORITY_ORDER,SKIP'
+
+    connection = SQLConnection('CAVLSQLPD2\pbi2', 'Business_Planning', 'OTD_1_P2P_F_PARAMETERS', headers=headers)
+
+    query = """ SELECT  [POINT_FROM]
+                      ,[POINT_TO]
+                      ,[LOAD_MIN]
+                      ,[LOAD_MAX]
+                      ,[DRYBOX]
+                      ,[FLATBED]
+                      ,[TRANSIT]
+                      ,[PRIORITY_ORDER]
+                      ,DAYS_TO
+                  FROM [Business_Planning].[dbo].[OTD_1_P2P_F_PARAMETERS]
+                  where IMPORT_DATE = (select max(IMPORT_DATE) from [Business_Planning].[dbo].[OTD_1_P2P_F_PARAMETERS])
+                  and SKIP = 0
+                  order by PRIORITY_ORDER
+                """
+    # GET SQL DATA
+    data = connection.GetSQLData(query)
+    return [Parameters(*line) for line in data], connection
+
+
 def get_wish_list():
 
-    """Recuperates the whish list from SQL"""
+    """
+    Recuperates the whish list from SQL
+    :return : list of Wish object
+    """
 
     wishlist_headers = 'SALES_DOCUMENT_NUMBER,SALES_ITEM_NUMBER,SOLD_TO_NUMBER,POINT_FROM,' \
                        'SHIPPING_POINT,DIVISION,MATERIAL_NUMBER,Size_Dimension,Lenght,Width,' \
@@ -148,7 +184,6 @@ def get_wish_list():
                   and SKIP = 0)
                   order by Priority_Rank
                 """
-
     data = wishlist_connection.GetSQLData(query)
     return [Wish(*line) for line in data]
 
@@ -193,7 +228,7 @@ def get_inventory_and_qa():
                         """
 
     data = connection.GetSQLData(inventory_query)
-    inventory = [INVObj(*line) for line in data]
+    inventory = [INVObj(*line) for line in connection.GetSQLData(inventory_query)]
 
     # We then take the QA HOLD
     qa_query = """ SELECT  [SHIPPING_POINT]
