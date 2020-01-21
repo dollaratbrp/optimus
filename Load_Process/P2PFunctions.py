@@ -144,34 +144,35 @@ def get_inventory_and_qa():
     connection = SQLConnection('CAVLSQLPD2\pbi2', 'Business_Planning',
                                          'OTD_1_P2P_F_INVENTORY', headers=header)
 
-    inventory_query = """select distinct SHIPPING_POINT
-                      ,RTRIM([MATERIAL_NUMBER]) as MATERIAL_NUMBER
-                      ,case when sum(tempo.[QUANTITY]) <0 then 0 else convert(int,sum(tempo.QUANTITY)) end as [QUANTITY]
-                      , convert(DATE,GETDATE()) as [AVAILABLE_DATE]
-                      ,'INVENTORY' as [STATUS]
-                      from(
-
-                  SELECT  [SHIPPING_POINT]
-                      ,[MATERIAL_NUMBER]
-                      , [QUANTITY]
-                      ,[AVAILABLE_DATE]
-                      ,[STATUS]
-                  FROM [Business_Planning].[dbo].[OTD_1_P2P_F_INVENTORY]
-                  where status = 'INVENTORY'
-
-                  union( select [SHIPPING_POINT]
-                      ,[MATERIAL_NUMBER]
-                      , [QUANTITY]
-                      ,GETDATE() as [AVAILABLE_DATE]
-                      ,'INVENTORY' as [STATUS]
-                       FROM [Business_Planning].[dbo].[OTD_1_P2P_F_INVENTORY]
-                  where status in ('QA HOLD') and AVAILABLE_DATE between convert(DATE,GETDATE()-1) and GETDATE()
-                 )) as tempo
-                 group by SHIPPING_POINT
-                      ,[MATERIAL_NUMBER]
-                      ,  [AVAILABLE_DATE]
-                      , [STATUS]
-                 order by SHIPPING_POINT, MATERIAL_NUMBER
+    inventory_query = """ SELECT *
+        FROM (
+        SELECT DISTINCT SHIPPING_POINT
+          ,RTRIM([MATERIAL_NUMBER]) as MATERIAL_NUMBER
+          ,CASE WHEN sum(tempo.[QUANTITY]) <0 then 0 else convert(int,sum(tempo.QUANTITY)) end as [QUANTITY]
+          ,CONVERT(DATE,GETDATE()) as [AVAILABLE_DATE]
+          ,'INVENTORY' as [STATUS]
+          FROM(
+      SELECT  [SHIPPING_POINT]
+          ,[MATERIAL_NUMBER]
+          ,[QUANTITY]
+          ,[AVAILABLE_DATE]
+          ,[STATUS]
+      FROM [Business_Planning].[dbo].[OTD_1_P2P_F_INVENTORY]
+      WHERE STATUS = 'INVENTORY'
+      UNION 
+      (SELECT [SHIPPING_POINT]
+          ,[MATERIAL_NUMBER]
+          ,[QUANTITY]
+          ,GETDATE() as [AVAILABLE_DATE]
+          ,'INVENTORY' as [STATUS]
+           FROM [Business_Planning].[dbo].[OTD_1_P2P_F_INVENTORY]
+      WHERE STATUS in ('QA HOLD') and AVAILABLE_DATE between convert(DATE,GETDATE()-1) and GETDATE())) as tempo
+     GROUP BY SHIPPING_POINT
+          ,[MATERIAL_NUMBER]
+          ,  [AVAILABLE_DATE]
+          , [STATUS] ) as tempo2
+     WHERE QUANTITY > 0
+     ORDER BY SHIPPING_POINT, MATERIAL_NUMBER
                         """
 
     data = connection.GetSQLData(inventory_query)
@@ -180,11 +181,11 @@ def get_inventory_and_qa():
     # We then take the QA HOLD
     qa_query = """ SELECT  [SHIPPING_POINT]
                       ,RTRIM([MATERIAL_NUMBER]) as MATERIAL_NUMBER
-                      , [QUANTITY]
+                      ,[QUANTITY]
                       ,convert (DATE,[AVAILABLE_DATE]) as AVAILABLE_DATE
                       ,[STATUS]
                   FROM [Business_Planning].[dbo].[OTD_1_P2P_F_INVENTORY]
-                  where status = 'QA HOLD'
+                  where STATUS = 'QA HOLD' and QUANTITY > 0
                   and AVAILABLE_DATE = (case when DATEPART(WEEKDAY,getdate()) = 6 then convert(DATE,GETDATE()+3) else convert(DATE,GETDATE() +1) end)
                     """
 
