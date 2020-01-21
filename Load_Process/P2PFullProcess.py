@@ -12,6 +12,7 @@ By : Nicolas Raymond
 # from Import_Functions import *
 from ParametersBox import *
 from P2PFunctions import *
+from ProcessValidation import validate_process
 import pandas as pd
 from openpyxl.styles import (PatternFill, colors, Alignment)
 from openpyxl import Workbook
@@ -33,12 +34,14 @@ dayTodayComplete = pd.datetime.now().replace(second=0, microsecond=0)  # date to
 dayToday = weekdays(0)  # Date to display in report
 printLoads = False  # Print created loads
 AutomaticRun = False  # set to True to automate code
+validation = True     # set to True to validate the results received after the process
 dest_filename = 'P2P_Summary_'+dayToday  # Name of excel file with today's date
 
 
 def p2p_full_process():
     """
     Executes P2P full process
+
     :return: summary of the full process in at the 'saveFolder' directory
 
     """
@@ -230,7 +233,7 @@ def p2p_full_process():
     for param in DATAParams:  # for all P2P in parameters
 
         # Initialization of empty list
-        tempoOnLoad = []  # List to remember the INVobj that will be sent to the LoadBuilder
+        tempoOnLoad = []  # List to remember the INVobjs that will be sent to the LoadBuilder
         invData = []  # List that will contain the data to build the frame that will be sent to the LoadBuilder
 
         # Initialization of an empty ranking dictionary
@@ -300,7 +303,7 @@ def p2p_full_process():
     ####################################################################################################################
 
     # We display loads create in each p2p for our own purpose
-    print('\n\nResults\n\n')
+    print('\n\nResults')
     for param in DATAParams:
         print('\n\n')
         print(param.POINT_FROM, ' _ ', param.POINT_TO)
@@ -386,6 +389,16 @@ def p2p_full_process():
         if inv.QUANTITY - inv.unused > 0:
             wsUnbooked.append([inv.POINT, inv.MATERIAL_NUMBER, inv.QUANTITY-inv.unused])
 
+    # We save the workbook and the reference
     reference = [savexlsxFile(wb, saveFolder, dest_filename)]
+
+    # We send the emails
     send_email(EmailList, dest_filename, '', reference)
-    os.system('start "excel" "'+str(reference[0])+'"')  # To open excel workbook
+
+    # We validate the process' results if the user wants to
+    if validation:
+        workbook_path = saveFolder + dest_filename + '.xlsx'
+        validate_process(workbook_path)
+
+    # We open excel workbook
+    os.system('start "excel" "'+str(reference[0])+'"')
