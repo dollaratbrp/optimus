@@ -11,7 +11,7 @@ By : Nicolas Raymond
 """
 
 from LoadBuilder import LoadBuilder
-from ImportFunctions import *
+from InputOutput import *
 DATAInclude = []
 
 

@@ -204,7 +204,7 @@ def p2p_full_process():
     #                                                Isolate perfect match
     ####################################################################################################################
 
-    # We initaliaze a list that will contain all wish approved
+    # We initialize a list that will contain all wish approved
     ListApprovedWish = find_perfect_match(DATAWishList, DATAINV, DATAParams)
 
     ####################################################################################################################
