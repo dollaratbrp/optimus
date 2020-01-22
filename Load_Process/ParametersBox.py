@@ -9,7 +9,7 @@ By : Nicolas Raymond
 
 """
 
-from ImportFunctions import *
+from InputOutput import *
 import tkinter as tk
 from tkinter import *
 from tkinter import (messagebox)

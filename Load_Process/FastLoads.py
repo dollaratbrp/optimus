@@ -7,10 +7,11 @@ from tkinter import *
 import pandas as pd
 from openpyxl import load_workbook, Workbook
 from openpyxl.styles import PatternFill
-from ImportFunctions import SQLConnection, savexlsxFile
+from InputOutput import SQLConnection, savexlsxFile
 from P2PFunctions import get_trailers_data
 from LoadBuilder import LoadBuilder
 from random import randint
+from InputOutput import worksheet_formatting
 
 workbook_path = 'U:\LoadAutomation\Optimus\FastLoadsSKUs.xlsx'
 
@@ -231,43 +232,32 @@ class FastLoadsBox:
 
         # Initialization of a workbook
         wb = Workbook()
-        fill = PatternFill(fill_type="solid", start_color="a6a6a6", end_color="a6a6a6")
 
         # Approved loads worksheet construction and customization
-        wsApproved = wb.active
-        wsApproved.title = "APPROVED"
-        wsApproved.append(['LOAD_NUMBER', 'MATERIAL_NUMBER', 'QUANTITY', 'SIZE_DIMENSIONS'])
-
-        for y in range(1, 5):
-            wsApproved.cell(row=1, column=y).fill = fill
-
-        for letter in ['A', 'B', 'C', 'D']:
-            wsApproved.column_dimensions[letter].width = 20
+        approved_ws = wb.active
+        approved_ws.title = "APPROVED"
+        columns_title = ['LOAD_NUMBER', 'CATEGORY', 'LOAD LENGTH', 'MATERIAL_NUMBER', 'QUANTITY', 'SIZE_DIMENSIONS']
+        worksheet_formatting(approved_ws, columns_title, [20]*len(columns_title))
 
         # Unused crates worksheet construction and customization
-        wsUnused = wb.create_sheet("UNUSED")
-        wsUnused.append(['MATERIAL_NUMBER', 'QUANTITY'])
-
-        for y in range(1, 3):
-            wsUnused.cell(row=1, column=y).fill = fill
-
-        wsUnused.column_dimensions['A'].width = 20
-        wsUnused.column_dimensions['B'].width = 20
+        unused_ws = wb.create_sheet("UNUSED")
+        worksheet_formatting(unused_ws, ['MATERIAL_NUMBER', 'QUANTITY'], [20]*2)
 
         # Writing of approved loads
-        self.write_approved_loads(wsApproved, grouped_dataframe)
+        self.write_approved_loads(approved_ws, len(columns_title), grouped_dataframe)
 
         # Writing of unused crates
-        self.write_unused_crates(wsUnused)
+        self.write_unused_crates(unused_ws)
 
         # Save the xlsx file
         savexlsxFile(wb=wb, path=saving_path, filename='AdHoc', Time=True)
 
-    def write_approved_loads(self, ws, grouped_dataframe):
+    def write_approved_loads(self, ws, nbr_of_cols, grouped_dataframe):
         """
         Writes the results for the approved loads in the worksheet passed as parameter
 
         :param ws: worksheet on which we write the results
+        :param nbr_of_cols: number of columns used in the worksheet
         :param grouped_dataframe: pandas dataframe that was passed to our loadbuilder
         """
 
@@ -281,6 +271,10 @@ class FastLoadsBox:
 
             # For every line of data in our "loads" dataframe
             for i in loads.index:
+
+                # We save the trailer category and load length for this type of load
+                category = loads['TRAILER'][i]
+                load_length = loads['LOAD LENGTH'][i]
 
                 # For every load of this kind
                 for iteration in range(int(loads["QTY"][i])):
@@ -302,13 +296,14 @@ class FastLoadsBox:
 
                                 # We pick a random SKU linked with the size_code
                                 sku = self.tracker[size_code].random_pick(nb_per_crate)
-                                data.append([load_number, sku, nb_per_crate, size_code])
+                                data.append([load_number, category, load_length, sku, nb_per_crate, size_code])
 
-        dataframe = pd.DataFrame(data=data, columns=['LOAD_NUMBER', 'MATERIAL_NUMBER', 'QUANTITY', 'SIZE_DIMENSIONS'])
+        columns_title = [ws.cell(row=1, column=i).value for i in range(1, nbr_of_cols+1)]
+        dataframe = pd.DataFrame(data=data, columns=columns_title)
 
         # We do a groupby to sum quantity column for the same SKU on the same load
-        dataframe = dataframe.groupby(by=['LOAD_NUMBER', 'MATERIAL_NUMBER', 'SIZE_DIMENSIONS']).sum().reset_index()
-        dataframe = dataframe[['LOAD_NUMBER', 'MATERIAL_NUMBER', 'QUANTITY', 'SIZE_DIMENSIONS']]
+        dataframe = dataframe.groupby(by=[column for column in columns_title if column != 'QUANTITY']).sum().reset_index()
+        dataframe = dataframe[columns_title]
 
         # We push every line of data in the appropriate worksheet
         for i in dataframe.index:

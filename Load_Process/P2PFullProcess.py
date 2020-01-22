@@ -14,7 +14,7 @@ from ParametersBox import *
 from P2PFunctions import *
 from ProcessValidation import validate_process
 import pandas as pd
-from openpyxl.styles import (PatternFill, colors, Alignment)
+from openpyxl.styles import PatternFill
 from openpyxl import Workbook
 import os
 
@@ -57,9 +57,9 @@ def p2p_full_process():
 
     # If SQL queries crash
     downloaded = False
-    numberOfTry = 0
-    while not downloaded and numberOfTry < 3:  # 3 trials, SQL Queries sometime crash for no reason
-        numberOfTry += 1
+    nbr_of_try = 0
+    while not downloaded and nbr_of_try < 3:  # 3 trials, SQL Queries sometime crash for no reason
+        nbr_of_try += 1
         try:
             downloaded = True
 
@@ -67,17 +67,17 @@ def p2p_full_process():
             #                     Email address Query
             ####################################################################################
 
-            headerEmail = 'EMAIL_ADDRESS'
-            SQLEmail = SQLConnection('CAVLSQLPD2\pbi2', 'Business_Planning',
-                                     'OTD_1_P2P_F_PARAMETERS_EMAIL_ADDRESS', headers=headerEmail)
+            email_connection = SQLConnection('CAVLSQLPD2\pbi2', 'Business_Planning',
+                                             'OTD_1_P2P_F_PARAMETERS_EMAIL_ADDRESS', headers='EMAIL_ADDRESS')
 
-            QueryEmail = """ SELECT distinct [EMAIL_ADDRESS]
+            email_query = """ SELECT distinct [EMAIL_ADDRESS]
              FROM [Business_Planning].[dbo].[OTD_1_P2P_F_PARAMETERS_EMAIL_ADDRESS]
              WHERE PROJECT = 'P2P'
             """
 
             # GET SQL DATA
-            EmailList = [item for sublist in SQLEmail.GetSQLData(QueryEmail) for item in sublist]
+            email_data = email_connection.GetSQLData(email_query)
+            emails_list = [item for sublist in email_data for item in sublist]
 
             ####################################################################################
             #                     Parameters Query
@@ -89,14 +89,14 @@ def p2p_full_process():
             #                     Parameters P2P ORDER (for excel sheet order)
             ####################################################################################
 
-            QueryOrder = """ SELECT distinct  [POINT_FROM],[POINT_TO]
+            p2p_order_query = """ SELECT distinct  [POINT_FROM],[POINT_TO]
               FROM [Business_Planning].[dbo].[OTD_1_P2P_F_PARAMETERS]
               where IMPORT_DATE = (select max(IMPORT_DATE) from [Business_Planning].[dbo].[OTD_1_P2P_F_PARAMETERS])
               and SKIP = 0
               order by [POINT_FROM],[POINT_TO]
             """
             # GET SQL DATA
-            P2POrder = param_connection.GetSQLData(QueryOrder)
+            P2POrder = param_connection.GetSQLData(p2p_order_query)
 
             ####################################################################################
             #                     WishList recuperation
@@ -139,7 +139,7 @@ def p2p_full_process():
     # If SQL Queries failed
     if not downloaded:
         try:
-            send_email(EmailList, dest_filename, 'SQL QUERIES FAILED')
+            send_email(emails_list, dest_filename, 'SQL QUERIES FAILED')
         except:
             pass
         sys.exit()
@@ -158,53 +158,36 @@ def p2p_full_process():
     #                                                 Excel Workbook declaration
     ####################################################################################################################
 
+    # Initialization of workbook and filling option to warn user in output
     wb = Workbook()
     Warning_fill = PatternFill(fill_type="solid", start_color="FFFF00", end_color="FFFF00")
-    my_fill = PatternFill(fill_type="solid", start_color="a6a6a6", end_color="a6a6a6")
 
     # Summary
-    wsSummary = wb.active
-    wsSummary.title = "SUMMARY"
-    wsSummary.append(['POINT_FROM', 'SHIPPING_POINT', 'NUMBER_OF_LOADS'])
-    wsSummary.column_dimensions['A'].width = 13
-    wsSummary.column_dimensions['B'].width = 16
-    wsSummary.column_dimensions['C'].width = 19
-    for y in range(1, 4):
-        wsSummary.cell(row=1, column=y).fill = my_fill
+    summary_ws = wb.active
+    summary_ws.title = "SUMMARY"
+    worksheet_formatting(summary_ws, ['POINT_FROM', 'SHIPPING_POINT', 'NUMBER_OF_LOADS'], [13, 16, 19])
 
     # Approved loads
-    wsApproved = wb.create_sheet("APPROVED")
-    wsApproved.append(['POINT_FROM', 'SHIPPING_POINT', 'LOAD_NUMBER', 'MATERIAL_NUMBER', 'QUANTITY', 'SIZE_DIMENSIONS',
-                       'SALES_DOCUMENT_NUMBER', 'SALES_ITEM_NUMBER', 'SOLD_TO_NUMBER'])
-    for y in range(1, 10):
-        wsApproved.cell(row=1, column=y).fill = my_fill
-    for letter in ['A', 'B', 'C', 'D', 'E', 'F', 'H', 'I']:
-        wsApproved.column_dimensions[letter].width = 20
-    wsApproved.column_dimensions['G'].width = 27
+    approved_ws = wb.create_sheet("APPROVED")
+    columns_title = ['POINT_FROM', 'SHIPPING_POINT', 'LOAD_NUMBER', 'CATEGORY', 'LOAD_LENGTH',
+                     'MATERIAL_NUMBER', 'QUANTITY', 'SIZE_DIMENSIONS',
+                     'SALES_DOCUMENT_NUMBER', 'SALES_ITEM_NUMBER', 'SOLD_TO_NUMBER']
+    columns_width = [20]*(len(columns_title)-1) + [27]
+    worksheet_formatting(approved_ws, columns_title, columns_width)
 
     # Unbooked
-    wsUnbooked = wb.create_sheet("UNBOOKED")
-    wsUnbooked.append(['POINT_FROM', 'MATERIAL_NUMBER', 'QUANTITY'])
-    for y in range(1, 4):
-        wsUnbooked.cell(row=1, column=y).fill = my_fill
-    wsUnbooked.column_dimensions['A'].width = 13
-    wsUnbooked.column_dimensions['B'].width = 16
-    wsUnbooked.column_dimensions['C'].width = 10
+    unbooked_ws = wb.create_sheet("UNBOOKED")
+    worksheet_formatting(unbooked_ws, ['POINT_FROM', 'MATERIAL_NUMBER', 'QUANTITY'], [20, 20, 12])
 
     # Booked unused
-    wsUnused = wb.create_sheet("BOOKED_UNUSED")
-    wsUnused.append(['POINT_FROM', 'MATERIAL_NUMBER', 'QUANTITY'])
-    for y in range(1, 4):
-        wsUnused.cell(row=1, column=y).fill = my_fill
-    wsUnused.column_dimensions['A'].width = 13
-    wsUnused.column_dimensions['B'].width = 16
-    wsUnused.column_dimensions['C'].width = 10
+    unused_ws = wb.create_sheet("BOOKED_UNUSED")
+    worksheet_formatting(unused_ws, ['POINT_FROM', 'MATERIAL_NUMBER', 'QUANTITY'], [20, 20, 12])
 
     ####################################################################################################################
-    #                                                Isolate perfect match
+    #                                            Isolate perfect match
     ####################################################################################################################
 
-    # We initaliaze a list that will contain all wish approved
+    # We initialize a list that will contain all wish approved
     ListApprovedWish = find_perfect_match(DATAWishList, DATAINV, DATAParams)
 
     ####################################################################################################################
@@ -214,8 +197,8 @@ def p2p_full_process():
     for param in DATAParams:  # for all P2P in parameters
 
         # Initialization of empty list
-        tempoOnLoad = []  # List to remember the INVobjs that will be sent to the LoadBuilder
-        invData = []  # List that will contain the data to build the frame that will be sent to the LoadBuilder
+        temporary_on_load = []  # List to remember the INVobjs that will be sent to the LoadBuilder
+        loadbuilder_input = []  # List that will contain the data to build the frame we'll send to the LoadBuilder
 
         # Initialization of an empty ranking dictionary
         ranking = {}
@@ -225,13 +208,13 @@ def p2p_full_process():
 
             # If the wish is not fulfilled and his POINT FROM and POINT TO are corresponding with the param (p2p)
             if wish.QUANTITY > 0 and wish.POINT_FROM == param.POINT_FROM and wish.SHIPPING_POINT == param.POINT_TO:
-                tempoOnLoad.append(wish)
+                temporary_on_load.append(wish)
 
                 # Here we set QTY and NBR_PER_CRATE to 1 because each line of the wishlist correspond to
                 # one crate and not one unit! Must be done this way to avoid having getting to many size_code
                 # in the returning list of the LoadBuilder
-                invData.append([1, wish.SIZE_DIMENSIONS, wish.LENGTH, wish.WIDTH, wish.HEIGHT, 1, wish.CRATE_TYPE,
-                                wish.STACKABILITY, int(wish.MANDATORY), wish.OVERHANG])
+                loadbuilder_input.append([1, wish.SIZE_DIMENSIONS, wish.LENGTH, wish.WIDTH, wish.HEIGHT, 1,
+                                          wish.CRATE_TYPE, wish.STACKABILITY, int(wish.MANDATORY), wish.OVERHANG])
 
                 # We add the ranking of the wish in the ranking dictionary
                 if wish.SIZE_DIMENSIONS in ranking:
@@ -240,7 +223,7 @@ def p2p_full_process():
                     ranking[wish.SIZE_DIMENSIONS] = [wish.RANK]
 
         # Construction of the data frame which we'll send to the LoadBuilder of our parameters object (p2p)
-        input_dataframe = loadbuilder_input_dataframe(invData)
+        input_dataframe = loadbuilder_input_dataframe(loadbuilder_input)
 
         # Create loads
         result = param.LoadBuilder.build(input_dataframe, param.LOADMAX, ranking=ranking, plot_load_done=printLoads)
@@ -248,7 +231,7 @@ def p2p_full_process():
         # Choose which wish to send in load based on selected crates and priority order
         for model in result:
             found = False
-            for OnLoad in tempoOnLoad:
+            for OnLoad in temporary_on_load:
                 if OnLoad.SIZE_DIMENSIONS == model and OnLoad.QUANTITY > 0:
                     OnLoad.QUANTITY = 0
                     found = True
@@ -274,7 +257,7 @@ def p2p_full_process():
     satisfy_max_or_min(DATAWishList, DATAINV, DATAParams, print_loads=printLoads)
 
     ####################################################################################################################
-    #                               Try to Make the maximum number of loads for each P2P
+    #                             Try to Make the maximum number of loads for each P2P
     ####################################################################################################################
 
     satisfy_max_or_min(DATAWishList, DATAINV, DATAParams, satisfy_min=False, print_loads=printLoads)
@@ -293,7 +276,7 @@ def p2p_full_process():
         print(param.LoadBuilder.get_loading_summary())
 
     lineIndex = 2  # To display a warning if number of loads is lower than parameters min
-    LoadIteration = 0  # Number of each load
+
 
     # SQL to send DATA
     headersResult = 'POINT_FROM,SHIPPING_POINT,LOAD_NUMBER,MATERIAL_NUMBER,QUANTITY,SIZE_DIMENSIONS,' \
@@ -305,10 +288,12 @@ def p2p_full_process():
         for param in DATAParams:
             if param.POINT_FROM == order[0] and param.POINT_TO == order[1]:
 
+                LoadIteration = 0  # Number of each load (reset for each plant to plant)
+
                 # section for summary worksheet
-                wsSummary.append([param.POINT_FROM, param.POINT_TO, len(param.LoadBuilder)])
+                summary_ws.append([param.POINT_FROM, param.POINT_TO, len(param.LoadBuilder)])
                 if len(param.LoadBuilder) < param.LOADMIN:
-                    wsSummary.cell(row=lineIndex, column=3).fill = Warning_fill
+                    summary_ws.cell(row=lineIndex, column=3).fill = Warning_fill
                 lineIndex += 1
                 # Approved worksheet
                 loads = param.LoadBuilder.get_loading_summary()
@@ -324,10 +309,12 @@ def p2p_full_process():
                                                 wish.Finished = True
                                                 valuesSQL = [(param.POINT_FROM, param.POINT_TO, LoadIteration,
                                                               wish.MATERIAL_NUMBER, wish.ORIGINAL_QUANTITY,
-                                                              column, wish.SALES_DOCUMENT_NUMBER, wish.SALES_ITEM_NUMBER,
+                                                              column, wish.SALES_DOCUMENT_NUMBER,
+                                                              wish.SALES_ITEM_NUMBER,
                                                               wish.SOLD_TO_NUMBER, dayTodayComplete)]
 
-                                                wsApproved.append([param.POINT_FROM, param.POINT_TO, LoadIteration,
+                                                approved_ws.append([param.POINT_FROM, param.POINT_TO, LoadIteration,
+                                                                   loads['TRAILER'][line], loads['LOAD LENGTH'][line],
                                                                    wish.MATERIAL_NUMBER, wish.ORIGINAL_QUANTITY,
                                                                    column, wish.SALES_DOCUMENT_NUMBER,
                                                                    wish.SALES_ITEM_NUMBER, wish.SOLD_TO_NUMBER])
@@ -363,18 +350,18 @@ def p2p_full_process():
                             position += It
                             break  # no need to look further
 
-    # send inv in wsUnused and wsUnbooked
+    # send inv in unused_ws and unbooked_ws
     for inv in DATAINV:
         if inv.unused > 0:
-            wsUnused.append([inv.POINT, inv.MATERIAL_NUMBER, inv.unused])
+            unused_ws.append([inv.POINT, inv.MATERIAL_NUMBER, inv.unused])
         if inv.QUANTITY - inv.unused > 0:
-            wsUnbooked.append([inv.POINT, inv.MATERIAL_NUMBER, inv.QUANTITY-inv.unused])
+            unbooked_ws.append([inv.POINT, inv.MATERIAL_NUMBER, inv.QUANTITY-inv.unused])
 
     # We save the workbook and the reference
     reference = [savexlsxFile(wb, saveFolder, dest_filename)]
 
     # We send the emails
-    send_email(EmailList, dest_filename, '', reference)
+    send_email(emails_list, dest_filename, '', reference)
 
     # We validate the process' results if the user wants to
     if validation:
