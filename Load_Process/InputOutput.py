@@ -1,6 +1,7 @@
 """
 
-Author : Olivier Lefebre
+Authors : Olivier Lefebvre
+          Nicolas Raymond
 
 This file creates loads for P2P
 
@@ -11,14 +12,16 @@ By : Nicolas Raymond
 
 import openpyxl
 import smtplib
+from openpyxl.styles import PatternFill
 from email.mime.multipart import MIMEMultipart
 from email.mime.text import MIMEText
-from email.utils import COMMASPACE, formatdate
+from email.utils import formatdate
 from email import encoders
 from email.mime.base import MIMEBase
 import datetime
 import pandas as pd
 import pyodbc
+from string import ascii_uppercase
 
 timeReference = datetime.datetime.now()
 
@@ -174,6 +177,30 @@ def xlsxToTxtFile(readPath, filexlsx, writePath, txtfileName):
         txt_file.close()
     except:
         ErrorMessage += "Error in xlsxToTxtFile function"
+
+
+def worksheet_formatting(ws, column_titles, column_widths, filling=None):
+    """
+    Does the formatting of an excel worksheet that will be use to store outputs
+    :param ws: excel worksheet
+    :param column_titles: list with all column titles
+    :param column_widths: list with all column widths
+    :param filling: PaternFill for the excel worksheet column titles
+    """
+    # We set the columns' title
+    ws.append(column_titles)
+
+    # We set the columns' width using alphabetical index
+    alphabet = list(ascii_uppercase)
+    for i in range(len(column_titles)):
+        ws.column_dimensions[alphabet[i]].width = column_widths[i]
+
+    # We apply the filling to the columns' title
+    if filling is None:
+        filling = PatternFill(fill_type="solid", start_color="a6a6a6", end_color="a6a6a6")
+
+    for i in range(1, len(column_titles)+1):
+        ws.cell(row=1, column=i).fill = filling
 
 
 class SQLConnection:
