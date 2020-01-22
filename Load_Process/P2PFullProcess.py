@@ -169,7 +169,7 @@ def p2p_full_process():
 
     # Approved loads
     approved_ws = wb.create_sheet("APPROVED")
-    columns_title = ['POINT_FROM', 'SHIPPING_POINT', 'LOAD_NUMBER',
+    columns_title = ['POINT_FROM', 'SHIPPING_POINT', 'LOAD_NUMBER', 'CATEGORY', 'LOAD_LENGTH',
                      'MATERIAL_NUMBER', 'QUANTITY', 'SIZE_DIMENSIONS',
                      'SALES_DOCUMENT_NUMBER', 'SALES_ITEM_NUMBER', 'SOLD_TO_NUMBER']
     columns_width = [20]*(len(columns_title)-1) + [27]
@@ -276,7 +276,7 @@ def p2p_full_process():
         print(param.LoadBuilder.get_loading_summary())
 
     lineIndex = 2  # To display a warning if number of loads is lower than parameters min
-    LoadIteration = 0  # Number of each load
+
 
     # SQL to send DATA
     headersResult = 'POINT_FROM,SHIPPING_POINT,LOAD_NUMBER,MATERIAL_NUMBER,QUANTITY,SIZE_DIMENSIONS,' \
@@ -287,6 +287,8 @@ def p2p_full_process():
     for order in P2POrder:  # To send data in excel workbook, order by : -point_from , -point_to
         for param in DATAParams:
             if param.POINT_FROM == order[0] and param.POINT_TO == order[1]:
+
+                LoadIteration = 0  # Number of each load (reset for each plant to plant)
 
                 # section for summary worksheet
                 summary_ws.append([param.POINT_FROM, param.POINT_TO, len(param.LoadBuilder)])
@@ -307,10 +309,12 @@ def p2p_full_process():
                                                 wish.Finished = True
                                                 valuesSQL = [(param.POINT_FROM, param.POINT_TO, LoadIteration,
                                                               wish.MATERIAL_NUMBER, wish.ORIGINAL_QUANTITY,
-                                                              column, wish.SALES_DOCUMENT_NUMBER, wish.SALES_ITEM_NUMBER,
+                                                              column, wish.SALES_DOCUMENT_NUMBER,
+                                                              wish.SALES_ITEM_NUMBER,
                                                               wish.SOLD_TO_NUMBER, dayTodayComplete)]
 
                                                 approved_ws.append([param.POINT_FROM, param.POINT_TO, LoadIteration,
+                                                                   loads['TRAILER'][line], loads['LOAD LENGTH'][line],
                                                                    wish.MATERIAL_NUMBER, wish.ORIGINAL_QUANTITY,
                                                                    column, wish.SALES_DOCUMENT_NUMBER,
                                                                    wish.SALES_ITEM_NUMBER, wish.SOLD_TO_NUMBER])
