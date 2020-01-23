@@ -61,6 +61,14 @@ class Wish:
                  self.LENGTH, self.WIDTH, self.HEIGHT, self.STACKABILITY, self.OVERHANG, self.ORIGINAL_QUANTITY,
                  self.RANK, self.MANDATORY, self.EndDate, date_today, self.IsAdhoc)]
 
+    def get_loadbuilder_input_line(self):
+        """
+        Return a list with all details needed on the wish to build the input dataframe of the LoadBuilder
+        :return: list
+        """
+        return [1, self.SIZE_DIMENSIONS, self.LENGTH, self.WIDTH, self.HEIGHT, 1,
+                self.CRATE_TYPE, self.STACKABILITY, int(self.MANDATORY), self.OVERHANG]
+
 
 class INVObj:
 
@@ -457,9 +465,7 @@ def satisfy_max_or_min(Wishes, Inventory, Parameters, satisfy_min=True, print_lo
                         # Here we set QTY and NBR_PER_CRATE to 1 because each line of the wishlist correspond to
                         # one crate and not one unit! Must be done this way to avoid having getting to many size_code
                         # in the returning list of the LoadBuilder
-                        invData.append([1, wish.SIZE_DIMENSIONS, wish.LENGTH, wish.WIDTH,
-                                        wish.HEIGHT, 1, wish.CRATE_TYPE, wish.STACKABILITY,
-                                        int(wish.MANDATORY), wish.OVERHANG])
+                        invData.append(wish.get_loadbuilder_input_line())
 
                         # We add the ranking of the wish in the ranking dictionary
                         if wish.SIZE_DIMENSIONS in ranking:
