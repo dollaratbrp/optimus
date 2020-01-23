@@ -6,7 +6,6 @@ Author : Nicolas Raymond
 from tkinter import *
 import pandas as pd
 from openpyxl import load_workbook, Workbook
-from openpyxl.styles import PatternFill
 from InputOutput import SQLConnection, savexlsxFile
 from P2PFunctions import get_trailers_data
 from LoadBuilder import LoadBuilder
@@ -35,8 +34,6 @@ class FastLoadsBox:
         self.crate_type = StringVar()
         self.crate_type.set('W')
 
-        # Initialization of
-
         # Initialization and positioning of a frame that will contain sku labels and entries
         self.sku_frame = LabelFrame(self.master, borderwidth=2, relief=RIDGE, text='Crates')
         self.sku_frame.grid(row=0, column=0)
@@ -44,7 +41,6 @@ class FastLoadsBox:
         # All single sku labels and qty entries initialization and positioning
         self.sku_labels, self.sku_entries = self.create_sku_labels_and_entries(self.sku_frame,
                                                                                self.read_skus_and_quantities())
-
         # Initialization of a frame for crate types radio buttons and initialization of the radio buttons themselves
         self.crate_type_frame = LabelFrame(self.sku_frame, text='Type')
         self.crate_type_frame.grid(row=len(self.sku_labels)+1, columnspan=2)
@@ -440,7 +436,11 @@ class SKUsContainer:
         """
 
         # We pick a SKU randomly in our dictionary
-        rand_index = randint(0, len(self.skus_dict)-1)
+        if len(self.skus_dict) - 1 == 0:
+            rand_index = 0
+        else:
+            rand_index = randint(0, len(self.skus_dict) - 1)
+
         skus = list(self.skus_dict.keys())
         rand_sku = skus[rand_index]
 
