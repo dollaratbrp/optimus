@@ -282,10 +282,13 @@ class LoadBuilder:
                 best_packer = packers[best_packer_index][1]
                 crate_type = packers[best_packer_index][0]
 
-                # We determine the warehouse concerned with the crate_type
+                # We determine the warehouse concerned with the crate_type and set the crate_type of trailer
                 if crate_type == 'W':
+                    t.crate_type = 'W'
                     warehouse = self.warehouse
+
                 elif crate_type == 'M':
+                    t.crate_type = 'M'
                     warehouse = self.metal_warehouse
 
                 # For every stack concerned by this loading configuration of the trailer
