@@ -9,8 +9,8 @@ By : Nicolas Raymond
 
 """
 
-# from Import_Functions import *
-from ParametersBox import *
+import sys
+from ParametersBox import OpenParameters, MissingP2PBox
 from P2PFunctions import *
 from ProcessValidation import validate_process
 import pandas as pd
