@@ -51,15 +51,20 @@ class Wish:
         self.Finished = False
         self.EndDate = None
 
-    def lineToXlsx(self, date_today):
+    def lineToXlsx(self, date_today, filtered=False):
         """
         Return a list of all the details needed on a wish to write a line in a .xlsx forecast report
         :param date_today: today's date
+        :param filtered: bool to indicate if the list returned will be shortened
         """
-        return [(self.SALES_DOCUMENT_NUMBER, self.SALES_ITEM_NUMBER, self.SOLD_TO_NUMBER, self.POINT_FROM,
-                 self.SHIPPING_POINT, self.DIVISION, self.MATERIAL_NUMBER, self.SIZE_DIMENSIONS,
-                 self.LENGTH, self.WIDTH, self.HEIGHT, self.STACKABILITY, self.OVERHANG, self.ORIGINAL_QUANTITY,
-                 self.RANK, self.MANDATORY, self.EndDate, date_today, self.IsAdhoc)]
+        if not filtered:
+            return [(self.SALES_DOCUMENT_NUMBER, self.SALES_ITEM_NUMBER, self.SOLD_TO_NUMBER, self.POINT_FROM,
+                     self.SHIPPING_POINT, self.DIVISION, self.MATERIAL_NUMBER, self.SIZE_DIMENSIONS,
+                     self.LENGTH, self.WIDTH, self.HEIGHT, self.STACKABILITY, self.OVERHANG, self.ORIGINAL_QUANTITY,
+                     self.RANK, self.MANDATORY, self.EndDate, date_today, self.IsAdhoc)]
+        else:
+            return [self.POINT_FROM, self.SHIPPING_POINT, self.DIVISION, self.MATERIAL_NUMBER, self.SIZE_DIMENSIONS,
+                    self.ORIGINAL_QUANTITY, self.EndDate]
 
     def get_loadbuilder_input_line(self):
         """
