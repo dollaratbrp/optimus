@@ -285,7 +285,7 @@ class Box(Frame):
         keyF = frame(self, BOTTOM)
         tk.Button(keyF, text='Add New', command=lambda largeurColonne=largeurColonne: self.AddNew(largeurColonne),
                   borderwidth=2, bg='#ABA3A3', relief=option[0], pady=10).pack(side=LEFT, expand=YES, fill=BOTH)
-        tk.Button(keyF, text='Modify Email list', command=self.change_emails_list, borderwidth=2, bg='#ABA3A3', relief=option[0],
+        tk.Button(keyF, text='Modify Email list', command=change_emails_list, borderwidth=2, bg='#ABA3A3', relief=option[0],
                   pady=10).pack(side=LEFT, expand=YES, fill=BOTH)
         tk.Button(keyF, text='Execute', command=self.quit, borderwidth=2, bg='#ABA3A3', relief=option[0],
                   pady=10).pack(side=LEFT, expand=YES, fill=BOTH)
@@ -393,12 +393,12 @@ class Box(Frame):
         global Project
         self.lignes.append(ligne(self, keyF, LEFT, '0000', '0000', 0, 0, '', '', 0, 0, False, 0, largeurColonne))
 
-    @staticmethod
-    def change_emails_list():
-        """
-        Opens a new window to allow user to change emails list
-        """
-        email_box = EmailBox()
+
+def change_emails_list():
+    """
+    Opens a new window to allow user to change emails list
+    """
+    email_box = EmailBox()
 
 
 class EmailBox(VerticalScrolledFrame):
@@ -416,7 +416,6 @@ class EmailBox(VerticalScrolledFrame):
         self.pack()
 
         # We recuperate the list of emails
-        global Project
         self.emails_list, self.connection = self.get_email_addresses(project_name=Project[0])
 
         # We initialize and pack a "ADD NEW" button
@@ -444,7 +443,6 @@ class EmailBox(VerticalScrolledFrame):
 
         email_query = """ SELECT DISTINCT [EMAIL_ADDRESS] FROM [Business_Planning].[dbo].[OTD_1_P2P_F_PARAMETERS_EMAIL_ADDRESS]
         WHERE PROJECT = '{0}'""".format(project_name)
-        print(email_query)
 
         return [item for sublist in sql_connection.GetSQLData(email_query) for item in sublist], sql_connection
 
@@ -539,11 +537,20 @@ def MissingP2PBox(MissingP2P):
     return response
 
 
-def OpenParameters(projectName='P2P'):
-    global Project
-    Project = [projectName]
+def OpenParameters(project_name='P2P'):
+
+    set_project_name(project_name)
     Box(largeurColonne).mainloop()
     return ToExecute[0]
+
+
+def set_project_name(name):
+    """
+    Sets the value of the global variable Project
+    :param name: name of the project
+    """
+    global Project
+    Project = [name]
 
 
 if __name__ == '__main__':
