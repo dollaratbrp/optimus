@@ -17,9 +17,12 @@ Update by : Nicolas Raymond
 # OTD_1_P2P_F_FORECAST_LOADS : Send data
 # OTD_1_P2P_F_FORECAST_PRIORITY : Send data
 
+# Path where the forecast results are saved
+saveFolder = 'S:\Shared\Business_Planning\Personal\Raymond\P2P\\'
 
 from ParametersBox import *
 from P2PFunctions import *
+from openpyxl import Workbook
 from tqdm import tqdm
 
 AutomaticRun = False  # set to True to automate code
@@ -242,6 +245,28 @@ headerPRIORITY = 'SALES_DOCUMENT_NUMBER,SALES_ITEM_NUMBER,SOLD_TO_NUMBER,POINT_F
 SQLPRIORITY = SQLConnection('CAVLSQLPD2\pbi2', 'Business_Planning', 'OTD_1_P2P_F_FORECAST_PRIORITY',
                             headers=headerPRIORITY)
 
+
+####################################################################################################################
+#                                         Excel Workbook declaration
+####################################################################################################################
+
+# Initialization of workbook and filling option to warn user in output
+wb = Workbook()
+Warning_fill = PatternFill(fill_type="solid", start_color="FFFF00", end_color="FFFF00")
+
+# Summary
+summary_ws = wb.active
+summary_ws.title = "SUMMARY"
+worksheet_formatting(summary_ws, ['POINT_FROM', 'SHIPPING_POINT', 'QUANTITY', 'DATE'], [15, 15, 15, 25])
+
+# Detailed
+detailed_ws = wb.create_sheet("DETAILED")
+columns_title = ['POINT_FROM', 'SHIPPING_POINT', 'DIVISION', 'MATERIAL_NUMBER',
+                 'SIZE_DIMENSIONS', 'QUANTITY', 'DEPARTURE_DAY']
+
+columns_width = [20]*(len(columns_title)-1) + [25]
+worksheet_formatting(detailed_ws, columns_title, columns_width)
+
 #####################################################################################################################
 #                                                Main loop for everyday
 #####################################################################################################################
@@ -306,12 +331,14 @@ for date in DATADATE:
     for param in DATAParams:
         tempoOnLoad = []
         invData = []
+
         for wish in ListApprovedWish:
             if wish.POINT_FROM == param.POINT_FROM and wish.SHIPPING_POINT == param.POINT_TO and wish.QUANTITY > 0:
                 tempoOnLoad.append(wish)
                 invData.append(wish.get_loadbuilder_input_line())  # quantity is one, one box for each line
         models_data = loadbuilder_input_dataframe(invData)
         result = param.LoadBuilder.build(models_data, param.LOADMAX, plot_load_done=printLoads)
+
         for model in result:
             found = False
             for OnLoad in tempoOnLoad:
@@ -321,6 +348,7 @@ for date in DATADATE:
                     param.AssignedWish.append(OnLoad)
                     OnLoad.EndDate = weekdays(max(0, param.days_to-1), officialDay=date)
                     SQLPRIORITY.sendToSQL(OnLoad.lineToXlsx(dayTodayComplete))
+                    detailed_ws.append(OnLoad.lineToXlsx(dayTodayComplete, filtered=True))
                     DATAWishList.remove(OnLoad)
                     break
             if not found:
@@ -338,6 +366,7 @@ for date in DATADATE:
         if len(param.LoadBuilder) < param.LOADMIN:  # If the minimum isn't reached
             tempoOnLoad = []
             invData = []
+
             # create data table
             for wish in DATAWishList:
                 if wish.POINT_FROM == param.POINT_FROM and wish.SHIPPING_POINT == param.POINT_TO and wish.QUANTITY > 0:
@@ -372,10 +401,11 @@ for date in DATADATE:
                         param.AssignedWish.append(OnLoad)
                         OnLoad.EndDate = weekdays(max(0, param.days_to - 1), officialDay=date)
                         SQLPRIORITY.sendToSQL(OnLoad.lineToXlsx(dayTodayComplete))
+                        detailed_ws.append(OnLoad.lineToXlsx(dayTodayComplete, filtered=True))
                         DATAWishList.remove(OnLoad)
                         break
                 if not found:
-                    GeneralErrors+='Error in min section: impossible result.\n'
+                    GeneralErrors += 'Error in min section: impossible result.\n'
             for wish in tempoOnLoad:  # If it is not on loads, give back inv
                 if wish.QUANTITY > 0:
                     for inv in wish.INV_ITEMS:
@@ -395,8 +425,8 @@ for date in DATADATE:
                     position = 0
                     for Iteration in range(wish.QUANTITY):
                         for It, inv in enumerate(DATAINV[position::]):
-                            if EquivalentPlantFrom(inv.POINT,
-                                                   wish.POINT_FROM) and inv.MATERIAL_NUMBER == wish.MATERIAL_NUMBER and inv.QUANTITY > 0 :
+                            if EquivalentPlantFrom(inv.POINT, wish.POINT_FROM) and\
+                                    inv.MATERIAL_NUMBER == wish.MATERIAL_NUMBER and inv.QUANTITY > 0:
                                 inv.QUANTITY -= 1
                                 wish.INV_ITEMS.append(inv)
                                 position += It
@@ -413,6 +443,7 @@ for date in DATADATE:
 
             # Create loads
             result = param.LoadBuilder.build(models_data, param.LOADMAX, plot_load_done=printLoads)
+
             # choose wish items to put on loads
             for model in result:
                 found = False
@@ -423,6 +454,7 @@ for date in DATADATE:
                         param.AssignedWish.append(OnLoad)
                         OnLoad.EndDate = weekdays(max(0, param.days_to - 1), officialDay=date)
                         SQLPRIORITY.sendToSQL(OnLoad.lineToXlsx(dayTodayComplete))
+                        detailed_ws.append(OnLoad.lineToXlsx(dayTodayComplete, filtered=True))
                         DATAWishList.remove(OnLoad)
                         break
                 if not found:
@@ -435,18 +467,33 @@ for date in DATADATE:
 
     # we save the loads created for that day
     for param in DATAParams:
+
+        # print('\nFROM :', param.POINT_FROM, 'TO :', param.POINT_TO)
+        # print('DATE OF PLANIFICATION ',  weekdays(-1, officialDay=date))
+        # print('DATE OF INVENTORY AVAILABILITY :', date)
+        # print('PROJECTED DATE :', weekdays(max(0, param.days_to-1), officialDay=date), '\n')
+
         SQLLoads.sendToSQL([(param.POINT_FROM, param.POINT_TO, len(param.LoadBuilder),
                              weekdays(max(0, param.days_to-1), officialDay=date), dayTodayComplete, IsAdhoc)])
+
+        if len(param.LoadBuilder):
+            summary_ws.append([param.POINT_FROM, param.POINT_TO, len(param.LoadBuilder),
+                               weekdays(max(0, param.days_to-1), officialDay=date)])
+
     # Update progress bar
     progress.update()
 
 # Loads were made for the next 8 weeks, now we send not assigned wishes to SQL
+
 
 for wish in DATAWishList:
     if wish.QUANTITY != wish.ORIGINAL_QUANTITY:
         GeneralErrors += 'Error : this unit was not assigned and has a different quantity; \n {0}'.format(wish.lineToXlsx())
     SQLPRIORITY.sendToSQL(wish.lineToXlsx(dayTodayComplete))
 
+# We save the workbook and the reference
+reference = [savexlsxFile(wb, saveFolder, dest_filename)]
 
-# Finally, we send an email
-send_email(EmailList, dest_filename, 'P2P Forecast is now updated.\n'+GeneralErrors)
+# We send the emails
+send_email(EmailList, dest_filename, 'P2P Forecast is now updated.\n'+GeneralErrors, reference)
+
