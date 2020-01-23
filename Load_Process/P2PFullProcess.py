@@ -213,8 +213,7 @@ def p2p_full_process():
                 # Here we set QTY and NBR_PER_CRATE to 1 because each line of the wishlist correspond to
                 # one crate and not one unit! Must be done this way to avoid having getting to many size_code
                 # in the returning list of the LoadBuilder
-                loadbuilder_input.append([1, wish.SIZE_DIMENSIONS, wish.LENGTH, wish.WIDTH, wish.HEIGHT, 1,
-                                          wish.CRATE_TYPE, wish.STACKABILITY, int(wish.MANDATORY), wish.OVERHANG])
+                loadbuilder_input.append(wish.get_loadbuilder_input_line())
 
                 # We add the ranking of the wish in the ranking dictionary
                 if wish.SIZE_DIMENSIONS in ranking:
