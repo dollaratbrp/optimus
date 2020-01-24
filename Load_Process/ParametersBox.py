@@ -150,47 +150,58 @@ class ligne:
         self.days.config(bg=color)
 
 
-# To create a vertical scrollBar
 class VerticalScrolledFrame(tk.Frame):
 
     def __init__(self, parent, *args, **kw):
+        """
+        Creates a tkinter frame on which we can scroll vertically
+        :param parent: tkinter root
+        """
         tk.Frame.__init__(self, parent, *args, **kw)
 
-        # create a canvas object and a vertical scrollbar for scrolling it
-        vscrollbar = tk.Scrollbar(self, orient=tk.VERTICAL)
-        vscrollbar.pack(fill=tk.Y, side=tk.RIGHT, expand=tk.FALSE)
-        canvas = tk.Canvas(self, bd=0, highlightthickness=0, height=650,
-                           yscrollcommand=vscrollbar.set)
-        canvas.pack(side=tk.LEFT, fill=tk.BOTH, expand=tk.TRUE)
-        vscrollbar.config(command=canvas.yview)
+        # Creation of a canvas object and a vertical scrollbar to scroll in it
+        self.vscrollbar = tk.Scrollbar(self, orient=tk.VERTICAL)
+        self.vscrollbar.pack(fill=tk.Y, side=tk.RIGHT, expand=tk.FALSE)
+        self.canvas = tk.Canvas(self, bd=0, highlightthickness=0, height=650, yscrollcommand=self.vscrollbar.set)
+        self.canvas.pack(side=tk.LEFT, fill=tk.BOTH, expand=tk.TRUE)
+        self.vscrollbar.config(command=self.canvas.yview)
 
-        # reset the view
-        canvas.xview_moveto(0)
-        canvas.yview_moveto(0)
+        # Reset the view
+        self.canvas.xview_moveto(0)
+        self.canvas.yview_moveto(0)
 
-        # create a frame inside the canvas which will be scrolled with it
-        self.interior = interior = tk.Frame(canvas)
-        interior_id = canvas.create_window(0, 0, window=interior,
-                                           anchor=tk.NW)
+        # Create a frame inside the canvas on which we'll be able to scroll
+        self.interior = tk.Frame(self.canvas)
+        self.interior_id = self.canvas.create_window(0, 0, window=self.interior, anchor=tk.NW)
 
-        # track changes to the canvas and frame width and sync them,
-        # also updating the scrollbar
-        def _configure_interior(event):
-            # update the scrollbars to match the size of the inner frame
-            size = (interior.winfo_reqwidth(), interior.winfo_reqheight())
-            canvas.config(scrollregion="0 0 %s %s" % size)
-            if interior.winfo_reqwidth() != canvas.winfo_width():
-                # update the canvas's width to fit the inner frame
-                canvas.config(width=interior.winfo_reqwidth())
+        # Track changes of the canvas and frame width and sync them, also update the scrollbar
+        self.interior.bind('<Configure>', self._configure_interior)
+        self.canvas.bind('<Configure>', self._configure_canvas)
 
-        interior.bind('<Configure>', _configure_interior)
+    def _configure_canvas(self, event):
+        """
+        Updates the inner frame's width to fill the canvas
+        :param event: information on the activities in the GUI (This parameter must be there!)
+        :return:
+        """
+        if self.interior.winfo_reqwidth() != self.canvas.winfo_width():
 
-        def _configure_canvas(event):
-            if interior.winfo_reqwidth() != canvas.winfo_width():
-                # update the inner frame's width to fill the canvas
-                canvas.itemconfigure(interior_id, width=canvas.winfo_width())
-        canvas.bind('<Configure>', _configure_canvas)
+            # update the inner frame's width to fill the canvas
+            self.canvas.itemconfigure(self.interior_id, width=self.canvas.winfo_width())
 
+    def _configure_interior(self, event):
+        """
+        Updates the scrollbar to match the size of the inner frame
+        :param event: information on the activities in the GUI (This parameter must be there!)
+        """
+        # update the scrollbars to match the size of the inner frame
+        size = (self.interior.winfo_reqwidth(), self.interior.winfo_reqheight())
+        self.canvas.config(scrollregion="0 0 %s %s" % size)
+
+        if self.interior.winfo_reqwidth() != self.canvas.winfo_width():
+
+            # update the canvas's width to fit the inner frame
+            self.canvas.config(width=self.interior.winfo_reqwidth())
 
 # The main box
 class Box(Frame):
@@ -274,7 +285,7 @@ class Box(Frame):
         keyF = frame(self, BOTTOM)
         tk.Button(keyF, text='Add New', command=lambda largeurColonne=largeurColonne: self.AddNew(largeurColonne),
                   borderwidth=2, bg='#ABA3A3', relief=option[0], pady=10).pack(side=LEFT, expand=YES, fill=BOTH)
-        tk.Button(keyF, text='Modify Email list', command=changeEmail, borderwidth=2, bg='#ABA3A3', relief=option[0],
+        tk.Button(keyF, text='Modify Email list', command=change_emails_list, borderwidth=2, bg='#ABA3A3', relief=option[0],
                   pady=10).pack(side=LEFT, expand=YES, fill=BOTH)
         tk.Button(keyF, text='Execute', command=self.quit, borderwidth=2, bg='#ABA3A3', relief=option[0],
                   pady=10).pack(side=LEFT, expand=YES, fill=BOTH)
@@ -383,128 +394,135 @@ class Box(Frame):
         self.lignes.append(ligne(self, keyF, LEFT, '0000', '0000', 0, 0, '', '', 0, 0, False, 0, largeurColonne))
 
 
-def changeEmail():
-    """To change email list"""
+def change_emails_list():
+    """
+    Opens a new window to allow user to change emails list
+    """
+    email_box = EmailBox()
 
-    class VerticalScrolledFrame(tk.Frame):
-        # SQL = ''
-        # headers= ''
 
-        def __init__(self, parent, *args, **kw):
-            tk.Frame.__init__(self, parent, *args, **kw)
-            # self.headers='EMAIL_ADDRESS'
-            # self.SQL = SQLConnection('CAVLSQLPD2\pbi2', 'Business_Planning',
-            # 'OTD_1_P2P_F_PARAMETERS_EMAIL_ADDRESS',self.headers)
+class EmailBox(VerticalScrolledFrame):
 
-            # create a canvas object and a vertical scrollbar for scrolling it
-            vscrollbar = tk.Scrollbar(self, orient=tk.VERTICAL)
-            vscrollbar.pack(fill=tk.Y, side=tk.RIGHT, expand=tk.FALSE)
-            canvas = tk.Canvas(self, bd=0, highlightthickness=0,
-                               yscrollcommand=vscrollbar.set)
-            canvas.pack(side=tk.LEFT, fill=tk.BOTH, expand=tk.TRUE)
-            vscrollbar.config(command=canvas.yview)
+    def __init__(self):
 
-            # reset the view
-            canvas.xview_moveto(0)
-            canvas.yview_moveto(0)
+        # We initialize the root
+        self.root = Toplevel()
+        self.root.title("EMAIL ADDRESS")
+        self.root.configure(background="gray99")
+        self.root.geometry("400x500+700+300")
 
-            # create a frame inside the canvas which will be scrolled with it
-            self.interior = interior = tk.Frame(canvas)
-            interior_id = canvas.create_window(0, 0, window=interior,
-                                               anchor=tk.NW)
+        # We initialize our frame
+        super().__init__(self.root)
+        self.pack()
 
-            # track changes to the canvas and frame width and sync them,
-            # also updating the scrollbar
-            def _configure_interior(event):
-                # update the scrollbars to match the size of the inner frame
-                size = (interior.winfo_reqwidth(), interior.winfo_reqheight())
-                canvas.config(scrollregion="0 0 %s %s" % size)
-                if interior.winfo_reqwidth() != canvas.winfo_width():
-                    # update the canvas's width to fit the inner frame
-                    canvas.config(width=interior.winfo_reqwidth())
+        # We recuperate the list of emails
+        self.emails_list, self.connection = self.get_email_addresses(project_name=Project[0])
 
-            interior.bind('<Configure>', _configure_interior)
+        # We initialize and pack a "ADD NEW" button
+        self.add_new_button = Button(self.interior, height=1, width=40, relief=FLAT, bg="gray99", fg="purple3",
+                                     font="Dosis", text='ADD NEW', command=self.add_new)
+        self.add_new_button.pack()
 
-            def _configure_canvas(event):
-                if interior.winfo_reqwidth() != canvas.winfo_width():
-                    # update the inner frame's width to fill the canvas
-                    canvas.itemconfigure(interior_id, width=canvas.winfo_width())
-            canvas.bind('<Configure>', _configure_canvas)
+        # We initialize and pack a label
+        self.label = Label(self.interior, text="CLICK ON EMAIL TO DELETE", font=("Dosis", 12))
+        self.label.pack(padx=10, pady=5, side=TOP)
 
-    root = tk.Tk()
-    root.title("EMAIL ADDRESS")
-    root.configure(background="gray99")
-    root.geometry("400x500+700+300")
+        # We set the rest of the missing buttons associated to the email addresses
+        self.email_buttons = []
+        for i, email in enumerate(self.emails_list):
+            self.email_buttons.append(Button(self.interior, height=1, width=40, relief=FLAT, bg="gray99",
+                                             fg="purple3", font="Dosis", text=email,
+                                             command=lambda i=i: self.warning(i)))
+            self.email_buttons[i].pack(padx=10, pady=5, side=TOP)
 
-    scframe = VerticalScrolledFrame(root)
-    scframe.pack()
+    @staticmethod
+    def get_email_addresses(project_name):
 
-    tempo = []  # list of all buttons
+        sql_connection = SQLConnection('CAVLSQLPD2\pbi2', 'Business_Planning','OTD_1_P2P_F_PARAMETERS_EMAIL_ADDRESS',
+                                       'EMAIL_ADDRESS,PROJECT')
 
-    # Get all email address
-    headers = 'EMAIL_ADDRESS,PROJECT'
-    SQL = SQLConnection('CAVLSQLPD2\pbi2', 'Business_Planning','OTD_1_P2P_F_PARAMETERS_EMAIL_ADDRESS', headers)
-    global Project
-    SQLquery = """ SELECT DISTINCT [EMAIL_ADDRESS] FROM [Business_Planning].[dbo].[OTD_1_P2P_F_PARAMETERS_EMAIL_ADDRESS]
-     WHERE PROJECT = '{0}'""".format(Project[0])
-    lis = [item for sublist in SQL.GetSQLData(SQLquery) for item in sublist]
+        email_query = """ SELECT DISTINCT [EMAIL_ADDRESS] FROM [Business_Planning].[dbo].[OTD_1_P2P_F_PARAMETERS_EMAIL_ADDRESS]
+        WHERE PROJECT = '{0}'""".format(project_name)
 
-    btn = tk.Button(scframe.interior, height=1, width=40, relief=tk.FLAT,
-                    bg="gray99", fg="purple3",
-                    font="Dosis", text='ADD NEW',
-                    command=lambda lis=lis: addNew(lis))
-    btn.pack(padx=10, pady=5, side=tk.TOP)
+        return [item for sublist in sql_connection.GetSQLData(email_query) for item in sublist], sql_connection
 
-    tk.Label(scframe.interior, text="CLICK ON EMAIL TO DELETE").pack()
+    def warning(self, i):
+        """
+        Deletes an email address
+        """
+        email_to_delete = self.emails_list[i]
 
-    for i, x in enumerate(lis):
-        btn = tk.Button(scframe.interior, height=1, width=40, relief=tk.FLAT,
-                        bg="gray99", fg="purple3",
-                        font="Dosis", text=lis[i],
-                        command=lambda i=i, x=x: openlink(i))
-        btn.pack(padx=10, pady=5, side=tk.TOP)
-        tempo.append(btn)
-
-    def openlink(i):
-        """To delete an email address"""
-        confirm = messagebox.askokcancel(lis[i], "Are you sure you want to remove {0} from the list?".format(lis[i]))
+        confirm = messagebox.askokcancel('Confirmation',
+                                         "Are you sure you want to remove"
+                                         " {0} from the list?".format(email_to_delete))
         if confirm:
-            SQL.deleteFromSQL("[EMAIL_ADDRESS] = ('{0}') and PROJECT = '{1}'".format(lis[i], Project[0]))
-            tempo[i].forget()
-            lis.pop(i)  # Delete from SQL
+            self.connection.deleteFromSQL("[EMAIL_ADDRESS] = ('{0}') and PROJECT = '{1}'".format(email_to_delete, Project[0]))
+            self.email_buttons[i].forget()
+            self.email_buttons.pop(i)
+            self.emails_list.pop(i)
 
-    def addNew(lis):
+        self.root.deiconify()
 
-        def addNewEmail():
-            """Add new email address"""
-            newEmail = [e1.get().lower()]
-            if newEmail[0] not in lis:
-                lis.append(newEmail[0])
-                longueur = len(lis)-1
+    def add_new(self):
+        """
+        Opens a new window to allow the user to add a new email address
+        """
+        new_email_box = NewEmailBox(self)
 
-                btn = tk.Button(scframe.interior, height=1, width=40, relief=tk.FLAT, bg="gray99", fg="purple3",
-                                font="Dosis", text=newEmail[0], command=lambda: openlink(longueur))
-                btn.pack(padx=10, pady=5, side=tk.TOP)
-                tempo.append(btn)
-                SQL.sendToSQL([(newEmail[0], Project[0])])
 
-            e1.delete(0, END)
+class NewEmailBox:
 
-        master = tk.Tk()
-        master.geometry("500x80+700+500")
-        master.title("ADD NEW EMAIL ADDRESS")
-        tk.Label(master,
-                 text="EMAIL ADDRESS").grid(row=0)
+    def __init__(self, parent_email_box):
 
-        e1 = tk.Entry(master, width=50)
-        e1.grid(row=0, column=1)
+        # We save the parent of the new box
+        self.parent = parent_email_box
 
-        tk.Button(master, text='Cancel', command=master.destroy).grid(row=3, column=0, sticky=tk.W, pady=4)
-        tk.Button(master, text='ADD', command=addNewEmail).grid(row=3, column=1, sticky=tk.W, pady=4)
+        # Master initialization (root)
+        self.master = Toplevel()
+        self.master.geometry("500x80+700+500")
+        self.master.title("ADD NEW EMAIL ADDRESS")
 
-        master.mainloop()
+        # Email label initialization and positioning
+        self.email_label = Label(self.master, text="Email", font=("Dosis", 12))
+        self.email_label.grid(row=0, column=0)
 
-    root.mainloop()
+        # Email label initialization and positioning
+        self.email_entry = Entry(self.master, width=50)
+        self.email_entry.grid(row=0, column=1)
+
+        # Cancel button initialization and positioning
+        self.cancel_button = Button(self.master, text='Cancel', command=self.master.destroy, font=("Dosis", 12))
+        self.cancel_button.grid(row=1, column=0, sticky=W, pady=4, columnspan=1)
+
+        # Add button initialization and positioning
+        self.add = Button(self.master, text='Add', command=self.add_new_email, font=("Dosis", 12))
+        self.add.grid(row=1, column=1, sticky=W, pady=4)
+
+    def add_new_email(self):
+        """
+        Adds the email address written
+        """
+        # We retrieve the new address
+        new_address = str(self.email_entry.get().lower())
+
+        # If the address is not already in the parent emails list
+        if new_address not in self.parent.emails_list:
+
+            # We add the new addresse in the email list
+            self.parent.emails_list.append(new_address)
+            index = len(self.parent.emails_list) - 1
+
+            # We add a new button for this address
+            self.parent.email_buttons.append(Button(self.parent.interior, height=1, width=40, relief=FLAT,
+                                                    bg="gray99", fg="purple3", font="Dosis", text=new_address,
+                                                    command=lambda: self.parent.warning(index)))
+            self.parent.email_buttons[-1].pack(padx=10, pady=5, side=TOP)
+
+            # We send the data to SQL
+            self.parent.connection.sendToSQL([(new_address, Project[0])])
+
+        self.email_entry.delete(0, END)
+        self.master.destroy()
 
 
 def MissingP2PBox(MissingP2P):
@@ -519,11 +537,20 @@ def MissingP2PBox(MissingP2P):
     return response
 
 
-def OpenParameters(projectName='P2P'):
-    global Project
-    Project = [projectName]
+def OpenParameters(project_name='P2P'):
+
+    set_project_name(project_name)
     Box(largeurColonne).mainloop()
     return ToExecute[0]
+
+
+def set_project_name(name):
+    """
+    Sets the value of the global variable Project
+    :param name: name of the project
+    """
+    global Project
+    Project = [name]
 
 
 if __name__ == '__main__':

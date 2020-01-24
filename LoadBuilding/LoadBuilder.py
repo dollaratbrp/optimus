@@ -14,6 +14,7 @@ import pandas as pd
 from collections import Counter
 from packer import newPacker
 from math import floor
+from copy import deepcopy as dc
 
 
 class LoadBuilder:
@@ -126,7 +127,7 @@ class LoadBuilder:
                     mandatory_crates = min(total_of_mandatory, stack_limit)
 
                     # We add the missing number of mandatory crates and avg ranking to the stacks component list
-                    temp_components = stacks_component + [mandatory_crates] + [np.mean(r[index:(index+stack_limit)])]
+                    temp_components = dc(stacks_component) + [mandatory_crates] + [np.mean(r[index:(index+stack_limit)])]
 
                     # We build the stack and send it into the warehouse
                     warehouse.add_stack(LoadObj.Stack(*temp_components))
@@ -138,7 +139,7 @@ class LoadBuilder:
                 for j in range(nbr_individual_crates):
 
                     # We add the missing number of mandatory crates to the stacks component list
-                    temp_components = crates_component + [total_of_mandatory > 0] + [r[index]]
+                    temp_components = dc(crates_component) + [total_of_mandatory > 0] + [r[index]]
 
                     # We build the crate and send it to the crates manager
                     crates_manager.add_crate(LoadObj.Crate(*temp_components))
@@ -282,10 +283,13 @@ class LoadBuilder:
                 best_packer = packers[best_packer_index][1]
                 crate_type = packers[best_packer_index][0]
 
-                # We determine the warehouse concerned with the crate_type
+                # We determine the warehouse concerned with the crate_type and set the crate_type of trailer
                 if crate_type == 'W':
+                    t.crate_type = 'W'
                     warehouse = self.warehouse
+
                 elif crate_type == 'M':
+                    t.crate_type = 'M'
                     warehouse = self.metal_warehouse
 
                 # For every stack concerned by this loading configuration of the trailer
@@ -651,6 +655,7 @@ class LoadBuilder:
 
         # We add a line in the dataframe for every trailer used
         for trailer in self.trailers_done:
+
             # We save the quantities of every models inside the trailer
             s = Counter(trailer.load_summary())
 

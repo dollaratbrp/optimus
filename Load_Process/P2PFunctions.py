@@ -51,15 +51,28 @@ class Wish:
         self.Finished = False
         self.EndDate = None
 
-    def lineToXlsx(self, date_today):
+    def lineToXlsx(self, date_today, filtered=False):
         """
         Return a list of all the details needed on a wish to write a line in a .xlsx forecast report
         :param date_today: today's date
+        :param filtered: bool to indicate if the list returned will be shortened
         """
-        return [(self.SALES_DOCUMENT_NUMBER, self.SALES_ITEM_NUMBER, self.SOLD_TO_NUMBER, self.POINT_FROM,
-                 self.SHIPPING_POINT, self.DIVISION, self.MATERIAL_NUMBER, self.SIZE_DIMENSIONS,
-                 self.LENGTH, self.WIDTH, self.HEIGHT, self.STACKABILITY, self.OVERHANG, self.ORIGINAL_QUANTITY,
-                 self.RANK, self.MANDATORY, self.EndDate, date_today, self.IsAdhoc)]
+        if not filtered:
+            return [(self.SALES_DOCUMENT_NUMBER, self.SALES_ITEM_NUMBER, self.SOLD_TO_NUMBER, self.POINT_FROM,
+                     self.SHIPPING_POINT, self.DIVISION, self.MATERIAL_NUMBER, self.SIZE_DIMENSIONS,
+                     self.LENGTH, self.WIDTH, self.HEIGHT, self.STACKABILITY, self.OVERHANG, self.ORIGINAL_QUANTITY,
+                     self.RANK, self.MANDATORY, self.EndDate, date_today, self.IsAdhoc)]
+        else:
+            return [self.POINT_FROM, self.SHIPPING_POINT, self.DIVISION, self.MATERIAL_NUMBER, self.SIZE_DIMENSIONS,
+                    self.ORIGINAL_QUANTITY, self.EndDate]
+
+    def get_loadbuilder_input_line(self):
+        """
+        Return a list with all details needed on the wish to build the input dataframe of the LoadBuilder
+        :return: list
+        """
+        return [1, self.SIZE_DIMENSIONS, self.LENGTH, self.WIDTH, self.HEIGHT, 1,
+                self.CRATE_TYPE, self.STACKABILITY, int(self.MANDATORY), self.OVERHANG]
 
 
 class INVObj:
@@ -115,6 +128,24 @@ class NestedSourcePoints:
     def __init__(self, point_source, point_include):
         self.source = point_source
         self.include = point_include
+
+
+def get_emails_list(project_name):
+    """
+    Recuperates the list of email associate to the project
+    :param project_name: One among 'P2P, 'FORECAST and 'FASTLOADS'
+    :return: list of email addresses
+    """
+    email_connection = SQLConnection('CAVLSQLPD2\pbi2', 'Business_Planning',
+                                     'OTD_1_P2P_F_PARAMETERS_EMAIL_ADDRESS', headers='EMAIL_ADDRESS')
+
+    email_query = """ SELECT distinct [EMAIL_ADDRESS]
+                 FROM [Business_Planning].[dbo].[OTD_1_P2P_F_PARAMETERS_EMAIL_ADDRESS]
+                 WHERE PROJECT = """ + "'"+project_name+"'"
+
+    # GET SQL DATA
+    email_data = email_connection.GetSQLData(email_query)
+    return [email_address for sublist in email_data for email_address in sublist]
 
 
 def get_parameter_grid():
@@ -457,9 +488,7 @@ def satisfy_max_or_min(Wishes, Inventory, Parameters, satisfy_min=True, print_lo
                         # Here we set QTY and NBR_PER_CRATE to 1 because each line of the wishlist correspond to
                         # one crate and not one unit! Must be done this way to avoid having getting to many size_code
                         # in the returning list of the LoadBuilder
-                        invData.append([1, wish.SIZE_DIMENSIONS, wish.LENGTH, wish.WIDTH,
-                                        wish.HEIGHT, 1, wish.CRATE_TYPE, wish.STACKABILITY,
-                                        int(wish.MANDATORY), wish.OVERHANG])
+                        invData.append(wish.get_loadbuilder_input_line())
 
                         # We add the ranking of the wish in the ranking dictionary
                         if wish.SIZE_DIMENSIONS in ranking:

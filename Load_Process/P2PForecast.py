@@ -1,21 +1,31 @@
+"""
+This file manages all activities linked to Forecast
+
+Author : Olivier Lefebvre
+
+Update by : Nicolas Raymond
+"""
+
 # P2P Forecast for next 8 weeks
 
-### Used SQL Table and actions:
-#[Business_Planning].[dbo].[OTD_1_P2P_F_PARAMETERS_EMAIL_ADDRESS] : Get data, alter, delete, send
-#[Business_Planning].[dbo].[OTD_1_P2P_F_FORECAST_PARAMETERS] : Get data, alter, delete, send
-#[Business_Planning].[dbo].[OTD_1_P2P_F_INVENTORY] : Get data
-#[Business_Planning].[dbo].[OTD_1_P2P_F_PRIORITY_WITHOUT_INVENTORY] : Get data
-#OTD_1_P2P_D_INCLUDED_INVENTORY : Get data
-#OTD_1_P2P_F_FORECAST_LOADS : Send data
-#OTD_1_P2P_F_FORECAST_PRIORITY : Send data
+#  Used SQL Table and actions:
+# [Business_Planning].[dbo].[OTD_1_P2P_F_PARAMETERS_EMAIL_ADDRESS] : Get data, alter, delete, send
+# [Business_Planning].[dbo].[OTD_1_P2P_F_FORECAST_PARAMETERS] : Get data, alter, delete, send
+# [Business_Planning].[dbo].[OTD_1_P2P_F_INVENTORY] : Get data
+# [Business_Planning].[dbo].[OTD_1_P2P_F_PRIORITY_WITHOUT_INVENTORY] : Get data
+# OTD_1_P2P_D_INCLUDED_INVENTORY : Get data
+# OTD_1_P2P_F_FORECAST_LOADS : Send data
+# OTD_1_P2P_F_FORECAST_PRIORITY : Send data
 
-### Important path
-# None
+# Path where the forecast results are saved
+saveFolder = 'S:\Shared\Business_Planning\Personal\Raymond\P2P\\'
 
 from ParametersBox import *
 from P2PFunctions import *
+from openpyxl import Workbook
+from tqdm import tqdm
 
-AutomaticRun = False # set to True to automate code
+AutomaticRun = False  # set to True to automate code
 
 if not AutomaticRun:
     if not OpenParameters('FORECAST'):  # If user cancel request
@@ -24,56 +34,61 @@ if not AutomaticRun:
 else:
     IsAdhoc = 0  # 1 for True, 0 for False (if automatic)
 
+# ---------------------------------------------------------------------------------------------------------------------#
+# ---------------------------------------------------------------------------------------------------------------------#
+#                                             MODIFICATIONS SECTION
+# ---------------------------------------------------------------------------------------------------------------------#
+# ---------------------------------------------------------------------------------------------------------------------#
 
-
-# -------------------------------------------------------------------------------------------------------------------------------------------------------------------#
-# -------------------------------------------------------------------------------------------------------------------------------------------------------------------#
-                                                                     #MODIFICATIONS SECTION
-# -------------------------------------------------------------------------------------------------------------------------------------------------------------------#
-# -------------------------------------------------------------------------------------------------------------------------------------------------------------------#
-dayTodayComplete= pd.datetime.now().replace(second=0, microsecond=0)
-dayToday= weekdays(0)
+dayTodayComplete = pd.datetime.now().replace(second=0, microsecond=0)
+dayToday = weekdays(0)
 printLoads = False
 
-dest_filename = 'P2P_Forecast_'+dayToday # Email subject with today's date
-# -------------------------------------------------------------------------------------------------------------------------------------------------------------------#
-# -------------------------------------------------------------------------------------------------------------------------------------------------------------------#
-                                                                        #END OF MODIFICATIONS
-# -------------------------------------------------------------------------------------------------------------------------------------------------------------------#
-# -------------------------------------------------------------------------------------------------------------------------------------------------------------------#
-GeneralErrors='' #General errors met during execution
+dest_filename = 'P2P_Forecast_'+dayToday  # Email subject with today's date
+
+# ---------------------------------------------------------------------------------------------------------------------#
+# ---------------------------------------------------------------------------------------------------------------------#
+#                                            END OF MODIFICATIONS
+# ---------------------------------------------------------------------------------------------------------------------#
+# ---------------------------------------------------------------------------------------------------------------------#
+
+GeneralErrors = ''  # General errors met during execution
 
 
 #####################################################################################################################
-                                                ###Get SQL DATA
-# ####################################################################################################################
+#                                                Get SQL DATA
+#####################################################################################################################
 
 # #If SQL queries crash
 downloaded = False
 numberOfTry = 0
-while not downloaded and numberOfTry<3: # 3 trials, SQL Queries sometime crash for no reason
-    numberOfTry+=1
+while not downloaded and numberOfTry < 3:  # 3 trials, SQL Queries sometime crash for no reason
+    numberOfTry += 1
     try:
         downloaded = True
         ####################################################################################
-                           ###  Email address Query
+        #                                 Email address Query
         ####################################################################################
-        headerEmail='EMAIL_ADDRESS'
-        SQLEmail = SQLConnection('CAVLSQLPD2\pbi2', 'Business_Planning', 'OTD_1_P2P_F_PARAMETERS_EMAIL_ADDRESS',headers=headerEmail)
-        QueryEmail=""" SELECT distinct [EMAIL_ADDRESS]
+        headerEmail = 'EMAIL_ADDRESS'
+        SQLEmail = SQLConnection('CAVLSQLPD2\pbi2', 'Business_Planning', 'OTD_1_P2P_F_PARAMETERS_EMAIL_ADDRESS',
+                                 headers=headerEmail)
+
+        QueryEmail = """ SELECT distinct [EMAIL_ADDRESS]
          FROM [Business_Planning].[dbo].[OTD_1_P2P_F_PARAMETERS_EMAIL_ADDRESS]
          WHERE PROJECT = 'FORECAST'
         """
-        #GET SQL DATA
-        EmailList = [ item for sublist in SQLEmail.GetSQLData(QueryEmail) for item in sublist]#[ sublist for sublist in SQLEmail.GetSQLData(QueryEmail) ]  #[ item for sublist in SQLEmail.GetSQLData(SQLEmail) for item in sublist]
+        # GET SQL DATA
+        EmailList = [item for sublist in SQLEmail.GetSQLData(QueryEmail) for item in sublist]
 
         ####################################################################################
-                           ###  Parameters Query
+        #                                     Parameters Query
         ####################################################################################
 
-        headerParams='POINT_FROM,POINT_TO,LOAD_MIN,LOAD_MAX,DRYBOX,FLATBED,TRANSIT,PRIORITY_ORDER,SKIP'
-        SQLParams = SQLConnection('CAVLSQLPD2\pbi2', 'Business_Planning', 'OTD_1_P2P_F_PARAMETERS',headers=headerParams)
-        QueryParams=""" SELECT  [POINT_FROM]
+        headerParams = 'POINT_FROM,POINT_TO,LOAD_MIN,LOAD_MAX,DRYBOX,FLATBED,TRANSIT,PRIORITY_ORDER,SKIP'
+        SQLParams = SQLConnection('CAVLSQLPD2\pbi2', 'Business_Planning', 'OTD_1_P2P_F_PARAMETERS',
+                                  headers=headerParams)
+
+        QueryParams = """ SELECT  [POINT_FROM]
               ,[POINT_TO]
               ,[LOAD_MIN]
               ,[LOAD_MAX]
@@ -87,25 +102,26 @@ while not downloaded and numberOfTry<3: # 3 trials, SQL Queries sometime crash f
           and SKIP = 0
           order by PRIORITY_ORDER
         """
-        #GET SQL DATA
-        DATAParams = [ Parameters(*sublist) for sublist in SQLParams.GetSQLData(QueryParams) ]  #[ item for sublist in SQLEmail.GetSQLData(SQLEmail) for item in sublist]
+        # GET SQL DATA
+        DATAParams = [Parameters(*sublist) for sublist in SQLParams.GetSQLData(QueryParams)]
 
         ####################################################################################
-                           ### Distinct date
+        #                               Distinct date
         ####################################################################################
-        ##we use the dates to loop through time
+
+        #  We use the dates to loop through time
         SQLINV = SQLConnection('CAVLSQLPD2\pbi2', 'Business_Planning', 'OTD_1_P2P_F_INVENTORY',
                                   headers='')
         QueryDATE = """ SELECT distinct convert(date,[AVAILABLE_DATE]) as [AVAILABLE_DATE]
                   FROM [Business_Planning].[dbo].[OTD_1_P2P_F_INVENTORY]
-                  where [AVAILABLE_DATE] between convert(date,getdate()+1) and convert(date,getdate() + 7*8)--we want the next 8 weeks
+                  where [AVAILABLE_DATE] between convert(date,getdate()+1) and convert(date,getdate() + 7*8)
                   order by [AVAILABLE_DATE]
                 """
 
         DATADATE = [single for sublist in SQLINV.GetSQLData(QueryDATE) for single in sublist]
 
         ####################################################################################
-                           ### First Inv Query
+        #                                First Inv Query
         ####################################################################################
         QueryInv = """ select distinct SHIPPING_POINT
               ,[MATERIAL_NUMBER]
@@ -132,12 +148,12 @@ while not downloaded and numberOfTry<3: # 3 trials, SQL Queries sometime crash f
 	     order by SHIPPING_POINT, MATERIAL_NUMBER
                         """
 
-        DATAINV = [INVObj(*obj) for obj in SQLINV.GetSQLData(QueryInv)]  # [sublist for sublist in SQLINV.GetSQLData(QueryDATE)]
+        DATAINV = [INVObj(*obj) for obj in SQLINV.GetSQLData(QueryInv)]
 
         ####################################################################################
-        ### Prod & QA Query
+        #                                Prod & QA Query
         ####################################################################################
-        ##Filter based on if production is late, to make later
+        # Filter based on if production is late, to make later
         QueryProd = """ SELECT  [SHIPPING_POINT]
                               ,[MATERIAL_NUMBER]
                               ,[QUANTITY]
@@ -149,23 +165,21 @@ while not downloaded and numberOfTry<3: # 3 trials, SQL Queries sometime crash f
                           order by AVAILABLE_DATE,SHIPPING_POINT,MATERIAL_NUMBER
                                 """
 
-        DATAProd = [INVObj(*obj) for obj in
-                   SQLINV.GetSQLData(QueryProd)]  # [sublist for sublist in SQLINV.GetSQLData(QueryDATE)]
-
+        DATAProd = [INVObj(*obj) for obj in SQLINV.GetSQLData(QueryProd)]
 
         ####################################################################################
-                           ###  WishList Query
+        #                                 WishList Query
         ####################################################################################
 
-        SQLWishList = SQLConnection('CAVLSQLPD2\pbi2', 'Business_Planning', 'OTD_2_PRIORITY_F_P2P',headers='')
-        QueryWishList= """SELECT  [SALES_DOCUMENT_NUMBER]
+        SQLWishList = SQLConnection('CAVLSQLPD2\pbi2', 'Business_Planning', 'OTD_2_PRIORITY_F_P2P', headers='')
+        QueryWishList = """SELECT  [SALES_DOCUMENT_NUMBER]
               ,[SALES_ITEM_NUMBER]
               ,[SOLD_TO_NUMBER]
               ,[POINT_FROM]
               ,[SHIPPING_POINT]
               ,[DIVISION]
               ,RTRIM([MATERIAL_NUMBER])
-              ,RTRIM([Size_Dimensions])
+              ,RTRIM([Size_Dimension])
               ,convert(int,CEILING([Length]))
               ,convert(int,CEILING([Width]))
               ,convert(int,CEILING([Height]))
@@ -174,6 +188,7 @@ while not downloaded and numberOfTry<3: # 3 trials, SQL Queries sometime crash f
               ,[Priority_Rank]
               ,[X_IF_MANDATORY]
               ,[OVERHANG]
+              ,[METAL_WOOD]
               ,"""+str(IsAdhoc)+""" as IsAdhoc
           FROM [Business_Planning].[dbo].[OTD_1_P2P_F_PRIORITY_WITHOUT_INVENTORY]
           where [POINT_FROM] <>[SHIPPING_POINT] and Length<>0 and Width <> 0 and Height <> 0
@@ -186,10 +201,10 @@ while not downloaded and numberOfTry<3: # 3 trials, SQL Queries sometime crash f
         """
 
         OriginalDATAWishList = SQLWishList.GetSQLData(QueryWishList)
-        DATAWishList=[WishListObj(*obj) for obj in OriginalDATAWishList]
+        DATAWishList = [Wish(*obj) for obj in OriginalDATAWishList]
 
         ####################################################################################
-        ###  Included Shipping_point
+        #                             Included Shipping_point
         ####################################################################################
 
         SQLInclude = SQLConnection('CAVLSQLPD2\pbi2', 'Business_Planning', 'OTD_1_P2P_D_INCLUDED_INVENTORY', headers='')
@@ -197,18 +212,17 @@ while not downloaded and numberOfTry<3: # 3 trials, SQL Queries sometime crash f
                             from OTD_1_P2P_D_INCLUDED_INVENTORY
             """
         OriginalDATAInclude = SQLInclude.GetSQLData(QueryInclude)
-        #DATAInclude = [] # defined in P2P_Functions
+
         global DATAInclude
         for obj in OriginalDATAInclude:
-            DATAInclude.append(Included_Inv(*obj))
+            DATAInclude.append(NestedSourcePoints(*obj))
 
     except:
         downloaded = False
         print('SQL Query failed')
 
 
-
-#If SQL Queries failed
+# If SQL Queries failed
 if not downloaded:
     try:
         print('failed')
@@ -219,45 +233,71 @@ if not downloaded:
 
 
 #####################################################################################################################
-                                                ### SQL tables declaration
+#                                                 SQL tables declaration
 #####################################################################################################################
 headerLoads = 'POINT_FROM,SHIPPING_POINT,QUANTITY,DATE,IMPORT_DATE,IS_ADHOC'
 SQLLoads = SQLConnection('CAVLSQLPD2\pbi2', 'Business_Planning', 'OTD_1_P2P_F_FORECAST_LOADS', headers=headerLoads)
 
-headerPRIORITY = 'SALES_DOCUMENT_NUMBER,SALES_ITEM_NUMBER,SOLD_TO_NUMBER,POINT_FROM,SHIPPING_POINT,DIVISION,MATERIAL_NUMBER,SIZE_DIMENSIONS,LENGTH,WIDTH,HEIGHT,STACKABILITY,OVERHANG,QUANTITY,PRIORITY_RANK,X_IF_MANDATORY,PROJECTED_DATE,IMPORT_DATE,IS_ADHOC'
-SQLPRIORITY = SQLConnection('CAVLSQLPD2\pbi2', 'Business_Planning', 'OTD_1_P2P_F_FORECAST_PRIORITY', headers=headerPRIORITY)
+headerPRIORITY = 'SALES_DOCUMENT_NUMBER,SALES_ITEM_NUMBER,SOLD_TO_NUMBER,POINT_FROM,SHIPPING_POINT,DIVISION,' \
+                 'MATERIAL_NUMBER,SIZE_DIMENSIONS,LENGTH,WIDTH,HEIGHT,STACKABILITY,OVERHANG,QUANTITY,PRIORITY_RANK,' \
+                 'X_IF_MANDATORY,PROJECTED_DATE,IMPORT_DATE,IS_ADHOC'
+
+SQLPRIORITY = SQLConnection('CAVLSQLPD2\pbi2', 'Business_Planning', 'OTD_1_P2P_F_FORECAST_PRIORITY',
+                            headers=headerPRIORITY)
+
+
+####################################################################################################################
+#                                         Excel Workbook declaration
+####################################################################################################################
+
+# Initialization of workbook and filling option to warn user in output
+wb = Workbook()
+Warning_fill = PatternFill(fill_type="solid", start_color="FFFF00", end_color="FFFF00")
+
+# Summary
+summary_ws = wb.active
+summary_ws.title = "SUMMARY"
+worksheet_formatting(summary_ws, ['POINT_FROM', 'SHIPPING_POINT', 'QUANTITY', 'DATE'], [15, 15, 15, 25])
+
+# Detailed
+detailed_ws = wb.create_sheet("DETAILED")
+columns_title = ['POINT_FROM', 'SHIPPING_POINT', 'DIVISION', 'MATERIAL_NUMBER',
+                 'SIZE_DIMENSIONS', 'QUANTITY', 'DEPARTURE_DAY']
+
+columns_width = [20]*(len(columns_title)-1) + [25]
+worksheet_formatting(detailed_ws, columns_title, columns_width)
 
 #####################################################################################################################
-                                                ### Main loop for everyday
+#                                                Main loop for everyday
 #####################################################################################################################
 
-#we add today's prod and QA to inventory, but we don't create load for today (we make them for tomorrow or later)
+# We add today's prod and QA to inventory, but we don't create load for today (we make them for tomorrow or later)
 for prod in DATAProd:
-    if prod.DATE > weekdays(0): #Ordered by date, so no need to continue
+    if prod.DATE > weekdays(0):  # Ordered by date, so no need to continue
         break
-    elif prod.DATE == weekdays(0) and prod.QUANTITY>0 and prod.STATUS== 'QA HOLD':
+    elif prod.DATE == weekdays(0) and prod.QUANTITY > 0 and prod.STATUS == 'QA HOLD':
         for inv in DATAINV:
             if inv.POINT == prod.POINT and inv.MATERIAL_NUMBER == prod.MATERIAL_NUMBER:
-                inv.QUANTITY+=prod.QUANTITY
-                prod.QUANTITY=0
-                break #we found the good inv
+                inv.QUANTITY += prod.QUANTITY
+                prod.QUANTITY = 0
+                break  # we found the good inv
 
 # Inventory is now updated.
 
-
-
+# Initialization of the load bar
+progress = tqdm(total=len(DATADATE), desc='Forecast progress')
 for date in DATADATE:
-    timeSinceLastCall('Loop')
-    #we add today's prod and QA to inventory
+    # timeSinceLastCall('Loop')
+    # we add today's prod and QA to inventory
     for prod in DATAProd:
-        if prod.DATE > date: #Ordered by date, so no need to continue
+        if prod.DATE > date:  # Ordered by date, so no need to continue
             break
-        elif prod.DATE == date and prod.QUANTITY>0:
+        elif prod.DATE == date and prod.QUANTITY > 0:
             for inv in DATAINV:
                 if inv.POINT == prod.POINT and inv.MATERIAL_NUMBER == prod.MATERIAL_NUMBER:
-                    inv.QUANTITY+=prod.QUANTITY
-                    prod.QUANTITY=0
-                    break #we found the good inv
+                    inv.QUANTITY += prod.QUANTITY
+                    prod.QUANTITY = 0
+                    break  # we found the good inv
 
     # Inventory is now updated.
 
@@ -266,16 +306,15 @@ for date in DATADATE:
         param.new_LoadBuilder()
 
     # Isolate perfect match
-
     ListApprovedWish = []
 
     for wish in DATAWishList:
-        if wish.QUANTITY>0:
-            position = 0 #to not loop again through the complete list
+        if wish.QUANTITY > 0:
+            position = 0  # to not loop again through the complete list
             for Iteration in range(wish.QUANTITY):
                 for It, inv in enumerate(DATAINV[position::]):
-                    if EquivalentPlantFrom(inv.POINT,
-                                           wish.POINT_FROM) and wish.MATERIAL_NUMBER == inv.MATERIAL_NUMBER and inv.QUANTITY > 0:
+                    if EquivalentPlantFrom(inv.POINT, wish.POINT_FROM) and \
+                            wish.MATERIAL_NUMBER == inv.MATERIAL_NUMBER and inv.QUANTITY > 0:
                         inv.QUANTITY -= 1
                         wish.INV_ITEMS.append(inv)
                         position += It
@@ -287,46 +326,33 @@ for date in DATADATE:
                 wish.INV_ITEMS = []
             else:
                 ListApprovedWish.append(wish)
-        # C'est moins efficace d'utiliser la méthode ci-dessous (problème de priorité de la wishList)
-    # for inv in DATAINV:
-    #     if inv.QUANTITY>0:
-    #         for wish in DATAWishList:
-    #             if 0 == len(wish.INV_ITEMS) < wish.QUANTITY <= inv.QUANTITY and EquivalentPlantFrom(inv.POINT,wish.POINT_FROM) and wish.MATERIAL_NUMBER == inv.MATERIAL_NUMBER:
-    #                 for It in range(wish.QUANTITY):
-    #                     wish.INV_ITEMS.append(inv)
-    #                     inv.QUANTITY-=1
-    #                 ListApprovedWish.append(wish)
-    #             if inv.QUANTITY == 0:#we gave all available inv
-    #                 break
-    #
-    # # All available inventory is now assigned to a wish, not already satisfied
-    # timeSinceLastCall('perfect match')
 
-    #We now create loads with those perfect match
+    # We now create loads with those perfect match
     for param in DATAParams:
         tempoOnLoad = []
-        columnsHead = ['QTY', 'MODEL', 'LENGTH', 'WIDTH', 'HEIGHT', 'NBR_PER_CRATE', 'STACK_LIMIT', 'OVERHANG']
         invData = []
+
         for wish in ListApprovedWish:
             if wish.POINT_FROM == param.POINT_FROM and wish.SHIPPING_POINT == param.POINT_TO and wish.QUANTITY > 0:
                 tempoOnLoad.append(wish)
-                invData.append([1, wish.SIZE_DIMENSIONS, wish.LENGTH, wish.WIDTH, wish.HEIGHT, 1, wish.STACKABILITY,
-                                wish.OVERHANG])  # quantity is one, one box for each line
-        models_data = pd.DataFrame(data=invData, columns=columnsHead)
+                invData.append(wish.get_loadbuilder_input_line())  # quantity is one, one box for each line
+        models_data = loadbuilder_input_dataframe(invData)
         result = param.LoadBuilder.build(models_data, param.LOADMAX, plot_load_done=printLoads)
+
         for model in result:
             found = False
             for OnLoad in tempoOnLoad:
-                if OnLoad.SIZE_DIMENSIONS == model and OnLoad.QUANTITY > 0: #we send allocated wish units to sql
+                if OnLoad.SIZE_DIMENSIONS == model and OnLoad.QUANTITY > 0:  # we send allocated wish units to sql
                     OnLoad.QUANTITY = 0
                     found = True
                     param.AssignedWish.append(OnLoad)
-                    OnLoad.EndDate = weekdays(max(0, param.days_to-1),officialDay = date)
+                    OnLoad.EndDate = weekdays(max(0, param.days_to-1), officialDay=date)
                     SQLPRIORITY.sendToSQL(OnLoad.lineToXlsx(dayTodayComplete))
+                    detailed_ws.append(OnLoad.lineToXlsx(dayTodayComplete, filtered=True))
                     DATAWishList.remove(OnLoad)
                     break
             if not found:
-                GeneralErrors+='Error in Perfect Match: impossible result.\n'
+                GeneralErrors += 'Error in Perfect Match: impossible result.\n'
 
     # Store unallocated units in inv pool
     for wish in ListApprovedWish:
@@ -336,20 +362,19 @@ for date in DATADATE:
             wish.INV_ITEMS = []
 
     # Try to Make the minimum number of loads for each P2P
-
     for param in DATAParams:
-        if len(param.LoadBuilder) < param.LOADMIN: #If the minimum isn't reached
+        if len(param.LoadBuilder) < param.LOADMIN:  # If the minimum isn't reached
             tempoOnLoad = []
-            columnsHead = ['QTY', 'MODEL', 'LENGTH', 'WIDTH', 'HEIGHT', 'NBR_PER_CRATE', 'STACK_LIMIT', 'OVERHANG']
             invData = []
+
             # create data table
             for wish in DATAWishList:
                 if wish.POINT_FROM == param.POINT_FROM and wish.SHIPPING_POINT == param.POINT_TO and wish.QUANTITY > 0:
                     position = 0
                     for Iteration in range(wish.QUANTITY):
                         for It, inv in enumerate(DATAINV[position::]):
-                            if EquivalentPlantFrom(inv.POINT,
-                                                   wish.POINT_FROM) and inv.MATERIAL_NUMBER == wish.MATERIAL_NUMBER and inv.QUANTITY > 0:
+                            if EquivalentPlantFrom(inv.POINT, wish.POINT_FROM) and \
+                                    inv.MATERIAL_NUMBER == wish.MATERIAL_NUMBER and inv.QUANTITY > 0:
                                 inv.QUANTITY -= 1
                                 wish.INV_ITEMS.append(inv)
                                 position += It
@@ -361,26 +386,26 @@ for date in DATADATE:
                     else:
                         tempoOnLoad.append(wish)
                         invData.append(
-                            [1, wish.SIZE_DIMENSIONS, wish.LENGTH, wish.WIDTH, wish.HEIGHT, 1, wish.STACKABILITY,
-                             wish.OVERHANG])
+                            wish.get_loadbuilder_input_line())
             # Create loads
-            models_data = pd.DataFrame(data=invData, columns=columnsHead)
+            models_data = loadbuilder_input_dataframe(invData)
             result = param.LoadBuilder.build(models_data, param.LOADMIN - len(param.LoadBuilder),
                                              plot_load_done=printLoads)
             # Choose wish items to put on loads
             for model in result:
                 found = False
                 for OnLoad in tempoOnLoad:
-                    if OnLoad.SIZE_DIMENSIONS == model and OnLoad.QUANTITY > 0:#we send allocated wish units to sql
+                    if OnLoad.SIZE_DIMENSIONS == model and OnLoad.QUANTITY > 0: # we send allocated wish units to sql
                         OnLoad.QUANTITY = 0
                         found = True
                         param.AssignedWish.append(OnLoad)
                         OnLoad.EndDate = weekdays(max(0, param.days_to - 1), officialDay=date)
                         SQLPRIORITY.sendToSQL(OnLoad.lineToXlsx(dayTodayComplete))
+                        detailed_ws.append(OnLoad.lineToXlsx(dayTodayComplete, filtered=True))
                         DATAWishList.remove(OnLoad)
                         break
                 if not found:
-                    GeneralErrors+='Error in min section: impossible result.\n'
+                    GeneralErrors += 'Error in min section: impossible result.\n'
             for wish in tempoOnLoad:  # If it is not on loads, give back inv
                 if wish.QUANTITY > 0:
                     for inv in wish.INV_ITEMS:
@@ -390,9 +415,8 @@ for date in DATADATE:
     # Try to Make the maximum number of loads for each P2P
 
     for param in DATAParams:
-        if len(param.LoadBuilder) < param.LOADMAX: #if we haven't reached the max number of loads
+        if len(param.LoadBuilder) < param.LOADMAX:  # if we haven't reached the max number of loads
             tempoOnLoad = []
-            columnsHead = ['QTY', 'MODEL', 'LENGTH', 'WIDTH', 'HEIGHT', 'NBR_PER_CRATE', 'STACK_LIMIT', 'OVERHANG']
             invData = []
 
             # Create data table
@@ -401,8 +425,8 @@ for date in DATADATE:
                     position = 0
                     for Iteration in range(wish.QUANTITY):
                         for It, inv in enumerate(DATAINV[position::]):
-                            if EquivalentPlantFrom(inv.POINT,
-                                                   wish.POINT_FROM) and inv.MATERIAL_NUMBER == wish.MATERIAL_NUMBER and inv.QUANTITY > 0 :
+                            if EquivalentPlantFrom(inv.POINT, wish.POINT_FROM) and\
+                                    inv.MATERIAL_NUMBER == wish.MATERIAL_NUMBER and inv.QUANTITY > 0:
                                 inv.QUANTITY -= 1
                                 wish.INV_ITEMS.append(inv)
                                 position += It
@@ -413,48 +437,63 @@ for date in DATADATE:
                         wish.INV_ITEMS = []
                     else:
                         tempoOnLoad.append(wish)
-                        invData.append(
-                            [1, wish.SIZE_DIMENSIONS, wish.LENGTH, wish.WIDTH, wish.HEIGHT, 1, wish.STACKABILITY,
-                             wish.OVERHANG])
+                        invData.append(wish.get_loadbuilder_input_line())
 
-            models_data = pd.DataFrame(data=invData, columns=columnsHead)
+            models_data = loadbuilder_input_dataframe(invData)
+
             # Create loads
             result = param.LoadBuilder.build(models_data, param.LOADMAX, plot_load_done=printLoads)
+
             # choose wish items to put on loads
             for model in result:
                 found = False
                 for OnLoad in tempoOnLoad:
-                    if OnLoad.SIZE_DIMENSIONS == model and OnLoad.QUANTITY > 0:#we send allocated wish units to sql
+                    if OnLoad.SIZE_DIMENSIONS == model and OnLoad.QUANTITY > 0:  # we send allocated wish units to sql
                         OnLoad.QUANTITY = 0
                         found = True
                         param.AssignedWish.append(OnLoad)
                         OnLoad.EndDate = weekdays(max(0, param.days_to - 1), officialDay=date)
                         SQLPRIORITY.sendToSQL(OnLoad.lineToXlsx(dayTodayComplete))
+                        detailed_ws.append(OnLoad.lineToXlsx(dayTodayComplete, filtered=True))
                         DATAWishList.remove(OnLoad)
                         break
                 if not found:
-                    GeneralErrors+='Error in max section: impossible result.\n'
+                    GeneralErrors += 'Error in max section: impossible result.\n'
             for wish in tempoOnLoad:  # If it is not on loads, give back inv
                 if wish.QUANTITY > 0:
                     for inv in wish.INV_ITEMS:
                         inv.QUANTITY += 1
                     wish.INV_ITEMS = []
 
-
     # we save the loads created for that day
     for param in DATAParams:
-        SQLLoads.sendToSQL([(param.POINT_FROM,param.POINT_TO,len(param.LoadBuilder),
-                             weekdays(max(0, param.days_to-1),officialDay = date),dayTodayComplete ,IsAdhoc)])
-        #print(param.POINT_FROM,param.POINT_TO,len(param.LoadBuilder), len(param.AssignedWish))
+
+        # print('\nFROM :', param.POINT_FROM, 'TO :', param.POINT_TO)
+        # print('DATE OF PLANIFICATION ',  weekdays(-1, officialDay=date))
+        # print('DATE OF INVENTORY AVAILABILITY :', date)
+        # print('PROJECTED DATE :', weekdays(max(0, param.days_to-1), officialDay=date), '\n')
+
+        SQLLoads.sendToSQL([(param.POINT_FROM, param.POINT_TO, len(param.LoadBuilder),
+                             weekdays(max(0, param.days_to-1), officialDay=date), dayTodayComplete, IsAdhoc)])
+
+        if len(param.LoadBuilder):
+            summary_ws.append([param.POINT_FROM, param.POINT_TO, len(param.LoadBuilder),
+                               weekdays(max(0, param.days_to-1), officialDay=date)])
+
+    # Update progress bar
+    progress.update()
 
 # Loads were made for the next 8 weeks, now we send not assigned wishes to SQL
 
+
 for wish in DATAWishList:
     if wish.QUANTITY != wish.ORIGINAL_QUANTITY:
-        GeneralErrors+='Error : this unit was not assigned and has a different quantity; \n {0}'.format(wish.lineToXlsx())
+        GeneralErrors += 'Error : this unit was not assigned and has a different quantity; \n {0}'.format(wish.lineToXlsx())
     SQLPRIORITY.sendToSQL(wish.lineToXlsx(dayTodayComplete))
 
+# We save the workbook and the reference
+reference = [savexlsxFile(wb, saveFolder, dest_filename)]
 
+# We send the emails
+send_email(EmailList, dest_filename, 'P2P Forecast is now updated.\n'+GeneralErrors, reference)
 
-# Finally, we send an email
-send_email(EmailList, dest_filename, 'P2P Forecast is now updated.\n'+GeneralErrors)

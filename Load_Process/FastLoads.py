@@ -6,12 +6,13 @@ Author : Nicolas Raymond
 from tkinter import *
 import pandas as pd
 from openpyxl import load_workbook, Workbook
-from openpyxl.styles import PatternFill
-from InputOutput import SQLConnection, savexlsxFile
-from P2PFunctions import get_trailers_data
+from InputOutput import SQLConnection, savexlsxFile, send_email
+from P2PFunctions import get_trailers_data, get_emails_list
 from LoadBuilder import LoadBuilder
 from random import randint
 from InputOutput import worksheet_formatting
+from ParametersBox import change_emails_list, set_project_name
+from datetime import datetime
 
 workbook_path = 'U:\LoadAutomation\Optimus\FastLoadsSKUs.xlsx'
 
@@ -35,8 +36,6 @@ class FastLoadsBox:
         self.crate_type = StringVar()
         self.crate_type.set('W')
 
-        # Initialization of
-
         # Initialization and positioning of a frame that will contain sku labels and entries
         self.sku_frame = LabelFrame(self.master, borderwidth=2, relief=RIDGE, text='Crates')
         self.sku_frame.grid(row=0, column=0)
@@ -44,7 +43,6 @@ class FastLoadsBox:
         # All single sku labels and qty entries initialization and positioning
         self.sku_labels, self.sku_entries = self.create_sku_labels_and_entries(self.sku_frame,
                                                                                self.read_skus_and_quantities())
-
         # Initialization of a frame for crate types radio buttons and initialization of the radio buttons themselves
         self.crate_type_frame = LabelFrame(self.sku_frame, text='Type')
         self.crate_type_frame.grid(row=len(self.sku_labels)+1, columnspan=2)
@@ -72,10 +70,15 @@ class FastLoadsBox:
         self.max_label.grid(row=0, column=0)
         self.max_entry.grid(row=0, column=1)
 
+        # Modify emails list button configurations
+        self.modify_email = Button(self.master, text='Modify Emails List', padx=30, pady=10, bd=2,
+                                   command=change_emails_list, font=('TkDefaultFont', 12, 'italic'), bg='gray80')
+        self.modify_email.grid(row=2, column=0)
+
         # "Run optimus" button configurations
-        self.run_button = Button(self.master, text='Run Optimus', padx=50, pady=10, command=self.run_optimus, bd=3,
+        self.run_button = Button(self.master, text='Run Optimus', padx=30, pady=10, command=self.run_optimus, bd=2,
                                  font=('TkDefaultFont', 12, 'italic'), bg='gray80')
-        self.run_button.grid(row=2, columnspan=2, sticky=E+W)
+        self.run_button.grid(row=2, column=1, sticky=E+W)
 
         # Initialization of an empty load builder and an empty tracker attribute
         self.LoadBuilder = None
@@ -165,6 +168,7 @@ class FastLoadsBox:
             # (df2) Dataframe needed by the load builder
             complete_dataframe = self.get_complete_dataframe(skus_list, qty_list, str(self.crate_type.get()))
             df1, df2 = self.split_dataframes(complete_dataframe)
+            print(df2)
 
             # Initialization of the tracker (size_code dictionaries with SKUsContainer as value)
             self.tracker = self.tracker_initialization(df1)
@@ -184,9 +188,11 @@ class FastLoadsBox:
             size_code_used = self.LoadBuilder.build(models_data=df2, max_load=max_loads, plot_load_done=False)
 
             # We save all the results in a workbook at the path mentioned
-            self.write_results(df2)
+            reference = self.write_results(df2)
 
-        pass
+            # We send the email
+            send_email(get_emails_list('ADHOC'), 'AdHoc ' + str(datetime.now().strftime("%d/%m/%Y %H:%M:%S")),
+                       '', reference)
 
     def save_skus_and_quantities(self):
         """
@@ -250,7 +256,7 @@ class FastLoadsBox:
         self.write_unused_crates(unused_ws)
 
         # Save the xlsx file
-        savexlsxFile(wb=wb, path=saving_path, filename='AdHoc', Time=True)
+        return [savexlsxFile(wb=wb, path=saving_path, filename='AdHoc', Time=True)]
 
     def write_approved_loads(self, ws, nbr_of_cols, grouped_dataframe):
         """
@@ -360,11 +366,12 @@ class FastLoadsBox:
         ,CONVERT(int, CEILING(b.Width))
         ,CONVERT(int, CEILING(b.HEIGHT))
         ,CASE WHEN c.SUB_DIVISION = 'RYKER' THEN 2 ELSE 1 END
-        ,CASE WHEN b.HEIGHT = 0 THEN 1 ELSE CONVERT(int, FLOOR(105/b.HEIGHT)) END
-        ,CASE WHEN (CASE WHEN b.HEIGHT = 0 THEN 1 ELSE FLOOR(105/b.HEIGHT) END) = 1 THEN 0 ELSE 1 END
+        ,CASE WHEN crate_size_SKID is not null THEN 1 WHEN b.HEIGHT = 0 THEN 1 ELSE CONVERT(int, FLOOR(105/b.HEIGHT)) END
+        ,CASE WHEN (CASE WHEN crate_size_SKID is not null THEN 1 WHEN b.HEIGHT = 0 THEN 1 ELSE FLOOR(105/b.HEIGHT) END) = 1 THEN 0 ELSE 1 END
         FROM OTD_0_MD_D_MATERIAL as c LEFT JOIN MasterData.dbo.MD_MARA as a
         on c.MATERIAL_NUMBER = a.Material_Number LEFT JOIN MasterData.dbo.MD_MARA as b
-        on b.Material_Number = a.Ref_Mat_Packed_In_Same_Way """ + end_of_query
+        on b.Material_Number = a.Ref_Mat_Packed_In_Same_Way LEFT JOIN [dbo].[OTD_1_P2P_F_PARAMETERS_CRATE_SKID] as SKID
+        on a.Size_Dimensions = SKID.[CRATE_SIZE_SKID]""" + end_of_query
 
         # Retrieve the data
         data = sql_connect.GetSQLData(sql_query)
@@ -440,7 +447,11 @@ class SKUsContainer:
         """
 
         # We pick a SKU randomly in our dictionary
-        rand_index = randint(0, len(self.skus_dict)-1)
+        if len(self.skus_dict) - 1 == 0:
+            rand_index = 0
+        else:
+            rand_index = randint(0, len(self.skus_dict) - 1)
+
         skus = list(self.skus_dict.keys())
         rand_sku = skus[rand_index]
 
@@ -460,6 +471,7 @@ class SKUsContainer:
 
 def open_fastloads_box():
 
+    set_project_name('ADHOC')
     root = Tk()
     fastloadsbox = FastLoadsBox(root)
     root.mainloop()
@@ -484,6 +496,3 @@ def build_dataframe(ws):
 
     return pd.DataFrame(data=data_rows[1:], columns=data_rows[0])
 
-
-if __name__ == '__main__':
-    open_fastloads_box()
