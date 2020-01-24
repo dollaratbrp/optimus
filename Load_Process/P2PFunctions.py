@@ -130,6 +130,24 @@ class NestedSourcePoints:
         self.include = point_include
 
 
+def get_emails_list(project_name):
+    """
+    Recuperates the list of email associate to the project
+    :param project_name: One among 'P2P, 'FORECAST and 'FASTLOADS'
+    :return: list of email addresses
+    """
+    email_connection = SQLConnection('CAVLSQLPD2\pbi2', 'Business_Planning',
+                                     'OTD_1_P2P_F_PARAMETERS_EMAIL_ADDRESS', headers='EMAIL_ADDRESS')
+
+    email_query = """ SELECT distinct [EMAIL_ADDRESS]
+                 FROM [Business_Planning].[dbo].[OTD_1_P2P_F_PARAMETERS_EMAIL_ADDRESS]
+                 WHERE PROJECT = """ + "'"+project_name+"'"
+
+    # GET SQL DATA
+    email_data = email_connection.GetSQLData(email_query)
+    return [email_address for sublist in email_data for email_address in sublist]
+
+
 def get_parameter_grid():
     """
     Recuperates the ParameterBox data from SQL
