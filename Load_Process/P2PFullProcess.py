@@ -67,17 +67,7 @@ def p2p_full_process():
             #                     Email address Query
             ####################################################################################
 
-            email_connection = SQLConnection('CAVLSQLPD2\pbi2', 'Business_Planning',
-                                             'OTD_1_P2P_F_PARAMETERS_EMAIL_ADDRESS', headers='EMAIL_ADDRESS')
-
-            email_query = """ SELECT distinct [EMAIL_ADDRESS]
-             FROM [Business_Planning].[dbo].[OTD_1_P2P_F_PARAMETERS_EMAIL_ADDRESS]
-             WHERE PROJECT = 'P2P'
-            """
-
-            # GET SQL DATA
-            email_data = email_connection.GetSQLData(email_query)
-            emails_list = [item for sublist in email_data for item in sublist]
+            emails_list = get_emails_list('P2P')
 
             ####################################################################################
             #                     Parameters Query
