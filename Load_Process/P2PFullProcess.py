@@ -173,6 +173,11 @@ def p2p_full_process():
     unused_ws = wb.create_sheet("BOOKED_UNUSED")
     worksheet_formatting(unused_ws, ['POINT_FROM', 'MATERIAL_NUMBER', 'QUANTITY'], [20, 20, 12])
 
+    # Approved Summarized
+    approved_summarized_ws = wb.create_sheet("SAP INPUT")
+    columns_title = ['POINT_FROM', 'SHIPPING_POINT', 'MATERIAL_NUMBER', 'QUANTITY']
+    worksheet_formatting(approved_summarized_ws, columns_title, [20]*len(columns_title))
+
     ####################################################################################################################
     #                                            Isolate perfect match
     ####################################################################################################################
@@ -264,8 +269,10 @@ def p2p_full_process():
         print(param.LoadBuilder.trailers_done)
         print(param.LoadBuilder.get_loading_summary())
 
-    lineIndex = 2  # To display a warning if number of loads is lower than parameters min
+    # Initialization of a list to keep all data needed for the "APPROVED" summary version ouptput for SAP
+    approved_summarized_data = []
 
+    lineIndex = 2  # To display a warning if number of loads is lower than parameters min
 
     # SQL to send DATA
     headersResult = 'POINT_FROM,SHIPPING_POINT,LOAD_NUMBER,MATERIAL_NUMBER,QUANTITY,SIZE_DIMENSIONS,' \
@@ -308,6 +315,10 @@ def p2p_full_process():
                                                                    column, wish.SALES_DOCUMENT_NUMBER,
                                                                    wish.SALES_ITEM_NUMBER, wish.SOLD_TO_NUMBER])
 
+                                                approved_summarized_data.append([param.POINT_FROM, param.POINT_TO,
+                                                                                 wish.MATERIAL_NUMBER, wish.ORIGINAL_QUANTITY])
+
+
                                                 SQLResult.sendToSQL(valuesSQL)
                                                 break
 
@@ -339,12 +350,20 @@ def p2p_full_process():
                             position += It
                             break  # no need to look further
 
-    # send inv in unused_ws and unbooked_ws
+    # We send inv in unused_ws and unbooked_ws
     for inv in DATAINV:
         if inv.unused > 0:
             unused_ws.append([inv.POINT, inv.MATERIAL_NUMBER, inv.unused])
         if inv.QUANTITY - inv.unused > 0:
             unbooked_ws.append([inv.POINT, inv.MATERIAL_NUMBER, inv.QUANTITY-inv.unused])
+
+    # We group by the summarized approved data and send it in the output
+    summarized_frame = pd.DataFrame(approved_summarized_data, columns=columns_title)
+    summarized_frame = summarized_frame.groupby([column for column in columns_title if column != 'QUANTITY']).sum()
+    summarized_frame = summarized_frame.reset_index()
+
+    for index, row in summarized_frame[columns_title].iterrows():
+        approved_summarized_ws.append(list(row))
 
     # We save the workbook and the reference
     reference = [savexlsxFile(wb, saveFolder, dest_filename)]
