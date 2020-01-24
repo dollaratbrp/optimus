@@ -6,17 +6,17 @@ Author : Nicolas Raymond
 from tkinter import *
 import pandas as pd
 from openpyxl import load_workbook, Workbook
-from InputOutput import SQLConnection, savexlsxFile
-from P2PFunctions import get_trailers_data
+from InputOutput import SQLConnection, savexlsxFile, send_email
+from P2PFunctions import get_trailers_data, get_emails_list
 from LoadBuilder import LoadBuilder
 from random import randint
 from InputOutput import worksheet_formatting
 from ParametersBox import change_emails_list, set_project_name
+from datetime import datetime
 
 workbook_path = 'U:\LoadAutomation\Optimus\FastLoadsSKUs.xlsx'
 
 saving_path = 'U:\LoadAutomation\Optimus\\'
-
 
 
 class FastLoadsBox:
@@ -188,7 +188,11 @@ class FastLoadsBox:
             size_code_used = self.LoadBuilder.build(models_data=df2, max_load=max_loads, plot_load_done=False)
 
             # We save all the results in a workbook at the path mentioned
-            self.write_results(df2)
+            reference = self.write_results(df2)
+
+            # We send the email
+            send_email(get_emails_list('ADHOC'), 'AdHoc ' + str(datetime.now().strftime("%d/%m/%Y %H:%M:%S")),
+                       '', reference)
 
     def save_skus_and_quantities(self):
         """
@@ -252,7 +256,7 @@ class FastLoadsBox:
         self.write_unused_crates(unused_ws)
 
         # Save the xlsx file
-        savexlsxFile(wb=wb, path=saving_path, filename='AdHoc', Time=True)
+        return [savexlsxFile(wb=wb, path=saving_path, filename='AdHoc', Time=True)]
 
     def write_approved_loads(self, ws, nbr_of_cols, grouped_dataframe):
         """
@@ -467,7 +471,7 @@ class SKUsContainer:
 
 def open_fastloads_box():
 
-    set_project_name('FASTLOADS')
+    set_project_name('ADHOC')
     root = Tk()
     fastloadsbox = FastLoadsBox(root)
     root.mainloop()
