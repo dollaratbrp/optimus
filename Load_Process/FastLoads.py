@@ -11,7 +11,7 @@ from P2PFunctions import get_trailers_data, get_emails_list
 from LoadBuilder import LoadBuilder
 from random import randint
 from InputOutput import worksheet_formatting
-from ParametersBox import change_emails_list, set_project_name
+from ParametersBox import change_emails_list, set_project_name, VerticalScrolledFrame
 from datetime import datetime
 
 workbook_path = 'U:\LoadAutomation\Optimus\FastLoadsSKUs.xlsx'
@@ -19,7 +19,7 @@ workbook_path = 'U:\LoadAutomation\Optimus\FastLoadsSKUs.xlsx'
 saving_path = 'U:\LoadAutomation\Optimus\\'
 
 
-class FastLoadsBox:
+class FastLoadsBox(VerticalScrolledFrame):
 
     def __init__(self, master):
 
@@ -32,12 +32,16 @@ class FastLoadsBox:
         self.master = master
         self.master.title('Optimus FastLoads')
 
+        # Initializing the vertical scrolled frame
+        super().__init__(self.master)
+        self.pack()
+
         # Initialization of a bool indicating if we work with metal crates or not
         self.crate_type = StringVar()
         self.crate_type.set('W')
 
         # Initialization and positioning of a frame that will contain sku labels and entries
-        self.sku_frame = LabelFrame(self.master, borderwidth=2, relief=RIDGE, text='Crates')
+        self.sku_frame = LabelFrame(self.interior, borderwidth=2, relief=RIDGE, text='Crates')
         self.sku_frame.grid(row=0, column=0)
 
         # All single sku labels and qty entries initialization and positioning
@@ -55,7 +59,7 @@ class FastLoadsBox:
         self.trailers_data = get_trailers_data()
 
         # Initialization and positioning of a frame that will contain trailers labels and entries
-        self.trailer_frame = LabelFrame(self.master, borderwidth=2, relief=RIDGE, text='Trailers')
+        self.trailer_frame = LabelFrame(self.interior, borderwidth=2, relief=RIDGE, text='Trailers')
         self.trailer_frame.grid(row=0, column=1)
 
         # All single trailer labels and qty entries initialization and positioning
@@ -71,12 +75,12 @@ class FastLoadsBox:
         self.max_entry.grid(row=0, column=1)
 
         # Modify emails list button configurations
-        self.modify_email = Button(self.master, text='Modify Emails List', padx=30, pady=10, bd=2,
+        self.modify_email = Button(self.interior, text='Modify Emails List', padx=30, pady=10, bd=2,
                                    command=change_emails_list, font=('TkDefaultFont', 12, 'italic'), bg='gray80')
         self.modify_email.grid(row=2, column=0)
 
         # "Run optimus" button configurations
-        self.run_button = Button(self.master, text='Run Optimus', padx=30, pady=10, command=self.run_optimus, bd=2,
+        self.run_button = Button(self.interior, text='Run Optimus', padx=30, pady=10, command=self.run_optimus, bd=2,
                                  font=('TkDefaultFont', 12, 'italic'), bg='gray80')
         self.run_button.grid(row=2, column=1, sticky=E+W)
 
@@ -168,7 +172,6 @@ class FastLoadsBox:
             # (df2) Dataframe needed by the load builder
             complete_dataframe = self.get_complete_dataframe(skus_list, qty_list, str(self.crate_type.get()))
             df1, df2 = self.split_dataframes(complete_dataframe)
-            print(df2)
 
             # Initialization of the tracker (size_code dictionaries with SKUsContainer as value)
             self.tracker = self.tracker_initialization(df1)
@@ -354,23 +357,43 @@ class FastLoadsBox:
 
         # We look length of SKUs list and adapt the code
         if len(skus_list) == 1:
-            end_of_query = """WHERE a.Material_Number = """ + "'" + str(skus_list[0]) + "'"
+            end_of_query = """WHERE CRATE_SIZE.Material_Number = """ + "'" + str(skus_list[0]) + "'"
 
         else:
-            end_of_query = """WHERE a.Material_Number in """ + str(tuple(skus_list))
+            end_of_query = """WHERE CRATE_SIZE.Material_Number in """ + str(tuple(skus_list))
+
+        if crate_type == 'W':
+            subquery = """(
+            SELECT 
+            M1.MATERIAL_NUMBER,
+            M1.SIZE_DIMENSIONS,
+            CEILING(MAX(M2.LENGTH)) AS LENGTH,
+            CEILING(MAX(M2.WIDTH)) AS WIDTH,
+            CEILING(MAX(M2.HEIGHT)) AS HEIGHT
+			FROM MASTERDATA.DBO.MD_MARA AS M1 LEFT JOIN MASTERDATA.DBO.MD_MARA AS M2
+			ON M1.REF_MAT_PACKED_IN_SAME_WAY = M2.MATERIAL_NUMBER
+			GROUP BY M1.MATERIAL_NUMBER, M1.SIZE_DIMENSIONS) AS CRATE_SIZE
+            """
+        else:
+            subquery = """(
+            SELECT classif.MATERIAL_NUMBER, CHARACTERISTIC_VALUE, Height,Length,Width
+			FROM  [MasterData].[dbo].[MD_MATERIAL_SAP_CLASSIFICATION_VIEW] as classif
+			LEFT JOIN masterdata.dbo.MD_MARA as mara ON classif.CHARACTERISTIC_VALUE = mara.Material_Number
+			WHERE CLASS = 'RETURNABLE_CRATE' and LANGUAGE_CODE = 'e' and CHARACTERISTIC_NAME = 'CRATE_NUMBER')
+			as CRATE_SIZE"""
 
         # Writing of our query
         sql_query = """ SELECT RTRIM(a.Material_Number)
         ,RTRIM(a.Size_Dimensions)
-        ,CONVERT(int, CEILING(b.Length))
-        ,CONVERT(int, CEILING(b.Width))
-        ,CONVERT(int, CEILING(b.HEIGHT))
+        ,CONVERT(int, CEILING(CRATE_SIZE.Length))
+        ,CONVERT(int, CEILING(CRATE_SIZE.Width))
+        ,CONVERT(int, CEILING(CRATE_SIZE.HEIGHT))
         ,CASE WHEN c.SUB_DIVISION = 'RYKER' THEN 2 ELSE 1 END
-        ,CASE WHEN crate_size_SKID is not null THEN 1 WHEN b.HEIGHT = 0 THEN 1 ELSE CONVERT(int, FLOOR(105/b.HEIGHT)) END
-        ,CASE WHEN (CASE WHEN crate_size_SKID is not null THEN 1 WHEN b.HEIGHT = 0 THEN 1 ELSE FLOOR(105/b.HEIGHT) END) = 1 THEN 0 ELSE 1 END
-        FROM OTD_0_MD_D_MATERIAL as c LEFT JOIN MasterData.dbo.MD_MARA as a
-        on c.MATERIAL_NUMBER = a.Material_Number LEFT JOIN MasterData.dbo.MD_MARA as b
-        on b.Material_Number = a.Ref_Mat_Packed_In_Same_Way LEFT JOIN [dbo].[OTD_1_P2P_F_PARAMETERS_CRATE_SKID] as SKID
+        ,CASE WHEN crate_size_SKID is not null THEN 1 WHEN CRATE_SIZE.HEIGHT = 0 THEN 1 ELSE CONVERT(int, FLOOR(105/CRATE_SIZE.HEIGHT)) END
+        ,CASE WHEN (CASE WHEN crate_size_SKID is not null THEN 1 WHEN CRATE_SIZE.HEIGHT = 0 THEN 1 ELSE FLOOR(105/CRATE_SIZE.HEIGHT) END) = 1 THEN 0 ELSE 1 END
+        FROM OTD_0_MD_D_MATERIAL as c LEFT JOIN masterdata.dbo.MD_MARA as a ON c.Material_number = a.Material_Number 
+        LEFT JOIN """ + subquery + """ on c.Material_number = CRATE_SIZE.Material_Number
+        LEFT JOIN [dbo].[OTD_1_P2P_F_PARAMETERS_CRATE_SKID] as SKID
         on a.Size_Dimensions = SKID.[CRATE_SIZE_SKID]""" + end_of_query
 
         # Retrieve the data
