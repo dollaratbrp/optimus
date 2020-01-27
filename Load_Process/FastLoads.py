@@ -10,7 +10,7 @@ from InputOutput import SQLConnection, savexlsxFile, send_email
 from P2PFunctions import get_trailers_data, get_emails_list
 from LoadBuilder import LoadBuilder
 from random import randint
-from InputOutput import worksheet_formatting
+from InputOutput import worksheet_formatting, create_excel_table
 from ParametersBox import change_emails_list, set_project_name, VerticalScrolledFrame
 from datetime import datetime
 
@@ -250,13 +250,14 @@ class FastLoadsBox(VerticalScrolledFrame):
 
         # Unused crates worksheet construction and customization
         unused_ws = wb.create_sheet("UNUSED")
-        worksheet_formatting(unused_ws, ['MATERIAL_NUMBER', 'QUANTITY'], [20]*2)
+        unused_columns = ['MATERIAL_NUMBER', 'QUANTITY']
+        worksheet_formatting(unused_ws, unused_columns, [20]*len(unused_columns))
 
         # Writing of approved loads
         self.write_approved_loads(approved_ws, len(columns_title), grouped_dataframe)
 
         # Writing of unused crates
-        self.write_unused_crates(unused_ws)
+        self.write_unused_crates(unused_ws, len(unused_columns))
 
         # Save the xlsx file
         return [savexlsxFile(wb=wb, path=saving_path, filename='AdHoc', Time=True)]
@@ -318,14 +319,25 @@ class FastLoadsBox(VerticalScrolledFrame):
         for i in dataframe.index:
             ws.append(list(dataframe.iloc[i].values))
 
-    def write_unused_crates(self, ws):
+        # Shape data as a dynamic table
+        create_excel_table(ws, "APPROVED", columns_title)
+
+    def write_unused_crates(self, ws, nbr_of_cols):
         """
         Writes the results for the unused crates in the worksheet passed as parameter
         :param ws: worksheet on which we write the results
+        :param nbr_of_cols: number of columns in the worksheet
         """
         for model, sku_container in self.tracker.items():
             for sku, qty in sku_container.skus_dict.items():
                 ws.append([sku, qty])
+
+        # We save the columns titles
+        columns_title = [ws.cell(row=1, column=i).value for i in range(1, nbr_of_cols + 1)]
+
+        # We shape data as a dynamic table
+        create_excel_table(ws, "UNUSED", columns_title)
+
 
     @staticmethod
     def positive(a):
