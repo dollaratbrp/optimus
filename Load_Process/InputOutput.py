@@ -13,6 +13,7 @@ By : Nicolas Raymond
 import openpyxl
 import smtplib
 from openpyxl.styles import PatternFill
+from openpyxl.worksheet.table import Table, TableStyleInfo
 from email.mime.multipart import MIMEMultipart
 from email.mime.text import MIMEText
 from email.utils import formatdate
@@ -193,7 +194,13 @@ def worksheet_formatting(ws, column_titles, column_widths, filling=None):
     # We set the columns' width using alphabetical index
     alphabet = list(ascii_uppercase)
     for i in range(len(column_titles)):
-        ws.column_dimensions[alphabet[i]].width = column_widths[i]
+        if i <= 25:
+            ws.column_dimensions[alphabet[i]].width = column_widths[i]
+        else:
+            first_letter = alphabet[int(i / 26) - 1]
+            second_letter = alphabet[(i % 26)]
+            index = first_letter + second_letter
+            ws.column_dimensions[index].width = column_widths[i]
 
     # We apply the filling to the columns' title
     if filling is None:
@@ -201,6 +208,46 @@ def worksheet_formatting(ws, column_titles, column_widths, filling=None):
 
     for i in range(1, len(column_titles)+1):
         ws.cell(row=1, column=i).fill = filling
+
+
+def create_excel_table(ws, name, column_titles, TableStyle=None):
+    """
+    Creates an excel table with data from the worksheet
+    :param ws: worksheet
+    :param name: display name of the table
+    :param column_titles: list with column titles
+    :param TableStyle: Style to customize the table
+    """
+    table_reference = 'A1:' + get_last_column_index(column_titles) + str(get_number_of_rows(ws))
+    tab = Table(displayName=name, ref=table_reference)
+    ws.add_table(tab)
+
+
+def get_last_column_index(column_titles):
+    """
+    Get the index letter associated to the last column of the worksheet
+    :param column_titles: list with column titles
+    :return : Uppercase letters of the alphabet associated with the last column of the worksheet
+    """
+    alphabet = list(ascii_uppercase)
+    column_number = len(column_titles)
+    if column_number <= 26:
+        index = alphabet[column_number - 1]
+    else:
+        first_letter = alphabet[int(column_number/26)-1]
+        second_letter = alphabet[(column_number % 26)-1]
+        index = first_letter+second_letter
+
+    return index
+
+
+def get_number_of_rows(ws):
+    """
+    Gets the number of the rows used in a worksheet (based on first column length)
+    :param ws: worksheet
+    :return: number of rows
+    """
+    return len(ws['A'])
 
 
 class SQLConnection:
