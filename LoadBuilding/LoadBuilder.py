@@ -63,8 +63,12 @@ class LoadBuilder:
 
             if qty > 0:
 
+                # We save the crate type
+                crate_type = models_data['CRATE_TYPE'][i]
+
                 # We save the name of the model
-                self.model_names.append([models_data['MODEL'][i]]*qty)
+                for j in qty:
+                    self.model_names.append(([models_data['MODEL'][i]], crate_type))
 
                 # We save the stack limit
                 stack_limit = models_data['STACK_LIMIT'][i]
@@ -314,8 +318,8 @@ class LoadBuilder:
         self.__remove_leftover_trailers()
 
         # We save unused models from both warehouses
-        self.warehouse.save_unused_crates(self.unused_models)
-        self.metal_warehouse.save_unused_crates(self.unused_models)
+        self.warehouse.save_unused_crates(self.unused_models, 'W')
+        self.metal_warehouse.save_unused_crates(self.unused_models, 'M')
 
     def __select_best_packer(self, packers_list):
 
