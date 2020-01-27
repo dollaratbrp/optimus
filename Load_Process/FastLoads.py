@@ -11,7 +11,7 @@ from P2PFunctions import get_trailers_data, get_emails_list
 from LoadBuilder import LoadBuilder
 from random import randint
 from InputOutput import worksheet_formatting
-from ParametersBox import change_emails_list, set_project_name
+from ParametersBox import change_emails_list, set_project_name, VerticalScrolledFrame
 from datetime import datetime
 
 workbook_path = 'U:\LoadAutomation\Optimus\FastLoadsSKUs.xlsx'
@@ -19,7 +19,7 @@ workbook_path = 'U:\LoadAutomation\Optimus\FastLoadsSKUs.xlsx'
 saving_path = 'U:\LoadAutomation\Optimus\\'
 
 
-class FastLoadsBox:
+class FastLoadsBox(VerticalScrolledFrame):
 
     def __init__(self, master):
 
@@ -32,12 +32,16 @@ class FastLoadsBox:
         self.master = master
         self.master.title('Optimus FastLoads')
 
+        # Initializing the vertical scrolled frame
+        super().__init__(self.master)
+        self.pack()
+
         # Initialization of a bool indicating if we work with metal crates or not
         self.crate_type = StringVar()
         self.crate_type.set('W')
 
         # Initialization and positioning of a frame that will contain sku labels and entries
-        self.sku_frame = LabelFrame(self.master, borderwidth=2, relief=RIDGE, text='Crates')
+        self.sku_frame = LabelFrame(self.interior, borderwidth=2, relief=RIDGE, text='Crates')
         self.sku_frame.grid(row=0, column=0)
 
         # All single sku labels and qty entries initialization and positioning
@@ -55,7 +59,7 @@ class FastLoadsBox:
         self.trailers_data = get_trailers_data()
 
         # Initialization and positioning of a frame that will contain trailers labels and entries
-        self.trailer_frame = LabelFrame(self.master, borderwidth=2, relief=RIDGE, text='Trailers')
+        self.trailer_frame = LabelFrame(self.interior, borderwidth=2, relief=RIDGE, text='Trailers')
         self.trailer_frame.grid(row=0, column=1)
 
         # All single trailer labels and qty entries initialization and positioning
@@ -71,12 +75,12 @@ class FastLoadsBox:
         self.max_entry.grid(row=0, column=1)
 
         # Modify emails list button configurations
-        self.modify_email = Button(self.master, text='Modify Emails List', padx=30, pady=10, bd=2,
+        self.modify_email = Button(self.interior, text='Modify Emails List', padx=30, pady=10, bd=2,
                                    command=change_emails_list, font=('TkDefaultFont', 12, 'italic'), bg='gray80')
         self.modify_email.grid(row=2, column=0)
 
         # "Run optimus" button configurations
-        self.run_button = Button(self.master, text='Run Optimus', padx=30, pady=10, command=self.run_optimus, bd=2,
+        self.run_button = Button(self.interior, text='Run Optimus', padx=30, pady=10, command=self.run_optimus, bd=2,
                                  font=('TkDefaultFont', 12, 'italic'), bg='gray80')
         self.run_button.grid(row=2, column=1, sticky=E+W)
 
