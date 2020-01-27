@@ -177,10 +177,11 @@ def get_parameter_grid():
     return [Parameters(*line) for line in data], connection
 
 
-def get_wish_list():
+def get_wish_list(forecast=False):
 
     """
     Recuperates the whish list from SQL
+    :param : bool indicating if we want the wishlist for the forecast
     :return : list of Wish object
     """
 
@@ -190,6 +191,10 @@ def get_wish_list():
 
     wishlist_connection = SQLConnection('CAVLSQLPD2\pbi2', 'Business_Planning',
                                         'OTD_2_PRIORITY_F_P2P', headers=wishlist_headers)
+    if forecast:
+        parameters_table = '[Business_Planning].[dbo].[OTD_1_P2P_F_FORECAST_PARAMETERS]'
+    else:
+        parameters_table = '[Business_Planning].[dbo].[OTD_1_P2P_F_PARAMETERS]'
 
     query = """SELECT  [SALES_DOCUMENT_NUMBER]
                       ,[SALES_ITEM_NUMBER]
@@ -209,11 +214,11 @@ def get_wish_list():
                       ,[OVERHANG]
                       ,[METAL_WOOD]
                   FROM [Business_Planning].[dbo].[OTD_1_P2P_F_PRIORITY_WITHOUT_INVENTORY]
-                  where [POINT_FROM] <>[SHIPPING_POINT] and Length<>0 and Width <> 0 and Height <> 0
-                  and concat (POINT_FROM,SHIPPING_POINT) in (select distinct concat([POINT_FROM],[POINT_TO]) from [Business_Planning].[dbo].[OTD_1_P2P_F_PARAMETERS]
-                  where IMPORT_DATE = (select max(IMPORT_DATE) from [Business_Planning].[dbo].[OTD_1_P2P_F_PARAMETERS])
-                  and SKIP = 0)
-                  order by Priority_Rank
+                  WHERE [POINT_FROM] <> [SHIPPING_POINT] AND Length <> 0 and Width <> 0 AND Height <> 0
+                  AND concat(POINT_FROM,SHIPPING_POINT) in 
+                  (select distinct concat([POINT_FROM],[POINT_TO]) from """ + parameters_table + """
+                  where IMPORT_DATE = (select max(IMPORT_DATE) from """ + parameters_table + """) and SKIP = 0)
+                  order by Priority_Rank 
                 """
     data = wishlist_connection.GetSQLData(query)
     return [Wish(*line) for line in data]
@@ -294,8 +299,8 @@ def get_nested_source_points(l):
                                'OTD_1_P2P_D_INCLUDED_INVENTORY', headers='')
 
     query = """select SHIPPING_POINT_SOURCE ,SHIPPING_POINT_INCLUDE
-                                   from OTD_1_P2P_D_INCLUDED_INVENTORY
-                   """
+               from OTD_1_P2P_D_INCLUDED_INVENTORY
+             """
     data = connection.GetSQLData(query)
 
     for line in data:

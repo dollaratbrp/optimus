@@ -16,6 +16,7 @@ sys.path.append(os.path.join(parent_dir, 'LoadBuilding'))  # We add directory of
 
 from P2PFullProcess import p2p_full_process
 from FastLoads import open_fastloads_box
+from P2PForecast import forecast
 
 
 class ModeBox:
@@ -34,16 +35,20 @@ class ModeBox:
         self.title = Label(self.master, text='Optimus Mode Selection', bd=2)
 
         # Label positioning
-        self.title.grid(row=0, column=0, columnspan=2)
+        self.title.grid(row=0, column=0, columnspan=3)
 
         # Buttons initialization
-        self.first_option = Button(self.master, text='P2P Full Process', padx=50, pady=20,
+        self.first_option = Button(self.master, text='P2P Full Process', padx=30, pady=20,
                                    borderwidth=3, command=self.run_full_process)
         self.second_option = Button(self.master, text='Fast Loads', padx=50, pady=20,
                                     borderwidth=3, command=self.run_fast_loads)
+        self.third_option = Button(self.master, text='Forecast', padx=50, pady=20,
+                                   borderwidth=3, command=self.run_forecast)
+
         # Buttons positioning
         self.first_option.grid(row=1, column=0)
         self.second_option.grid(row=1, column=1)
+        self.third_option.grid(row=1, column=2)
 
     def run_full_process(self):
 
@@ -60,6 +65,15 @@ class ModeBox:
 
         # We run the fast loads function
         open_fastloads_box()
+
+    def run_forecast(self):
+
+        # We close the window
+        self.master.destroy()
+
+        # We run the forecast
+        forecast()
+
 
 
 def open_mode_box():
