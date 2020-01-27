@@ -218,9 +218,11 @@ def create_excel_table(ws, name, column_titles, TableStyle=None):
     :param column_titles: list with column titles
     :param TableStyle: Style to customize the table
     """
-    table_reference = 'A1:' + get_last_column_index(column_titles) + str(get_number_of_rows(ws))
-    tab = Table(displayName=name, ref=table_reference)
-    ws.add_table(tab)
+    nb_of_rows = get_number_of_rows(ws)
+    if nb_of_rows > 1:
+        table_reference = 'A1:' + get_last_column_index(column_titles) + str(nb_of_rows)
+        tab = Table(displayName=name, ref=table_reference)
+        ws.add_table(tab)
 
 
 def get_last_column_index(column_titles):
