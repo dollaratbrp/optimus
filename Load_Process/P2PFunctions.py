@@ -511,10 +511,10 @@ def satisfy_max_or_min(Wishes, Inventory, Parameters, satisfy_min=True, print_lo
                                              ranking=ranking)
 
             # Choice the wish items to put on loads
-            for model in result:
+            for model, crate_type in result:
                 found = False
                 for OnLoad in tempoOnLoad:
-                    if OnLoad.SIZE_DIMENSIONS == model and OnLoad.QUANTITY > 0:
+                    if OnLoad.SIZE_DIMENSIONS == model and OnLoad.QUANTITY > 0 and crate_type == OnLoad.CRATE_TYPE:
                         OnLoad.QUANTITY = 0
                         found = True
                         param.AssignedWish.append(OnLoad)

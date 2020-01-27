@@ -25,6 +25,7 @@ import os
 # [Business_Planning].[dbo].[OTD_1_P2P_F_INVENTORY] : Get data
 # OTD_1_P2P_D_INCLUDED_INVENTORY : Get data
 # OTD_1_P2P_F_HISTORICAL : Send data
+# OTD_1_P2P_F_TRUCK_PARAMETERS : Get data
 
 # Folder where the excel workbook is saved
 saveFolder = 'S:\Shared\Business_Planning\Personal\Raymond\P2P\\'
@@ -226,10 +227,10 @@ def p2p_full_process():
         result = param.LoadBuilder.build(input_dataframe, param.LOADMAX, ranking=ranking, plot_load_done=printLoads)
 
         # Choose which wish to send in load based on selected crates and priority order
-        for model in result:
+        for model, crate_type in result:
             found = False
             for OnLoad in temporary_on_load:
-                if OnLoad.SIZE_DIMENSIONS == model and OnLoad.QUANTITY > 0:
+                if OnLoad.SIZE_DIMENSIONS == model and OnLoad.QUANTITY > 0 and crate_type == OnLoad.CRATE_TYPE:
                     OnLoad.QUANTITY = 0
                     found = True
                     param.AssignedWish.append(OnLoad)
