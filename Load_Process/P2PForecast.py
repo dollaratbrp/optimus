@@ -20,10 +20,13 @@ Update by : Nicolas Raymond
 # Path where the forecast results are saved
 saveFolder = 'S:\Shared\Business_Planning\Personal\Raymond\P2P\\'
 
+# from openpyxl.utils.dataframe import dataframe_to_rows
 from ParametersBox import *
 from P2PFunctions import *
-from openpyxl import Workbook
+from openpyxl import Workbook, load_workbook
 from tqdm import tqdm
+import numpy as np
+
 
 AutomaticRun = False  # set to True to automate code
 
@@ -40,11 +43,11 @@ def forecast():
     else:
         IsAdhoc = 0  # 1 for True, 0 for False (if automatic)
 
-    # ---------------------------------------------------------------------------------------------------------------------#
-    # ---------------------------------------------------------------------------------------------------------------------#
+    # -----------------------------------------------------------------------------------------------------------------#
+    # -----------------------------------------------------------------------------------------------------------------#
     #                                             MODIFICATIONS SECTION
-    # ---------------------------------------------------------------------------------------------------------------------#
-    # ---------------------------------------------------------------------------------------------------------------------#
+    # -----------------------------------------------------------------------------------------------------------------#
+    # -----------------------------------------------------------------------------------------------------------------#
 
     dayTodayComplete = pd.datetime.now().replace(second=0, microsecond=0)
     dayToday = weekdays(0)
@@ -52,18 +55,17 @@ def forecast():
 
     dest_filename = 'P2P_Forecast_'+dayToday  # Email subject with today's date
 
-    # ---------------------------------------------------------------------------------------------------------------------#
-    # ---------------------------------------------------------------------------------------------------------------------#
+    # -----------------------------------------------------------------------------------------------------------------#
+    # -----------------------------------------------------------------------------------------------------------------#
     #                                            END OF MODIFICATIONS
-    # ---------------------------------------------------------------------------------------------------------------------#
-    # ---------------------------------------------------------------------------------------------------------------------#
+    # -----------------------------------------------------------------------------------------------------------------#
+    # -----------------------------------------------------------------------------------------------------------------#
 
     GeneralErrors = ''  # General errors met during execution
 
-
-    #####################################################################################################################
+    ####################################################################################################################
     #                                                Get SQL DATA
-    #####################################################################################################################
+    ####################################################################################################################
 
     # #If SQL queries crash
     downloaded = False
@@ -72,19 +74,12 @@ def forecast():
         numberOfTry += 1
         try:
             downloaded = True
+
             ####################################################################################
             #                                 Email address Query
             ####################################################################################
-            headerEmail = 'EMAIL_ADDRESS'
-            SQLEmail = SQLConnection('CAVLSQLPD2\pbi2', 'Business_Planning', 'OTD_1_P2P_F_PARAMETERS_EMAIL_ADDRESS',
-                                     headers=headerEmail)
 
-            QueryEmail = """ SELECT distinct [EMAIL_ADDRESS]
-             FROM [Business_Planning].[dbo].[OTD_1_P2P_F_PARAMETERS_EMAIL_ADDRESS]
-             WHERE PROJECT = 'FORECAST'
-            """
-            # GET SQL DATA
-            EmailList = [item for sublist in SQLEmail.GetSQLData(QueryEmail) for item in sublist]
+            EmailList = get_emails_list('FORECAST')
 
             ####################################################################################
             #                                     Parameters Query
@@ -177,56 +172,18 @@ def forecast():
             #                                 WishList Query
             ####################################################################################
 
-            SQLWishList = SQLConnection('CAVLSQLPD2\pbi2', 'Business_Planning', 'OTD_2_PRIORITY_F_P2P', headers='')
-            QueryWishList = """SELECT  [SALES_DOCUMENT_NUMBER]
-                  ,[SALES_ITEM_NUMBER]
-                  ,[SOLD_TO_NUMBER]
-                  ,[POINT_FROM]
-                  ,[SHIPPING_POINT]
-                  ,[DIVISION]
-                  ,RTRIM([MATERIAL_NUMBER])
-                  ,RTRIM([Size_Dimension])
-                  ,convert(int,CEILING([Length]))
-                  ,convert(int,CEILING([Width]))
-                  ,convert(int,CEILING([Height]))
-                  ,convert(int,[stackability])
-                  ,[Quantity]
-                  ,[Priority_Rank]
-                  ,[X_IF_MANDATORY]
-                  ,[OVERHANG]
-                  ,[METAL_WOOD]
-                  ,"""+str(IsAdhoc)+""" as IsAdhoc
-              FROM [Business_Planning].[dbo].[OTD_1_P2P_F_PRIORITY_WITHOUT_INVENTORY]
-              where [POINT_FROM] <>[SHIPPING_POINT] and Length<>0 and Width <> 0 and Height <> 0
-              and concat([POINT_FROM],[SHIPPING_POINT]) in (
-              SELECT distinct concat( [POINT_FROM] ,[POINT_TO])
-              FROM [Business_Planning].[dbo].[OTD_1_P2P_F_FORECAST_PARAMETERS]
-              where IMPORT_DATE = (select max(IMPORT_DATE) from [Business_Planning].[dbo].[OTD_1_P2P_F_FORECAST_PARAMETERS])
-              and SKIP = 0 )
-              order by [X_IF_MANDATORY] desc, Priority_Rank
-            """
-
-            OriginalDATAWishList = SQLWishList.GetSQLData(QueryWishList)
-            DATAWishList = [Wish(*obj) for obj in OriginalDATAWishList]
+            DATAWishList = get_wish_list(forecast=True)
 
             ####################################################################################
             #                             Included Shipping_point
             ####################################################################################
 
-            SQLInclude = SQLConnection('CAVLSQLPD2\pbi2', 'Business_Planning', 'OTD_1_P2P_D_INCLUDED_INVENTORY', headers='')
-            QueryInclude = """select SHIPPING_POINT_SOURCE ,SHIPPING_POINT_INCLUDE
-                                from OTD_1_P2P_D_INCLUDED_INVENTORY
-                """
-            OriginalDATAInclude = SQLInclude.GetSQLData(QueryInclude)
-
             global DATAInclude
-            for obj in OriginalDATAInclude:
-                DATAInclude.append(NestedSourcePoints(*obj))
+            get_nested_source_points(DATAInclude)
 
         except:
             downloaded = False
             print('SQL Query failed')
-
 
     # If SQL Queries failed
     if not downloaded:
@@ -237,45 +194,42 @@ def forecast():
             pass
         sys.exit()
 
-
-    #####################################################################################################################
+    ####################################################################################################################
     #                                                 SQL tables declaration
-    #####################################################################################################################
+    ####################################################################################################################
     headerLoads = 'POINT_FROM,SHIPPING_POINT,QUANTITY,DATE,IMPORT_DATE,IS_ADHOC'
     SQLLoads = SQLConnection('CAVLSQLPD2\pbi2', 'Business_Planning', 'OTD_1_P2P_F_FORECAST_LOADS', headers=headerLoads)
 
-    headerPRIORITY = 'SALES_DOCUMENT_NUMBER,SALES_ITEM_NUMBER,SOLD_TO_NUMBER,POINT_FROM,SHIPPING_POINT,DIVISION,' \
-                     'MATERIAL_NUMBER,SIZE_DIMENSIONS,LENGTH,WIDTH,HEIGHT,STACKABILITY,OVERHANG,QUANTITY,PRIORITY_RANK,' \
-                     'X_IF_MANDATORY,PROJECTED_DATE,IMPORT_DATE,IS_ADHOC'
+    headerPRIORITY = 'SALES_DOCUMENT_NUMBER,SALES_ITEM_NUMBER,SOLD_TO_NUMBER,POINT_FROM,SHIPPING_POINT,DIVISION,'\
+                     'MATERIAL_NUMBER,SIZE_DIMENSIONS,LENGTH,WIDTH,HEIGHT,STACKABILITY,OVERHANG,QUANTITY,' \
+                     'PRIORITY_RANK,X_IF_MANDATORY,PROJECTED_DATE,IMPORT_DATE,IS_ADHOC'
 
     SQLPRIORITY = SQLConnection('CAVLSQLPD2\pbi2', 'Business_Planning', 'OTD_1_P2P_F_FORECAST_PRIORITY',
                                 headers=headerPRIORITY)
 
-
     ####################################################################################################################
-    #                                         Excel Workbook declaration
+    #                                           Excel Workbook declaration
     ####################################################################################################################
 
     # Initialization of workbook and filling option to warn user in output
     wb = Workbook()
-    Warning_fill = PatternFill(fill_type="solid", start_color="FFFF00", end_color="FFFF00")
 
     # Summary
     summary_ws = wb.active
     summary_ws.title = "SUMMARY"
-    worksheet_formatting(summary_ws, ['POINT_FROM', 'SHIPPING_POINT', 'QUANTITY', 'DATE'], [15, 15, 15, 25])
+    summary_columns = ['POINT_FROM', 'SHIPPING_POINT', 'QUANTITY', 'DEPARTURE_DATE']
 
     # Detailed
     detailed_ws = wb.create_sheet("DETAILED")
-    columns_title = ['POINT_FROM', 'SHIPPING_POINT', 'DIVISION', 'MATERIAL_NUMBER',
-                     'SIZE_DIMENSIONS', 'QUANTITY', 'DEPARTURE_DAY']
+    detailed_columns = ['POINT_FROM', 'SHIPPING_POINT', 'DIVISION', 'MATERIAL_NUMBER',
+                        'SIZE_DIMENSIONS', 'QUANTITY', 'DEPARTURE_DATE']
 
-    columns_width = [20]*(len(columns_title)-1) + [25]
-    worksheet_formatting(detailed_ws, columns_title, columns_width)
+    columns_width = [20]*(len(detailed_columns)-1) + [25]
+    worksheet_formatting(detailed_ws, detailed_columns, columns_width)
 
-    #####################################################################################################################
+    ####################################################################################################################
     #                                                Main loop for everyday
-    #####################################################################################################################
+    ####################################################################################################################
 
     # We add today's prod and QA to inventory, but we don't create load for today (we make them for tomorrow or later)
     for prod in DATAProd:
@@ -289,6 +243,9 @@ def forecast():
                     break  # we found the good inv
 
     # Inventory is now updated.
+
+    # We initialize a list of data that will be used to create the pivot table with pandas
+    summary_data = []
 
     # Initialization of the load bar
     progress = tqdm(total=len(DATADATE), desc='Forecast progress')
@@ -482,9 +439,10 @@ def forecast():
             SQLLoads.sendToSQL([(param.POINT_FROM, param.POINT_TO, len(param.LoadBuilder),
                                  weekdays(max(0, param.days_to-1), officialDay=date), dayTodayComplete, IsAdhoc)])
 
-            if len(param.LoadBuilder):
-                summary_ws.append([param.POINT_FROM, param.POINT_TO, len(param.LoadBuilder),
-                                   weekdays(max(0, param.days_to-1), officialDay=date)])
+            if len(param.LoadBuilder) > 0:
+                summary_data.append([param.POINT_FROM, param.POINT_TO, len(param.LoadBuilder),
+                                     weekdays(max(0, param.days_to-1), officialDay=date)])
+                print(summary_data)
 
         # Update progress bar
         progress.update()
@@ -496,8 +454,23 @@ def forecast():
             GeneralErrors += 'Error : this unit was not assigned and has a different quantity; \n {0}'.format(wish.lineToXlsx())
         SQLPRIORITY.sendToSQL(wish.lineToXlsx(dayTodayComplete))
 
-    # We save the workbook and the reference
+    # We format the summary worksheet and save the workbook and the reference
+    fake_columns = [''] * (len(summary_data) + 2)
+    worksheet_formatting(summary_ws, fake_columns, [20] * len(fake_columns))
     reference = [savexlsxFile(wb, saveFolder, dest_filename)]
+
+    # We create the pivot table and write it in the already saved xlsx file
+    workbook = load_workbook(reference[0])
+    writer = pd.ExcelWriter(reference[0], engine='openpyxl')
+    summary_data = pd.DataFrame(data=summary_data, columns=summary_columns)
+    summary_data = pd.pivot_table(summary_data, values='QUANTITY', index=['POINT_FROM', 'SHIPPING_POINT'],
+                                  columns=['DEPARTURE_DATE'], aggfunc=np.sum)
+    print(summary_data.columns)
+    writer.book = workbook
+    writer.sheets = dict((ws.title, ws) for ws in workbook.worksheets)
+    summary_data.to_excel(writer, sheet_name="SUMMARY", header=True)
+    print(summary_data)
+    writer.save()
 
     # We send the emails
     send_email(EmailList, dest_filename, 'P2P Forecast is now updated.\n'+GeneralErrors, reference)
