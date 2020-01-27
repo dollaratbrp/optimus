@@ -155,28 +155,31 @@ def p2p_full_process():
     # Summary
     summary_ws = wb.active
     summary_ws.title = "SUMMARY"
-    worksheet_formatting(summary_ws, ['POINT_FROM', 'SHIPPING_POINT', 'NUMBER_OF_LOADS'], [13, 16, 19])
+    summary_columns = ['POINT_FROM', 'SHIPPING_POINT', 'NUMBER_OF_LOADS']
+    worksheet_formatting(summary_ws, summary_columns, [20, 20, 25])
 
     # Approved loads
     approved_ws = wb.create_sheet("APPROVED")
-    columns_title = ['POINT_FROM', 'SHIPPING_POINT', 'LOAD_NUMBER', 'CATEGORY', 'LOAD_LENGTH',
-                     'MATERIAL_NUMBER', 'QUANTITY', 'SIZE_DIMENSIONS',
-                     'SALES_DOCUMENT_NUMBER', 'SALES_ITEM_NUMBER', 'SOLD_TO_NUMBER']
-    columns_width = [20]*(len(columns_title)-1) + [27]
-    worksheet_formatting(approved_ws, columns_title, columns_width)
+    approved_columns = ['POINT_FROM', 'SHIPPING_POINT', 'LOAD_NUMBER', 'CATEGORY', 'LOAD_LENGTH',
+                        'MATERIAL_NUMBER', 'QUANTITY', 'SIZE_DIMENSIONS',
+                        'SALES_DOCUMENT_NUMBER', 'SALES_ITEM_NUMBER', 'SOLD_TO_NUMBER']
+    columns_width = [20]*(len(approved_columns)-3) + [27]*3
+    worksheet_formatting(approved_ws, approved_columns, columns_width)
 
     # Unbooked
     unbooked_ws = wb.create_sheet("UNBOOKED")
-    worksheet_formatting(unbooked_ws, ['POINT_FROM', 'MATERIAL_NUMBER', 'QUANTITY'], [20, 20, 12])
+    unbooked_columns = ['POINT_FROM', 'MATERIAL_NUMBER', 'QUANTITY']
+    worksheet_formatting(unbooked_ws, unbooked_columns, [20, 20, 12])
 
     # Booked unused
     unused_ws = wb.create_sheet("BOOKED_UNUSED")
-    worksheet_formatting(unused_ws, ['POINT_FROM', 'MATERIAL_NUMBER', 'QUANTITY'], [20, 20, 12])
+    unused_columns = ['POINT_FROM', 'MATERIAL_NUMBER', 'QUANTITY']
+    worksheet_formatting(unused_ws, unused_columns, [20, 20, 12])
 
     # Approved Summarized
-    approved_summarized_ws = wb.create_sheet("SAP INPUT")
-    columns_title = ['POINT_FROM', 'SHIPPING_POINT', 'MATERIAL_NUMBER', 'QUANTITY']
-    worksheet_formatting(approved_summarized_ws, columns_title, [20]*len(columns_title))
+    sap_input_ws = wb.create_sheet("SAP INPUT")
+    sap_input_columns = ['POINT_FROM', 'SHIPPING_POINT', 'MATERIAL_NUMBER', 'QUANTITY']
+    worksheet_formatting(sap_input_ws, sap_input_columns, [20]*len(sap_input_columns))
 
     ####################################################################################################################
     #                                            Isolate perfect match
@@ -270,7 +273,7 @@ def p2p_full_process():
         print(param.LoadBuilder.get_loading_summary())
 
     # Initialization of a list to keep all data needed for the "APPROVED" summary version ouptput for SAP
-    approved_summarized_data = []
+    sap_input_data = []
 
     lineIndex = 2  # To display a warning if number of loads is lower than parameters min
 
@@ -315,7 +318,7 @@ def p2p_full_process():
                                                                    column, wish.SALES_DOCUMENT_NUMBER,
                                                                    wish.SALES_ITEM_NUMBER, wish.SOLD_TO_NUMBER])
 
-                                                approved_summarized_data.append([param.POINT_FROM, param.POINT_TO,
+                                                sap_input_data.append([param.POINT_FROM, param.POINT_TO,
                                                                                  wish.MATERIAL_NUMBER, wish.ORIGINAL_QUANTITY])
 
 
@@ -358,12 +361,19 @@ def p2p_full_process():
             unbooked_ws.append([inv.POINT, inv.MATERIAL_NUMBER, inv.QUANTITY-inv.unused])
 
     # We group by the summarized approved data and send it in the output
-    summarized_frame = pd.DataFrame(approved_summarized_data, columns=columns_title)
-    summarized_frame = summarized_frame.groupby([column for column in columns_title if column != 'QUANTITY']).sum()
-    summarized_frame = summarized_frame.reset_index()
+    sap_input_frame = pd.DataFrame(sap_input_data, columns=sap_input_columns)
+    sap_input_frame = sap_input_frame.groupby([column for column in sap_input_columns if column != 'QUANTITY']).sum()
+    sap_input_frame = sap_input_frame.reset_index()
 
-    for index, row in summarized_frame[columns_title].iterrows():
-        approved_summarized_ws.append(list(row))
+    for index, row in sap_input_frame[sap_input_columns].iterrows():
+        sap_input_ws.append(list(row))
+
+    # We create tables for the data of every worksheet
+    create_excel_table(summary_ws, "Summary", summary_columns)
+    create_excel_table(approved_ws, "Approved", approved_columns)
+    create_excel_table(unbooked_ws, "Unbooked", unbooked_columns)
+    create_excel_table(unused_ws, "Booked_unused", unused_columns)
+    create_excel_table(sap_input_ws, "SAP_input", sap_input_columns)
 
     # We save the workbook and the reference
     reference = [savexlsxFile(wb, saveFolder, dest_filename)]
