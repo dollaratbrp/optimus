@@ -228,7 +228,8 @@ class Trailer:
         """
 
         for stack in self.load:
-            unused_crates_list += (stack.models, self.crate_type)
+            for model in stack.models:
+                unused_crates_list.append((model, self.crate_type))
 
         self.load.clear()
 
@@ -340,7 +341,8 @@ class Warehouse:
         :param crate_type : one type among 'W' or 'M'
         """
         for stack in self.stacks_to_ship:
-            unused_crates_list += (stack.models, crate_type)
+            for model in stack.models:
+                unused_crates_list.append((model, crate_type))
 
         self.stacks_to_ship.clear()
 
