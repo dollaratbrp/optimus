@@ -67,8 +67,8 @@ class LoadBuilder:
                 crate_type = models_data['CRATE_TYPE'][i]
 
                 # We save the name of the model
-                for j in qty:
-                    self.model_names.append(([models_data['MODEL'][i]], crate_type))
+                for j in range(qty):
+                    self.model_names.append((models_data['MODEL'][i], crate_type))
 
                 # We save the stack limit
                 stack_limit = models_data['STACK_LIMIT'][i]
@@ -153,7 +153,7 @@ class LoadBuilder:
                     index += 1
 
         # We flatten the model_names list
-        self.model_names = [item for sublist in self.model_names for item in sublist]
+        #self.model_names = [item for sublist in self.model_names for item in sublist]
 
     def __trailers_init(self):
 
@@ -605,7 +605,6 @@ class LoadBuilder:
 
         :return : list of size codes (also called model names in other part of code)
         """
-
         # We counts all the models that were introduced in loads
         counts = Counter(self.model_names)  # Initial counts
         counts_of_unused = Counter(self.unused_models)
@@ -617,7 +616,7 @@ class LoadBuilder:
 
         # We save the size codes used for the loads done in this iteration
         size_codes = list(counts.elements())
-        self.all_size_codes.update(size_codes)
+        self.all_size_codes.update([size_code[0] for size_code in size_codes])
 
         return size_codes
 
