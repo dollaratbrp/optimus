@@ -22,7 +22,7 @@ class LoadBuilder:
     score_multiplicator_basis = 1.02  # used to boost the score of a load when there's mandatory crates
 
     def __init__(self, trailers_data,
-                 overhang_authorized=40, maximum_trailer_length=636, plc_lb=0.75):
+                 overhang_authorized=51.5, maximum_trailer_length=636, plc_lb=0.75):
 
         """
         :param trailers_data: Pandas data frame containing details on trailers available
@@ -151,7 +151,6 @@ class LoadBuilder:
                     # We update the total number of mandatory left and increment the index
                     total_of_mandatory -= 1
                     index += 1
-
 
     def __trailers_init(self):
 
