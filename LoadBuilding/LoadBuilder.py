@@ -152,8 +152,6 @@ class LoadBuilder:
                     total_of_mandatory -= 1
                     index += 1
 
-        # We flatten the model_names list
-        #self.model_names = [item for sublist in self.model_names for item in sublist]
 
     def __trailers_init(self):
 
