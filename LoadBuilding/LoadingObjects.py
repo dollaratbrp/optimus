@@ -5,9 +5,6 @@ Created by Nicolas Raymond on 2019-05-31.
 This python file provides all classes of object used during the loading process
 (Crate, Stack, Warehouse, Trailer, CratesManager)
 
-Last update : 2019-10-31
-By : Nicolas Raymond
-
 """
 
 import numpy as np
