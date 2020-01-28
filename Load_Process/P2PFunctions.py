@@ -449,11 +449,12 @@ def satisfy_max_or_min(Wishes, Inventory, Parameters, satisfy_min=True, print_lo
 
     # For each parameters in Parameters list
     for param in Parameters:
+
         if len(param.LoadBuilder) < (check_min*param.LOADMIN + (1-check_min)*param.LOADMAX):
 
             # Initialization of empty list
-            tempoOnLoad = []  # List to remember the INVobj that will be sent to the LoadBuilder
-            invData = []      # List that will contain the data to build the frame that will be sent to the LoadBuilder
+            temporary_on_load = []  # List to remember the INVobj that will be sent to the LoadBuilder
+            load_builder_input = []  # List that will contain the data to build the frame we'll send to the LoadBuilder
 
             # Initialization of an empty ranking dictionary
             ranking = {}
@@ -488,12 +489,12 @@ def satisfy_max_or_min(Wishes, Inventory, Parameters, satisfy_min=True, print_lo
 
                     # If the wish can be satisfied
                     else:
-                        tempoOnLoad.append(wish)
+                        temporary_on_load.append(wish)
 
                         # Here we set QTY and NBR_PER_CRATE to 1 because each line of the wishlist correspond to
                         # one crate and not one unit! Must be done this way to avoid having getting to many size_code
                         # in the returning list of the LoadBuilder
-                        invData.append(wish.get_loadbuilder_input_line())
+                        load_builder_input.append(wish.get_loadbuilder_input_line())
 
                         # We add the ranking of the wish in the ranking dictionary
                         if wish.SIZE_DIMENSIONS in ranking:
@@ -502,7 +503,7 @@ def satisfy_max_or_min(Wishes, Inventory, Parameters, satisfy_min=True, print_lo
                             ranking[wish.SIZE_DIMENSIONS] = [wish.RANK]
 
             # Construction of the data frame which we'll send to the LoadBuilder of our parameters object (p2p)
-            input_dataframe = loadbuilder_input_dataframe(invData)
+            input_dataframe = loadbuilder_input_dataframe(load_builder_input)
 
             # Construction of loadings
             result = param.LoadBuilder.build(models_data=input_dataframe,
@@ -511,18 +512,9 @@ def satisfy_max_or_min(Wishes, Inventory, Parameters, satisfy_min=True, print_lo
                                              ranking=ranking)
 
             # Choice the wish items to put on loads
-            for model, crate_type in result:
-                found = False
-                for OnLoad in tempoOnLoad:
-                    if OnLoad.SIZE_DIMENSIONS == model and OnLoad.QUANTITY > 0 and crate_type == OnLoad.CRATE_TYPE:
-                        OnLoad.QUANTITY = 0
-                        found = True
-                        param.AssignedWish.append(OnLoad)
-                        break
-                if not found:
-                    print('Error in Perfect Match: impossible result.\n')
+            link_load_to_wishes(result, temporary_on_load, param)
 
-            for wish in tempoOnLoad:  # If it is not on loads, give back inv
+            for wish in temporary_on_load:  # If it is not on loads, give back inv
                 if wish.QUANTITY > 0:
                     for inv in wish.INV_ITEMS:
                         inv.QUANTITY += 1
@@ -549,6 +541,25 @@ def loadbuilder_input_dataframe(data):
     input_frame = input_frame.reset_index()
 
     return input_frame
+
+
+def link_load_to_wishes(loadbuilder_output, available_wishes, p2p):
+    """
+    Choose which wishes to link with the load based on selected crates and priority order
+    :param loadbuilder_output: LoadBuilder output (list of tuples with size_code and crate type)
+    :param available_wishes: List of wishes that were temporary assigned to the load
+    :param p2p : plant to plant for which we built the load (object of class Parameters)
+    """
+    for model, crate_type in loadbuilder_output:
+        found = False
+        for wish in available_wishes:
+            if wish.SIZE_DIMENSIONS == model and wish.QUANTITY > 0 and crate_type == wish.CRATE_TYPE:
+                wish.QUANTITY = 0
+                found = True
+                p2p.AssignedWish.append(wish)
+                break
+        if not found:
+            print('Error in Perfect Match: impossible result.\n')
 
 
 def EquivalentPlantFrom(Point1, Point2):
