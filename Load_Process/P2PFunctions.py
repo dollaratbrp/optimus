@@ -148,6 +148,44 @@ def get_emails_list(project_name):
     return [email_address for sublist in email_data for email_address in sublist]
 
 
+def get_p2p_order(sql_connection=None):
+    """
+    Recuperates the plant to plant in the order in which they must be for the written of the results
+    :param sql_connection: already established connection with the sql table that has the data
+    :return: list of lists with point_from and point_to
+    """
+
+    if sql_connection is None:
+        headers = 'POINT_FROM,POINT_TO,LOAD_MIN,LOAD_MAX,DRYBOX,FLATBED,TRANSIT,PRIORITY_ORDER,SKIP'
+        sql_connection = SQLConnection('CAVLSQLPD2\pbi2', 'Business_Planning', 'OTD_1_P2P_F_PARAMETERS', headers=headers)
+
+    p2p_order_query = """ SELECT distinct  [POINT_FROM],[POINT_TO]
+                      FROM [Business_Planning].[dbo].[OTD_1_P2P_F_PARAMETERS]
+                      where IMPORT_DATE = (select max(IMPORT_DATE) from [Business_Planning].[dbo].[OTD_1_P2P_F_PARAMETERS])
+                      and SKIP = 0
+                      order by [POINT_FROM],[POINT_TO]
+                    """
+    return sql_connection.GetSQLData(p2p_order_query)
+
+
+def get_missing_p2p():
+    """
+    Recuperates the p2p that are in the wishlist but are absent in the ParametersBox
+    :return: list of lists with point_from and point_to
+    """
+    connection = SQLConnection('CAVLSQLPD2\pbi2', 'Business_Planning', 'OTD_1_P2P_F_PRIORITY', headers='')
+    query = """SELECT DISTINCT [POINT_FROM]
+                      ,[SHIPPING_POINT]
+                  FROM [Business_Planning].[dbo].[OTD_1_P2P_F_PRIORITY_WITHOUT_INVENTORY] 
+                  WHERE CONCAT(POINT_FROM,SHIPPING_POINT) not in (
+                    SELECT DISTINCT CONCAT([POINT_FROM],[POINT_TO])
+                    FROM [Business_Planning].[dbo].[OTD_1_P2P_F_PARAMETERS] WHERE IMPORT_DATE = (SELECT max(IMPORT_DATE) 
+                    FROM [Business_Planning].[dbo].[OTD_1_P2P_F_PARAMETERS]) )
+                    AND [POINT_FROM] <>[SHIPPING_POINT] 
+                """
+    return connection.GetSQLData(query)
+
+
 def get_parameter_grid():
     """
     Recuperates the ParameterBox data from SQL
@@ -514,11 +552,8 @@ def satisfy_max_or_min(Wishes, Inventory, Parameters, satisfy_min=True, print_lo
             # Choice the wish items to put on loads
             link_load_to_wishes(result, temporary_on_load, param)
 
-            for wish in temporary_on_load:  # If it is not on loads, give back inv
-                if wish.QUANTITY > 0:
-                    for inv in wish.INV_ITEMS:
-                        inv.QUANTITY += 1
-                    wish.INV_ITEMS = []
+            # Store unallocated units in inv pool
+            throw_back_to_pool(temporary_on_load)
 
 
 def loadbuilder_input_dataframe(data):
@@ -560,6 +595,18 @@ def link_load_to_wishes(loadbuilder_output, available_wishes, p2p):
                 break
         if not found:
             print('Error in Perfect Match: impossible result.\n')
+
+
+def throw_back_to_pool(wishes):
+    """
+    Get inventory back to inventory pool if it wasn't used in the current load
+    :param wishes: list of wish that weren't fulfilled
+    """
+    for wish in wishes:
+        if wish.QUANTITY > 0:
+            for inv in wish.INV_ITEMS:
+                inv.QUANTITY += 1
+            wish.INV_ITEMS = []
 
 
 def EquivalentPlantFrom(Point1, Point2):
