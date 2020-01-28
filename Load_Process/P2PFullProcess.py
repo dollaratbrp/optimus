@@ -40,12 +40,14 @@ dest_filename = 'P2P_Summary_'+dayToday  # Name of excel file with today's date
 
 
 def p2p_full_process():
+
     """
     Executes P2P full process
 
     :return: summary of the full process in at the 'saveFolder' directory
 
     """
+
     if not AutomaticRun:
         if not OpenParameters():  # If user cancel request
             sys.exit()
@@ -187,8 +189,14 @@ def p2p_full_process():
         # Construction of the data frame which we'll send to the LoadBuilder of our parameters object (p2p)
         input_dataframe = loadbuilder_input_dataframe(loadbuilder_input)
 
+        # We update the trailers dataframe of the LoadBuild associated to the p2p
+        param.update_load_builder_trailers_data()
+
         # Create loads
         result = param.LoadBuilder.build(input_dataframe, param.LOADMAX, ranking=ranking, plot_load_done=printLoads)
+
+        # We update the number of common flatbed 53
+        param.update_flatbed_53()
 
         # Choose which wish to send in load based on selected crates and priority order
         link_load_to_wishes(result, temporary_on_load, param)
