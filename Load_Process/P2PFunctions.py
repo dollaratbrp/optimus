@@ -13,6 +13,7 @@ By : Nicolas Raymond
 from LoadBuilder import LoadBuilder
 from InputOutput import *
 DATAInclude = []
+shared_flatbed_53 = {'QTY': 2, 'POINT_FROM': ['4100', '4125']}
 
 
 class Wish:
@@ -102,26 +103,62 @@ class Parameters:
     Represents a line of parameters from the ParameterBox GUI
     """
     def __init__(self, point_from, point_to, loadmin, loadmax, drybox, flatbed, transit, priority, days_to):
+
+        global shared_flatbed_53
         self.POINT_FROM = point_from
         self.POINT_TO = point_to
         self.LOADMIN = loadmin
         self.LOADMAX = loadmax
-        self.DRYBOX = drybox
-        self.FLATBED = flatbed
         self.TRANSIT = transit
         self.PRIORITY = priority
         self.days_to = days_to
-
-        self.LoadBuilder = []
         self.AssignedWish = []
-        self.new_LoadBuilder()
 
-    def new_LoadBuilder(self):
+        # LoadBuilder initialization
+        if self.POINT_FROM in shared_flatbed_53['POINT_FROM']:
+            self.LoadBuilder = self.new_LoadBuilder({'DRYBOX': drybox,
+                                                     'FLATBED_48': max(flatbed - shared_flatbed_53['QTY'], 0),
+                                                     'FLATBED_53': min(flatbed, shared_flatbed_53['QTY'])})
+        else:
+            self.LoadBuilder = self.new_LoadBuilder({'DRYBOX': drybox, 'FLATBED_48': flatbed})
+
+    @staticmethod
+    def new_LoadBuilder(dict_of_qty):
         """"
-        We initialize the loadBuilder
+        Initializes the loadBuilder
+        :param dict_of_qty: dictionary of quantities related to truck category
         """
-        trailer_data = get_trailers_data(['DRYBOX', 'FLATBED'], [self.DRYBOX, self.FLATBED])
-        self.LoadBuilder = LoadBuilder(trailer_data)
+        categories, quantities = [], []
+        for category, qty in dict_of_qty.items():
+            if qty > 0:
+                categories.append(category)
+                quantities.append(qty)
+
+        trailer_data = get_trailers_data(categories, quantities)
+        return LoadBuilder(trailer_data)
+
+    def update_load_builder_trailers_data(self):
+        """
+        Updates the number of flatbed 53 available for our LoadBuilder
+        """
+
+        global shared_flatbed_53
+        if self.POINT_FROM in shared_flatbed_53['POINT_FROM']:
+            df = self.LoadBuilder.trailers_data
+            if len(df.loc[df['CATEGORY'] == 'FLATBED_53', 'QTY'].values) != 0:
+                df.loc[df['CATEGORY'] == 'FLATBED_53', 'QTY'] = shared_flatbed_53['QTY']
+
+    def update_flatbed_53(self):
+        """
+        Updates the number of flatbet 53 left
+        :return:
+        """
+
+        global shared_flatbed_53
+        if self.POINT_FROM in shared_flatbed_53['POINT_FROM']:
+            df = self.LoadBuilder.trailers_data
+            if len(df.loc[df['CATEGORY'] == 'FLATBED_53', 'QTY'].values) != 0:
+                shared_flatbed_53['QTY'] = df.loc[df['CATEGORY'] == 'FLATBED_53', 'QTY'].values[0]
 
 
 class NestedSourcePoints:
@@ -543,11 +580,17 @@ def satisfy_max_or_min(Wishes, Inventory, Parameters, satisfy_min=True, print_lo
             # Construction of the data frame which we'll send to the LoadBuilder of our parameters object (p2p)
             input_dataframe = loadbuilder_input_dataframe(load_builder_input)
 
+            # We update the trailers dataframe of the LoadBuild associated to the p2p
+            param.update_load_builder_trailers_data()
+
             # Construction of loadings
             result = param.LoadBuilder.build(models_data=input_dataframe,
                                              max_load=(check_min*param.LOADMIN + (1-check_min)*param.LOADMAX),
                                              plot_load_done=print_loads,
                                              ranking=ranking)
+
+            # We update the number of common flatbed 53
+            param.update_flatbed_53()
 
             # Choice the wish items to put on loads
             link_load_to_wishes(result, temporary_on_load, param)
