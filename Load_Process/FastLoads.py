@@ -308,19 +308,19 @@ class FastLoadsBox(VerticalScrolledFrame):
                                 sku = self.tracker[size_code].random_pick(nb_per_crate)
                                 data.append([load_number, category, load_length, sku, nb_per_crate, size_code])
 
-        columns_title = [ws.cell(row=1, column=i).value for i in range(1, nbr_of_cols+1)]
-        dataframe = pd.DataFrame(data=data, columns=columns_title)
+            columns_title = [ws.cell(row=1, column=i).value for i in range(1, nbr_of_cols+1)]
+            dataframe = pd.DataFrame(data=data, columns=columns_title)
 
-        # We do a groupby to sum quantity column for the same SKU on the same load
-        dataframe = dataframe.groupby(by=[column for column in columns_title if column != 'QUANTITY']).sum().reset_index()
-        dataframe = dataframe[columns_title]
+            # We do a groupby to sum quantity column for the same SKU on the same load
+            dataframe = dataframe.groupby(by=[column for column in columns_title if column != 'QUANTITY']).sum().reset_index()
+            dataframe = dataframe[columns_title]
 
-        # We push every line of data in the appropriate worksheet
-        for i in dataframe.index:
-            ws.append(list(dataframe.iloc[i].values))
+            # We push every line of data in the appropriate worksheet
+            for i in dataframe.index:
+                ws.append(list(dataframe.iloc[i].values))
 
-        # Shape data as a dynamic table
-        create_excel_table(ws, "APPROVED", columns_title)
+            # Shape data as a dynamic table
+            create_excel_table(ws, "APPROVED", columns_title)
 
     def write_unused_crates(self, ws, nbr_of_cols):
         """
