@@ -526,8 +526,10 @@ def build_dataframe(ws):
     for row in ws:
         data_cols = []
         for cell in row:
-            data_cols.append(cell.value)
-        data_rows.append(data_cols)
+            if cell.value is not None:
+                data_cols.append(cell.value)
+        if len(data_cols) == len(row):
+            data_rows.append(data_cols)
 
     return pd.DataFrame(data=data_rows[1:], columns=data_rows[0])
 
