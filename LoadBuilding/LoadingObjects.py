@@ -130,9 +130,18 @@ class Trailer:
         self.score = 0
         self.crate_type = None
         self.packer = None
+        self.packed = False
 
     def __repr__(self):
         return self.category
+
+    def reset(self):
+        """
+        Reset some attributes of the trailer to default values
+        """
+        self.crate_type = None
+        self.score = 0
+        self.packer = None
 
     def plot_load(self):
         """
@@ -142,7 +151,6 @@ class Trailer:
         fig, ax = plt.subplots()
         codes = [Path.MOVETO, Path.LINETO, Path.LINETO, Path.LINETO, Path.CLOSEPOLY]
         rect_list = [self.packer[0][i] for i in range(len(self.packer[0]))]
-        print(rect_list)
 
         for rect in rect_list:
             vertices = [
@@ -188,6 +196,33 @@ class Trailer:
         :param list_of_stacks: list of stack objects
         """
         self.load += list_of_stacks
+
+    def pack(self, warehouse):
+
+        """
+        Packs the trailer using the data from the packer
+        :param warehouse: Warehouse from which we have to take the stacks
+        """
+
+        # We initialize a list that will contain stacks stored in the trailer
+        stacks_used = []
+
+        # We load the trailer chosen and marked it as "packed"
+        for stack in self.packer[0]:
+
+            # We concretely assign the stack to the trailer and note his location index
+            self.add_stack(warehouse[stack.rid])
+            stacks_used.append(stack.rid)
+
+        # We marked the trailer as "packed"
+        self.packed = True
+
+        # We update the length_used of the trailer
+        # (using the top of the rectangle that is the most at the edge)
+        self.length_used = max([rect.top for rect in self.packer[0]])
+
+        # We remove stacks used from the warehouse concerned
+        warehouse.remove_stacks(stacks_used)
 
     def add_stack(self, stack):
 
