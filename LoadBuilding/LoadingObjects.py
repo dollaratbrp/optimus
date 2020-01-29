@@ -130,6 +130,7 @@ class Trailer:
         self.score = 0
         self.crate_type = None
         self.packer = None
+        self.packed = False
 
     def __repr__(self):
         return self.category
@@ -142,7 +143,6 @@ class Trailer:
         fig, ax = plt.subplots()
         codes = [Path.MOVETO, Path.LINETO, Path.LINETO, Path.LINETO, Path.CLOSEPOLY]
         rect_list = [self.packer[0][i] for i in range(len(self.packer[0]))]
-        print(rect_list)
 
         for rect in rect_list:
             vertices = [
