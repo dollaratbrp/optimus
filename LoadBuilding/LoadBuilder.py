@@ -688,7 +688,7 @@ class LoadBuilder:
         :param models_data: Pandas data frame containing details on models to load
         :param max_load: maximum number of loads
         :param plot_load_done: boolean that indicates if plots of loads are going to be shown
-        :return: list of size code used
+        :return: list of tuples with size code used and crate types
         """
         # We look if models_data is empty
         if models_data.empty:
@@ -722,4 +722,5 @@ class LoadBuilder:
         self.__update_trailers_data()
 
         return self.__size_code_used()
+
 
