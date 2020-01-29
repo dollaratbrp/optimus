@@ -27,7 +27,6 @@ from openpyxl import Workbook, load_workbook
 from tqdm import tqdm
 import numpy as np
 
-
 AutomaticRun = False  # set to True to automate code
 
 
@@ -244,13 +243,17 @@ def forecast():
 
     # Inventory is now updated.
 
-    # We initialize a list of data that will be used to create the pivot table with pandas
+    # We initialize a list of data that will be used to create the pivot table with pandas and a column counter
     summary_data = []
+    column_counter = 3  # Starts at 3 because of the columns point from and point to
 
     # Initialization of the load bar
     progress = tqdm(total=len(DATADATE), desc='Forecast progress')
     for date in DATADATE:
-        # timeSinceLastCall('Loop')
+
+        # We reset the number of shared flatbed_53
+        reset_flatbed_53()
+
         # we add today's prod and QA to inventory
         for prod in DATAProd:
             if prod.DATE > date:  # Ordered by date, so no need to continue
@@ -302,10 +305,11 @@ def forecast():
             models_data = loadbuilder_input_dataframe(invData)
             result = param.LoadBuilder.build(models_data, param.LOADMAX, plot_load_done=printLoads)
 
-            for model in result:
+            for model, crate_type in result:
                 found = False
                 for OnLoad in tempoOnLoad:
-                    if OnLoad.SIZE_DIMENSIONS == model and OnLoad.QUANTITY > 0:  # we send allocated wish units to sql
+                    # we send allocated wish units to sql
+                    if OnLoad.SIZE_DIMENSIONS == model and OnLoad.QUANTITY > 0 and OnLoad.CRATE_TYPE == crate_type:
                         OnLoad.QUANTITY = 0
                         found = True
                         param.AssignedWish.append(OnLoad)
@@ -355,10 +359,10 @@ def forecast():
                 result = param.LoadBuilder.build(models_data, param.LOADMIN - len(param.LoadBuilder),
                                                  plot_load_done=printLoads)
                 # Choose wish items to put on loads
-                for model in result:
+                for model, crate_type in result:
                     found = False
                     for OnLoad in tempoOnLoad:
-                        if OnLoad.SIZE_DIMENSIONS == model and OnLoad.QUANTITY > 0: # we send allocated wish units to sql
+                        if OnLoad.SIZE_DIMENSIONS == model and OnLoad.QUANTITY > 0 and OnLoad.CRATE_TYPE == crate_type:
                             OnLoad.QUANTITY = 0
                             found = True
                             param.AssignedWish.append(OnLoad)
@@ -408,10 +412,10 @@ def forecast():
                 result = param.LoadBuilder.build(models_data, param.LOADMAX, plot_load_done=printLoads)
 
                 # choose wish items to put on loads
-                for model in result:
+                for model, crate_type in result:
                     found = False
                     for OnLoad in tempoOnLoad:
-                        if OnLoad.SIZE_DIMENSIONS == model and OnLoad.QUANTITY > 0:  # we send allocated wish units to sql
+                        if OnLoad.SIZE_DIMENSIONS == model and OnLoad.QUANTITY > 0 and OnLoad.CRATE_TYPE == crate_type:
                             OnLoad.QUANTITY = 0
                             found = True
                             param.AssignedWish.append(OnLoad)
@@ -428,7 +432,10 @@ def forecast():
                             inv.QUANTITY += 1
                         wish.INV_ITEMS = []
 
-        # we save the loads created for that day
+        # We set a boolean to false that will indicate if there's anything that has been schedule this date
+        consider_date_in_output = False
+
+        # We save the loads created for that day
         for param in DATAParams:
 
             # print('\nFROM :', param.POINT_FROM, 'TO :', param.POINT_TO)
@@ -440,12 +447,13 @@ def forecast():
                                  weekdays(max(0, param.days_to-1), officialDay=date), dayTodayComplete, IsAdhoc)])
 
             if len(param.LoadBuilder) > 0:
+                consider_date_in_output = True
                 summary_data.append([param.POINT_FROM, param.POINT_TO, len(param.LoadBuilder),
                                      weekdays(max(0, param.days_to-1), officialDay=date)])
-                print(summary_data)
 
-        # Update progress bar
+        # Update progress bar and column counter
         progress.update()
+        column_counter += int(consider_date_in_output)
 
     # Loads were made for the next 8 weeks, now we send not assigned wishes to SQL
 
@@ -455,9 +463,10 @@ def forecast():
         SQLPRIORITY.sendToSQL(wish.lineToXlsx(dayTodayComplete))
 
     # We format the summary worksheet and save the workbook and the reference
-    fake_columns = [''] * (len(summary_data) + 2)
+    fake_columns = [''] * column_counter
     worksheet_formatting(summary_ws, fake_columns, [20] * len(fake_columns))
     reference = [savexlsxFile(wb, saveFolder, dest_filename)]
+    wb.close()
 
     # We create the pivot table and write it in the already saved xlsx file
     workbook = load_workbook(reference[0])
@@ -465,11 +474,9 @@ def forecast():
     summary_data = pd.DataFrame(data=summary_data, columns=summary_columns)
     summary_data = pd.pivot_table(summary_data, values='QUANTITY', index=['POINT_FROM', 'SHIPPING_POINT'],
                                   columns=['DEPARTURE_DATE'], aggfunc=np.sum)
-    print(summary_data.columns)
     writer.book = workbook
     writer.sheets = dict((ws.title, ws) for ws in workbook.worksheets)
     summary_data.to_excel(writer, sheet_name="SUMMARY", header=True)
-    print(summary_data)
     writer.save()
 
     # We send the emails

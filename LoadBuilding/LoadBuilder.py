@@ -22,7 +22,7 @@ class LoadBuilder:
     score_multiplicator_basis = 1.02  # used to boost the score of a load when there's mandatory crates
 
     def __init__(self, trailers_data,
-                 overhang_authorized=40, maximum_trailer_length=636, plc_lb=0.75):
+                 overhang_authorized=51.5, maximum_trailer_length=636, plc_lb=0.75):
 
         """
         :param trailers_data: Pandas data frame containing details on trailers available
@@ -63,8 +63,12 @@ class LoadBuilder:
 
             if qty > 0:
 
+                # We save the crate type
+                crate_type = models_data['CRATE_TYPE'][i]
+
                 # We save the name of the model
-                self.model_names.append([models_data['MODEL'][i]]*qty)
+                for j in range(qty):
+                    self.model_names.append((models_data['MODEL'][i], crate_type))
 
                 # We save the stack limit
                 stack_limit = models_data['STACK_LIMIT'][i]
@@ -147,9 +151,6 @@ class LoadBuilder:
                     # We update the total number of mandatory left and increment the index
                     total_of_mandatory -= 1
                     index += 1
-
-        # We flatten the model_names list
-        self.model_names = [item for sublist in self.model_names for item in sublist]
 
     def __trailers_init(self):
 
@@ -314,8 +315,8 @@ class LoadBuilder:
         self.__remove_leftover_trailers()
 
         # We save unused models from both warehouses
-        self.warehouse.save_unused_crates(self.unused_models)
-        self.metal_warehouse.save_unused_crates(self.unused_models)
+        self.warehouse.save_unused_crates(self.unused_models, 'W')
+        self.metal_warehouse.save_unused_crates(self.unused_models, 'M')
 
     def __select_best_packer(self, packers_list):
 
@@ -601,7 +602,6 @@ class LoadBuilder:
 
         :return : list of size codes (also called model names in other part of code)
         """
-
         # We counts all the models that were introduced in loads
         counts = Counter(self.model_names)  # Initial counts
         counts_of_unused = Counter(self.unused_models)
@@ -613,7 +613,7 @@ class LoadBuilder:
 
         # We save the size codes used for the loads done in this iteration
         size_codes = list(counts.elements())
-        self.all_size_codes.update(size_codes)
+        self.all_size_codes.update([size_code[0] for size_code in size_codes])
 
         return size_codes
 
@@ -688,7 +688,7 @@ class LoadBuilder:
         :param models_data: Pandas data frame containing details on models to load
         :param max_load: maximum number of loads
         :param plot_load_done: boolean that indicates if plots of loads are going to be shown
-        :return: list of size code used
+        :return: list of tuples with size code used and crate types
         """
         # We look if models_data is empty
         if models_data.empty:
@@ -722,4 +722,5 @@ class LoadBuilder:
         self.__update_trailers_data()
 
         return self.__size_code_used()
+
 

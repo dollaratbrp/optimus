@@ -13,6 +13,7 @@ By : Nicolas Raymond
 from LoadBuilder import LoadBuilder
 from InputOutput import *
 DATAInclude = []
+shared_flatbed_53 = {'QTY': 2, 'POINT_FROM': ['4100', '4125']}
 
 
 class Wish:
@@ -102,26 +103,64 @@ class Parameters:
     Represents a line of parameters from the ParameterBox GUI
     """
     def __init__(self, point_from, point_to, loadmin, loadmax, drybox, flatbed, transit, priority, days_to):
+
+        global shared_flatbed_53
         self.POINT_FROM = point_from
         self.POINT_TO = point_to
         self.LOADMIN = loadmin
         self.LOADMAX = loadmax
-        self.DRYBOX = drybox
-        self.FLATBED = flatbed
         self.TRANSIT = transit
         self.PRIORITY = priority
         self.days_to = days_to
-
-        self.LoadBuilder = []
         self.AssignedWish = []
-        self.new_LoadBuilder()
+        self.DRYBOX = drybox
+
+        # Trailer quantities initialization
+        if self.POINT_FROM in shared_flatbed_53['POINT_FROM']:
+            self.FLATBED_48 = max(flatbed - shared_flatbed_53['QTY'], 0)
+            self.FLATBED_53 = min(flatbed, shared_flatbed_53['QTY'])
+        else:
+            self.FLATBED_48 = flatbed
+            self.FLATBED_53 = 0
+
+        self.LoadBuilder = self.new_LoadBuilder()
 
     def new_LoadBuilder(self):
         """"
-        We initialize the loadBuilder
+        Reset the loadBuilder
         """
-        trailer_data = get_trailers_data(['DRYBOX', 'FLATBED'], [self.DRYBOX, self.FLATBED])
-        self.LoadBuilder = LoadBuilder(trailer_data)
+        dict_of_qty = {'DRYBOX': self.DRYBOX, 'FLATBED_48': self.FLATBED_48, 'FLATBED_53': self.FLATBED_53}
+        categories, quantities = [], []
+        for category, qty in dict_of_qty.items():
+            if qty > 0:
+                categories.append(category)
+                quantities.append(qty)
+
+        trailer_data = get_trailers_data(categories, quantities)
+        return LoadBuilder(trailer_data)
+
+    def update_load_builder_trailers_data(self):
+        """
+        Updates the number of flatbed 53 available for our LoadBuilder
+        """
+
+        global shared_flatbed_53
+        if self.POINT_FROM in shared_flatbed_53['POINT_FROM']:
+            df = self.LoadBuilder.trailers_data
+            if len(df.loc[df['CATEGORY'] == 'FLATBED_53', 'QTY'].values) != 0:
+                df.loc[df['CATEGORY'] == 'FLATBED_53', 'QTY'] = shared_flatbed_53['QTY']
+
+    def update_flatbed_53(self):
+        """
+        Updates the number of flatbet 53 left
+        :return:
+        """
+
+        global shared_flatbed_53
+        if self.POINT_FROM in shared_flatbed_53['POINT_FROM']:
+            df = self.LoadBuilder.trailers_data
+            if len(df.loc[df['CATEGORY'] == 'FLATBED_53', 'QTY'].values) != 0:
+                shared_flatbed_53['QTY'] = df.loc[df['CATEGORY'] == 'FLATBED_53', 'QTY'].values[0]
 
 
 class NestedSourcePoints:
@@ -146,6 +185,44 @@ def get_emails_list(project_name):
     # GET SQL DATA
     email_data = email_connection.GetSQLData(email_query)
     return [email_address for sublist in email_data for email_address in sublist]
+
+
+def get_p2p_order(sql_connection=None):
+    """
+    Recuperates the plant to plant in the order in which they must be for the written of the results
+    :param sql_connection: already established connection with the sql table that has the data
+    :return: list of lists with point_from and point_to
+    """
+
+    if sql_connection is None:
+        headers = 'POINT_FROM,POINT_TO,LOAD_MIN,LOAD_MAX,DRYBOX,FLATBED,TRANSIT,PRIORITY_ORDER,SKIP'
+        sql_connection = SQLConnection('CAVLSQLPD2\pbi2', 'Business_Planning', 'OTD_1_P2P_F_PARAMETERS', headers=headers)
+
+    p2p_order_query = """ SELECT distinct  [POINT_FROM],[POINT_TO]
+                      FROM [Business_Planning].[dbo].[OTD_1_P2P_F_PARAMETERS]
+                      where IMPORT_DATE = (select max(IMPORT_DATE) from [Business_Planning].[dbo].[OTD_1_P2P_F_PARAMETERS])
+                      and SKIP = 0
+                      order by [POINT_FROM],[POINT_TO]
+                    """
+    return sql_connection.GetSQLData(p2p_order_query)
+
+
+def get_missing_p2p():
+    """
+    Recuperates the p2p that are in the wishlist but are absent in the ParametersBox
+    :return: list of lists with point_from and point_to
+    """
+    connection = SQLConnection('CAVLSQLPD2\pbi2', 'Business_Planning', 'OTD_1_P2P_F_PRIORITY', headers='')
+    query = """SELECT DISTINCT [POINT_FROM]
+                      ,[SHIPPING_POINT]
+                  FROM [Business_Planning].[dbo].[OTD_1_P2P_F_PRIORITY_WITHOUT_INVENTORY] 
+                  WHERE CONCAT(POINT_FROM,SHIPPING_POINT) not in (
+                    SELECT DISTINCT CONCAT([POINT_FROM],[POINT_TO])
+                    FROM [Business_Planning].[dbo].[OTD_1_P2P_F_PARAMETERS] WHERE IMPORT_DATE = (SELECT max(IMPORT_DATE) 
+                    FROM [Business_Planning].[dbo].[OTD_1_P2P_F_PARAMETERS]) )
+                    AND [POINT_FROM] <>[SHIPPING_POINT] 
+                """
+    return connection.GetSQLData(query)
 
 
 def get_parameter_grid():
@@ -175,6 +252,14 @@ def get_parameter_grid():
     # GET SQL DATA
     data = connection.GetSQLData(query)
     return [Parameters(*line) for line in data], connection
+
+
+def reset_flatbed_53():
+    """
+    Resets the number of flatbed 53 available
+    """
+    global shared_flatbed_53
+    shared_flatbed_53 = {'QTY': 2, 'POINT_FROM': ['4100', '4125']}
 
 
 def get_wish_list(forecast=False):
@@ -449,11 +534,12 @@ def satisfy_max_or_min(Wishes, Inventory, Parameters, satisfy_min=True, print_lo
 
     # For each parameters in Parameters list
     for param in Parameters:
+
         if len(param.LoadBuilder) < (check_min*param.LOADMIN + (1-check_min)*param.LOADMAX):
 
             # Initialization of empty list
-            tempoOnLoad = []  # List to remember the INVobj that will be sent to the LoadBuilder
-            invData = []      # List that will contain the data to build the frame that will be sent to the LoadBuilder
+            temporary_on_load = []  # List to remember the INVobj that will be sent to the LoadBuilder
+            load_builder_input = []  # List that will contain the data to build the frame we'll send to the LoadBuilder
 
             # Initialization of an empty ranking dictionary
             ranking = {}
@@ -488,12 +574,12 @@ def satisfy_max_or_min(Wishes, Inventory, Parameters, satisfy_min=True, print_lo
 
                     # If the wish can be satisfied
                     else:
-                        tempoOnLoad.append(wish)
+                        temporary_on_load.append(wish)
 
                         # Here we set QTY and NBR_PER_CRATE to 1 because each line of the wishlist correspond to
                         # one crate and not one unit! Must be done this way to avoid having getting to many size_code
                         # in the returning list of the LoadBuilder
-                        invData.append(wish.get_loadbuilder_input_line())
+                        load_builder_input.append(wish.get_loadbuilder_input_line())
 
                         # We add the ranking of the wish in the ranking dictionary
                         if wish.SIZE_DIMENSIONS in ranking:
@@ -502,7 +588,10 @@ def satisfy_max_or_min(Wishes, Inventory, Parameters, satisfy_min=True, print_lo
                             ranking[wish.SIZE_DIMENSIONS] = [wish.RANK]
 
             # Construction of the data frame which we'll send to the LoadBuilder of our parameters object (p2p)
-            input_dataframe = loadbuilder_input_dataframe(invData)
+            input_dataframe = loadbuilder_input_dataframe(load_builder_input)
+
+            # We update the trailers dataframe of the LoadBuild associated to the p2p
+            param.update_load_builder_trailers_data()
 
             # Construction of loadings
             result = param.LoadBuilder.build(models_data=input_dataframe,
@@ -510,23 +599,14 @@ def satisfy_max_or_min(Wishes, Inventory, Parameters, satisfy_min=True, print_lo
                                              plot_load_done=print_loads,
                                              ranking=ranking)
 
-            # Choice the wish items to put on loads
-            for model in result:
-                found = False
-                for OnLoad in tempoOnLoad:
-                    if OnLoad.SIZE_DIMENSIONS == model and OnLoad.QUANTITY > 0:
-                        OnLoad.QUANTITY = 0
-                        found = True
-                        param.AssignedWish.append(OnLoad)
-                        break
-                if not found:
-                    print('Error in Perfect Match: impossible result.\n')
+            # We update the number of common flatbed 53
+            param.update_flatbed_53()
 
-            for wish in tempoOnLoad:  # If it is not on loads, give back inv
-                if wish.QUANTITY > 0:
-                    for inv in wish.INV_ITEMS:
-                        inv.QUANTITY += 1
-                    wish.INV_ITEMS = []
+            # Choice the wish items to put on loads
+            link_load_to_wishes(result, temporary_on_load, param)
+
+            # Store unallocated units in inv pool
+            throw_back_to_pool(temporary_on_load)
 
 
 def loadbuilder_input_dataframe(data):
@@ -549,6 +629,37 @@ def loadbuilder_input_dataframe(data):
     input_frame = input_frame.reset_index()
 
     return input_frame
+
+
+def link_load_to_wishes(loadbuilder_output, available_wishes, p2p):
+    """
+    Choose which wishes to link with the load based on selected crates and priority order
+    :param loadbuilder_output: LoadBuilder output (list of tuples with size_code and crate type)
+    :param available_wishes: List of wishes that were temporary assigned to the load
+    :param p2p : plant to plant for which we built the load (object of class Parameters)
+    """
+    for model, crate_type in loadbuilder_output:
+        found = False
+        for wish in available_wishes:
+            if wish.SIZE_DIMENSIONS == model and wish.QUANTITY > 0 and crate_type == wish.CRATE_TYPE:
+                wish.QUANTITY = 0
+                found = True
+                p2p.AssignedWish.append(wish)
+                break
+        if not found:
+            print('Error in Perfect Match: impossible result.\n')
+
+
+def throw_back_to_pool(wishes):
+    """
+    Get inventory back to inventory pool if it wasn't used in the current load
+    :param wishes: list of wish that weren't fulfilled
+    """
+    for wish in wishes:
+        if wish.QUANTITY > 0:
+            for inv in wish.INV_ITEMS:
+                inv.QUANTITY += 1
+            wish.INV_ITEMS = []
 
 
 def EquivalentPlantFrom(Point1, Point2):

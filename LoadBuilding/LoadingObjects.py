@@ -5,15 +5,13 @@ Created by Nicolas Raymond on 2019-05-31.
 This python file provides all classes of object used during the loading process
 (Crate, Stack, Warehouse, Trailer, CratesManager)
 
-Last update : 2019-10-31
-By : Nicolas Raymond
-
 """
 
 import numpy as np
 import matplotlib.pyplot as plt
 from matplotlib.path import Path
 import matplotlib.patches as patches
+
 
 class Crate:
 
@@ -227,7 +225,8 @@ class Trailer:
         """
 
         for stack in self.load:
-            unused_crates_list += stack.models
+            for model in stack.models:
+                unused_crates_list.append((model, self.crate_type))
 
         self.load.clear()
 
@@ -330,15 +329,17 @@ class Warehouse:
         """
         self.stacks_to_ship.sort(key=lambda s: (s.average_ranking, -1*s.volume))
 
-    def save_unused_crates(self, unused_crates_list):
+    def save_unused_crates(self, unused_crates_list, crate_type):
 
         """
         Saves unused model names in the list indicated as parameter
 
         :param unused_crates_list: list of model names
+        :param crate_type : one type among 'W' or 'M'
         """
         for stack in self.stacks_to_ship:
-            unused_crates_list += stack.models
+            for model in stack.models:
+                unused_crates_list.append((model, crate_type))
 
         self.stacks_to_ship.clear()
 

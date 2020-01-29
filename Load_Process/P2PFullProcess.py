@@ -25,6 +25,7 @@ import os
 # [Business_Planning].[dbo].[OTD_1_P2P_F_INVENTORY] : Get data
 # OTD_1_P2P_D_INCLUDED_INVENTORY : Get data
 # OTD_1_P2P_F_HISTORICAL : Send data
+# OTD_1_P2P_F_TRUCK_PARAMETERS : Get data
 
 # Folder where the excel workbook is saved
 saveFolder = 'S:\Shared\Business_Planning\Personal\Raymond\P2P\\'
@@ -39,12 +40,14 @@ dest_filename = 'P2P_Summary_'+dayToday  # Name of excel file with today's date
 
 
 def p2p_full_process():
+
     """
     Executes P2P full process
 
     :return: summary of the full process in at the 'saveFolder' directory
 
     """
+
     if not AutomaticRun:
         if not OpenParameters():  # If user cancel request
             sys.exit()
@@ -63,68 +66,32 @@ def p2p_full_process():
         try:
             downloaded = True
 
-            ####################################################################################
-            #                     Email address Query
-            ####################################################################################
-
+            # Get email addresses
             emails_list = get_emails_list('P2P')
 
-            ####################################################################################
-            #                     Parameters Query
-            ####################################################################################
+            # Get plant to plant (parameters)
+            p2ps_list, p2p_connection = get_parameter_grid()
 
-            DATAParams, param_connection = get_parameter_grid()
+            # Get plant to plant orders in which they should be written in the output
+            p2ps_order_list = get_p2p_order(p2p_connection)
 
-            ####################################################################################
-            #                     Parameters P2P ORDER (for excel sheet order)
-            ####################################################################################
+            # Get the wishlist
+            wishlist = get_wish_list()
 
-            p2p_order_query = """ SELECT distinct  [POINT_FROM],[POINT_TO]
-              FROM [Business_Planning].[dbo].[OTD_1_P2P_F_PARAMETERS]
-              where IMPORT_DATE = (select max(IMPORT_DATE) from [Business_Planning].[dbo].[OTD_1_P2P_F_PARAMETERS])
-              and SKIP = 0
-              order by [POINT_FROM],[POINT_TO]
-            """
-            # GET SQL DATA
-            P2POrder = param_connection.GetSQLData(p2p_order_query)
+            # Get the inventory
+            inventory = get_inventory_and_qa()
 
-            ####################################################################################
-            #                     WishList recuperation
-            ####################################################################################
-
-            DATAWishList = get_wish_list()
-
-            ####################################################################################
-            #                     Inventory recuperation
-            ####################################################################################
-
-            DATAINV = get_inventory_and_qa()
-
-            ####################################################################################
-            #                     Nested Shipping_point recuperation
-            ####################################################################################
-
+            # We get the nested shipping points
             global DATAInclude
             get_nested_source_points(DATAInclude)
 
-            ####################################################################################
             #  Look if all point_from + shipping_point are in parameters
-            ####################################################################################
+            missing_p2ps_list = get_missing_p2p()
 
-            SQLMissing = SQLConnection('CAVLSQLPD2\pbi2', 'Business_Planning', 'OTD_1_P2P_F_PRIORITY', headers='')
-            QueryMissing = """SELECT DISTINCT [POINT_FROM]
-                  ,[SHIPPING_POINT]
-              FROM [Business_Planning].[dbo].[OTD_1_P2P_F_PRIORITY_WITHOUT_INVENTORY] 
-              where CONCAT(POINT_FROM,SHIPPING_POINT) not in (
-                select distinct CONCAT( [POINT_FROM],[POINT_TO])
-                FROM [Business_Planning].[dbo].[OTD_1_P2P_F_PARAMETERS] where IMPORT_DATE = (select max(IMPORT_DATE) from [Business_Planning].[dbo].[OTD_1_P2P_F_PARAMETERS]) )
-                and [POINT_FROM] <>[SHIPPING_POINT] 
-            """
-            DATAMissing = SQLMissing.GetSQLData(QueryMissing)
-
-        except:
+        except pyodbc.Error as err:
             downloaded = False
-            print('SQL Query failed')
+            sql_state = err.args[1]
+            print('SQL Query failed :', sql_state)
 
     # If SQL Queries failed
     if not downloaded:
@@ -138,8 +105,8 @@ def p2p_full_process():
 
     # If there are missing P2P in parameters table
     if not AutomaticRun:
-        if DATAMissing:
-            if not MissingP2PBox(DATAMissing):
+        if missing_p2ps_list:
+            if not MissingP2PBox(missing_p2ps_list):
                 sys.exit()
 
     timeSinceLastCall('', False)
@@ -186,13 +153,13 @@ def p2p_full_process():
     ####################################################################################################################
 
     # We initialize a list that will contain all wish approved
-    ListApprovedWish = find_perfect_match(DATAWishList, DATAINV, DATAParams)
+    approved_wishes = find_perfect_match(wishlist, inventory, p2ps_list)
 
     ####################################################################################################################
     #                                                Create Loads
     ####################################################################################################################
 
-    for param in DATAParams:  # for all P2P in parameters
+    for param in p2ps_list:  # for all P2P in parameters
 
         # Initialization of empty list
         temporary_on_load = []  # List to remember the INVobjs that will be sent to the LoadBuilder
@@ -202,7 +169,7 @@ def p2p_full_process():
         ranking = {}
 
         # We loop through our wishes list
-        for wish in ListApprovedWish:
+        for wish in approved_wishes:
 
             # If the wish is not fulfilled and his POINT FROM and POINT TO are corresponding with the param (p2p)
             if wish.QUANTITY > 0 and wish.POINT_FROM == param.POINT_FROM and wish.SHIPPING_POINT == param.POINT_TO:
@@ -222,42 +189,32 @@ def p2p_full_process():
         # Construction of the data frame which we'll send to the LoadBuilder of our parameters object (p2p)
         input_dataframe = loadbuilder_input_dataframe(loadbuilder_input)
 
+        # We update the trailers dataframe of the LoadBuild associated to the p2p
+        param.update_load_builder_trailers_data()
+
         # Create loads
         result = param.LoadBuilder.build(input_dataframe, param.LOADMAX, ranking=ranking, plot_load_done=printLoads)
 
-        # Choose which wish to send in load based on selected crates and priority order
-        for model in result:
-            found = False
-            for OnLoad in temporary_on_load:
-                if OnLoad.SIZE_DIMENSIONS == model and OnLoad.QUANTITY > 0:
-                    OnLoad.QUANTITY = 0
-                    found = True
-                    param.AssignedWish.append(OnLoad)
-                    break
-            if not found:  # If one returned crate doesn't match data
-                print('Error in Perfect Match: impossible result.\n')
+        # We update the number of common flatbed 53
+        param.update_flatbed_53()
 
-    ####################################################################################################################
-    #                                 Store unallocated units in inv pool
-    ####################################################################################################################
-    # If a wish item is not on a load, we give back his reserved inv
-    for wish in ListApprovedWish:
-        if wish.QUANTITY > 0:
-            for inv in wish.INV_ITEMS:
-                inv.QUANTITY += 1
-            wish.INV_ITEMS = []
+        # Choose which wish to send in load based on selected crates and priority order
+        link_load_to_wishes(result, temporary_on_load, param)
+
+    # Store unallocated units in inv pool
+    throw_back_to_pool(approved_wishes)
 
     ####################################################################################################################
     #                             Try to Make the minimum number of loads for each P2P
     ####################################################################################################################
 
-    satisfy_max_or_min(DATAWishList, DATAINV, DATAParams, print_loads=printLoads)
+    satisfy_max_or_min(wishlist, inventory, p2ps_list, print_loads=printLoads)
 
     ####################################################################################################################
     #                             Try to Make the maximum number of loads for each P2P
     ####################################################################################################################
 
-    satisfy_max_or_min(DATAWishList, DATAINV, DATAParams, satisfy_min=False, print_loads=printLoads)
+    satisfy_max_or_min(wishlist, inventory, p2ps_list, satisfy_min=False, print_loads=printLoads)
 
     ####################################################################################################################
     #                                           Writing of the results
@@ -265,7 +222,7 @@ def p2p_full_process():
 
     # We display loads create in each p2p for our own purpose
     print('\n\nResults')
-    for param in DATAParams:
+    for param in p2ps_list:
         print('\n\n')
         print(param.POINT_FROM, ' _ ', param.POINT_TO)
         print(len(param.LoadBuilder))
@@ -275,92 +232,133 @@ def p2p_full_process():
     # Initialization of a list to keep all data needed for the "APPROVED" summary version ouptput for SAP
     sap_input_data = []
 
-    lineIndex = 2  # To display a warning if number of loads is lower than parameters min
+    line_index = 2  # To display a warning if number of loads is lower than parameters min
 
-    # SQL to send DATA
-    headersResult = 'POINT_FROM,SHIPPING_POINT,LOAD_NUMBER,MATERIAL_NUMBER,QUANTITY,SIZE_DIMENSIONS,' \
-                    'SALES_DOCUMENT_NUMBER,SALES_ITEM_NUMBER,SOLD_TO_NUMBER,IMPORT_DATE'
+    # We initialize the connection the the SQL table that will receive the results
+    table_header = 'POINT_FROM,SHIPPING_POINT,LOAD_NUMBER,MATERIAL_NUMBER,QUANTITY,SIZE_DIMENSIONS,' \
+                   'SALES_DOCUMENT_NUMBER,SALES_ITEM_NUMBER,SOLD_TO_NUMBER,IMPORT_DATE'
 
-    SQLResult = SQLConnection('CAVLSQLPD2\pbi2', 'Business_Planning', 'OTD_1_P2P_F_HISTORICAL', headers=headersResult)
+    connection = SQLConnection('CAVLSQLPD2\pbi2', 'Business_Planning', 'OTD_1_P2P_F_HISTORICAL', headers=table_header)
 
-    for order in P2POrder:  # To send data in excel workbook, order by : -point_from , -point_to
-        for param in DATAParams:
-            if param.POINT_FROM == order[0] and param.POINT_TO == order[1]:
+    # We start to write the results
+    for order in p2ps_order_list:  # To send data in excel workbook, order by : -point_from , -point_to
 
-                LoadIteration = 0  # Number of each load (reset for each plant to plant)
+        # For the p2p that match with the order
+        for param in [p2p for p2p in p2ps_list if (p2p.POINT_FROM == order[0] and p2p.POINT_TO == order[1])]:
 
-                # section for summary worksheet
-                summary_ws.append([param.POINT_FROM, param.POINT_TO, len(param.LoadBuilder)])
-                if len(param.LoadBuilder) < param.LOADMIN:
-                    summary_ws.cell(row=lineIndex, column=3).fill = Warning_fill
-                lineIndex += 1
-                # Approved worksheet
-                loads = param.LoadBuilder.get_loading_summary()
-                if len(param.LoadBuilder) > 0:  # If some loads were created
-                    for line in range(len(loads)):
-                        for Iteration in range(int(loads["QTY"][line])):  # For every load of this kind
-                            LoadIteration += 1
-                            for column in loads.columns[4::]:  # loop through size_dimensions
-                                if loads[column][line] != '':  # if there is some quantity
-                                    for QUANTITY in range(int(loads[column][line])):  # For every unit of this crate on the load
-                                        for wish in param.AssignedWish:  # we associate a wish unit to this crate, then we save it
-                                            if not wish.Finished and wish.SIZE_DIMENSIONS == column:
-                                                wish.Finished = True
-                                                valuesSQL = [(param.POINT_FROM, param.POINT_TO, LoadIteration,
-                                                              wish.MATERIAL_NUMBER, wish.ORIGINAL_QUANTITY,
-                                                              column, wish.SALES_DOCUMENT_NUMBER,
-                                                              wish.SALES_ITEM_NUMBER,
-                                                              wish.SOLD_TO_NUMBER, dayTodayComplete)]
+            load_number = 0  # Number of each load (reset for each plant to plant)
 
-                                                approved_ws.append([param.POINT_FROM, param.POINT_TO, LoadIteration,
-                                                                   loads['TRAILER'][line], loads['LOAD LENGTH'][line],
-                                                                   wish.MATERIAL_NUMBER, wish.ORIGINAL_QUANTITY,
-                                                                   column, wish.SALES_DOCUMENT_NUMBER,
-                                                                   wish.SALES_ITEM_NUMBER, wish.SOLD_TO_NUMBER])
+            # We write a line in the summary worksheet
+            summary_ws.append([param.POINT_FROM, param.POINT_TO, len(param.LoadBuilder)])
 
-                                                sap_input_data.append([param.POINT_FROM, param.POINT_TO,
-                                                                                 wish.MATERIAL_NUMBER, wish.ORIGINAL_QUANTITY])
+            # If the minimum is not fulfilled we warn the user with a different background color in the output
+            if len(param.LoadBuilder) < param.LOADMIN:
+                summary_ws.cell(row=line_index, column=3).fill = Warning_fill
 
+            line_index += 1
 
-                                                SQLResult.sendToSQL(valuesSQL)
-                                                break
+            # We retrieve the loading summary to have the data needed to write "APPROVED" worksheet
+            loads = param.LoadBuilder.get_loading_summary()
 
-                break
+            # If some loads were created
+            if len(param.LoadBuilder) > 0:
 
-    # Assign left inv to wishList, to look for booked but unused
-    for wish in DATAWishList:
+                # For every different kind of load built (each are represent by a different line in the df)
+                for line in range(len(loads)):
+
+                    # For every load of this kind
+                    for i in range(int(loads["QTY"][line])):
+
+                        load_number += 1
+
+                        # For every different size_code on this load
+                        for column in [col for col in loads.columns[4::] if loads[col][line] != '']:
+
+                            # For every unit of this crate on the load
+                            for QUANTITY in range(int(loads[column][line])):
+
+                                # We associate a wish unit to this crate, then we save it
+                                for wish in param.AssignedWish:
+
+                                    # If the p2p wish is not fulfilled yet
+                                    if not wish.Finished and wish.SIZE_DIMENSIONS == column:
+
+                                        # We change the status of the wish
+                                        wish.Finished = True
+
+                                        # We create the line of values to send to sql
+                                        sql_line = [(param.POINT_FROM, param.POINT_TO, load_number,
+                                                     wish.MATERIAL_NUMBER, wish.ORIGINAL_QUANTITY,
+                                                     column, wish.SALES_DOCUMENT_NUMBER,
+                                                     wish.SALES_ITEM_NUMBER,
+                                                     wish.SOLD_TO_NUMBER, dayTodayComplete)]
+
+                                        # We send a line of values to the "APPROVED" worksheet
+                                        approved_ws.append([param.POINT_FROM, param.POINT_TO, load_number,
+                                                           loads['TRAILER'][line], loads['LOAD LENGTH'][line],
+                                                           wish.MATERIAL_NUMBER, wish.ORIGINAL_QUANTITY,
+                                                           column, wish.SALES_DOCUMENT_NUMBER,
+                                                           wish.SALES_ITEM_NUMBER, wish.SOLD_TO_NUMBER])
+
+                                        # We append a line of data for the "SAP INPUT" worksheet to the list concerned
+                                        sap_input_data.append([param.POINT_FROM, param.POINT_TO,
+                                                               wish.MATERIAL_NUMBER, wish.ORIGINAL_QUANTITY])
+
+                                        # We send the sql line to the table concerned
+                                        connection.sendToSQL(sql_line)
+
+                                        # We use a break statement to avoid looking further in the list of wishes
+                                        break
+
+            # We use a break statement ensure that we're not looking further in p2ps list for nothing
+            break
+
+    # Assign left inventory to wishList, to look for booked but unused
+    for wish in wishlist:
+
+        # We look for any conflict
         if wish.QUANTITY == 0 and not wish.Finished:
             print('Error with wish: ', wish.lineToXlsx())
+
+        # If the wish was not fulfilled
         if wish.QUANTITY > 0:
+
+            # We set a position index to avoid going through all the inventory every time
             position = 0
-            for Iteration in range(wish.QUANTITY):
-                for It, inv in enumerate(DATAINV[position::]):
+
+            # For every unit need to fulfill the wish
+            for i in range(wish.QUANTITY):
+
+                # For index and INVobj in the inventory from position index
+                for j, inv in enumerate(inventory[position::]):
                     if EquivalentPlantFrom(inv.POINT, wish.POINT_FROM) and \
                             wish.MATERIAL_NUMBER == inv.MATERIAL_NUMBER and inv.QUANTITY - inv.unused > 0:
-                        if inv.Future:  # QA of tomorrow, need to look if load is for today or later
+
+                        # QA of tomorrow, need to look if load is for today or later
+                        if inv.Future:
                             InvToTake = False
-                            for param in DATAParams:
+                            for param in p2ps_list:
                                 if wish.POINT_FROM == param.POINT_FROM and wish.SHIPPING_POINT == param.POINT_TO\
                                         and param.days_to > 0:
                                     InvToTake = True
                                     break
                             if InvToTake:
                                 inv.unused += 1
-                                position += It
+                                position += j
                                 break  # no need to look further
                         else:
                             inv.unused += 1
-                            position += It
+                            position += j
                             break  # no need to look further
 
-    # We send inv in unused_ws and unbooked_ws
-    for inv in DATAINV:
+    # We send inventory in unused_ws and unbooked_ws
+    for inv in inventory:
         if inv.unused > 0:
             unused_ws.append([inv.POINT, inv.MATERIAL_NUMBER, inv.unused])
         if inv.QUANTITY - inv.unused > 0:
             unbooked_ws.append([inv.POINT, inv.MATERIAL_NUMBER, inv.QUANTITY-inv.unused])
 
-    # We group by the summarized approved data and send it in the output
+    # We group by the SAP input data and send it in the output
     sap_input_frame = pd.DataFrame(sap_input_data, columns=sap_input_columns)
     sap_input_frame = sap_input_frame.groupby([column for column in sap_input_columns if column != 'QUANTITY']).sum()
     sap_input_frame = sap_input_frame.reset_index()
@@ -388,3 +386,7 @@ def p2p_full_process():
 
     # We open excel workbook
     os.system('start "excel" "'+str(reference[0])+'"')
+
+
+if __name__ == '__main__':
+    p2p_full_process()
