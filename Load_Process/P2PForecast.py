@@ -194,17 +194,18 @@ def forecast():
         sys.exit()
 
     ####################################################################################################################
-    #                                                 SQL tables declaration
+    #                                     SQL tables declaration and cleaning
     ####################################################################################################################
     headerLoads = 'POINT_FROM,SHIPPING_POINT,QUANTITY,DATE,IMPORT_DATE,IS_ADHOC'
     SQLLoads = SQLConnection('CAVLSQLPD2\pbi2', 'Business_Planning', 'OTD_1_P2P_F_FORECAST_LOADS', headers=headerLoads)
+    SQLLoads.deleteFromSQL()
 
     headerPRIORITY = 'SALES_DOCUMENT_NUMBER,SALES_ITEM_NUMBER,SOLD_TO_NUMBER,POINT_FROM,SHIPPING_POINT,DIVISION,'\
                      'MATERIAL_NUMBER,SIZE_DIMENSIONS,LENGTH,WIDTH,HEIGHT,STACKABILITY,OVERHANG,QUANTITY,' \
                      'PRIORITY_RANK,X_IF_MANDATORY,PROJECTED_DATE,IMPORT_DATE,IS_ADHOC'
-
     SQLPRIORITY = SQLConnection('CAVLSQLPD2\pbi2', 'Business_Planning', 'OTD_1_P2P_F_FORECAST_PRIORITY',
                                 headers=headerPRIORITY)
+    SQLPRIORITY.deleteFromSQL()
 
     ####################################################################################################################
     #                                           Excel Workbook declaration
