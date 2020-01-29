@@ -113,21 +113,23 @@ class Parameters:
         self.PRIORITY = priority
         self.days_to = days_to
         self.AssignedWish = []
+        self.DRYBOX = drybox
 
-        # LoadBuilder initialization
+        # Trailer quantities initialization
         if self.POINT_FROM in shared_flatbed_53['POINT_FROM']:
-            self.LoadBuilder = self.new_LoadBuilder({'DRYBOX': drybox,
-                                                     'FLATBED_48': max(flatbed - shared_flatbed_53['QTY'], 0),
-                                                     'FLATBED_53': min(flatbed, shared_flatbed_53['QTY'])})
+            self.FLATBED_48 = max(flatbed - shared_flatbed_53['QTY'], 0)
+            self.FLATBED_53 = min(flatbed, shared_flatbed_53['QTY'])
         else:
-            self.LoadBuilder = self.new_LoadBuilder({'DRYBOX': drybox, 'FLATBED_48': flatbed})
+            self.FLATBED_48 = flatbed
+            self.FLATBED_53 = 0
 
-    @staticmethod
-    def new_LoadBuilder(dict_of_qty):
+        self.LoadBuilder = self.new_LoadBuilder()
+
+    def new_LoadBuilder(self):
         """"
-        Initializes the loadBuilder
-        :param dict_of_qty: dictionary of quantities related to truck category
+        Reset the loadBuilder
         """
+        dict_of_qty = {'DRYBOX': self.DRYBOX, 'FLATBED_48': self.FLATBED_48, 'FLATBED_53': self.FLATBED_53}
         categories, quantities = [], []
         for category, qty in dict_of_qty.items():
             if qty > 0:
