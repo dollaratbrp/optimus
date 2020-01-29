@@ -254,6 +254,14 @@ def get_parameter_grid():
     return [Parameters(*line) for line in data], connection
 
 
+def reset_flatbed_53():
+    """
+    Resets the number of flatbed 53 available
+    """
+    global shared_flatbed_53
+    shared_flatbed_53 = {'QTY': 2, 'POINT_FROM': ['4100', '4125']}
+
+
 def get_wish_list(forecast=False):
 
     """
