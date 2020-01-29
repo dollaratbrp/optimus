@@ -229,8 +229,6 @@ class LoadBuilder:
         # While we have not reached the lower bound of percentage covered and there's is still item available
         while lower_bound >= self.plc_lb and (len(self.warehouse) != 0 or len(self.metal_warehouse) != 0):
 
-            print('LB :', lower_bound, '\n')
-
             # We initialize a variable that will contain the name of the last category that didn't satisfied lb
             last_category = ''
 
@@ -344,8 +342,6 @@ class LoadBuilder:
         """
         # We sort trailer by the area of their surface
         potential_trailers.sort(key=lambda t: t.score, reverse=True)
-
-        print('SCORE :', [t.score for t in potential_trailers])
 
         for i in range(1, len(potential_trailers)):
             potential_trailers[i].reset()

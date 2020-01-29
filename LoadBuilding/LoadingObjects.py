@@ -204,8 +204,6 @@ class Trailer:
         :param warehouse: Warehouse from which we have to take the stacks
         """
 
-        print('CHOSEN ONE :', self.category)
-
         # We initialize a list that will contain stacks stored in the trailer
         stacks_used = []
 
