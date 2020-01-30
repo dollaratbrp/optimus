@@ -36,8 +36,8 @@ class LoadBuilder:
         self.max_trailer_length = maximum_trailer_length  # In inches
         self.plc_lb = plc_lb
         self.model_names = []
-        self.warehouse, self.remaining_crates = LoadObj.Warehouse(), LoadObj.CratesManager('W')
-        self.metal_warehouse, self.metal_remaining_crates = LoadObj.Warehouse(), LoadObj.CratesManager('M')
+        self.warehouse, self.remaining_crates = LoadObj.Warehouse(), LoadObj.CratesManager()
+        self.metal_warehouse, self.metal_remaining_crates = LoadObj.Warehouse(), LoadObj.CratesManager()
         self.trailers, self.trailers_done, self.unused_models = [], [], []
         self.all_size_codes = set()
 
@@ -99,14 +99,8 @@ class LoadBuilder:
                 # be convert as 0. This way, no individual crate of SP2 will be build if there's less than 2 SP2 left
                 nbr_individual_crates = int((qty - (items_per_stack * nbr_stacks)) / nbr_per_crate)
 
-                stacks_component = [max(models_data['LENGTH'][i], models_data['WIDTH'][i]),
-                                    min(models_data['WIDTH'][i], models_data['LENGTH'][i]),
-                                    models_data['HEIGHT'][i] * stack_limit,
-                                    [models_data['MODEL'][i]] * items_per_stack, overhang]
-
                 crates_component = [[models_data['MODEL'][i]] * nbr_per_crate,
-                                    max(models_data['LENGTH'][i],
-                                    models_data['WIDTH'][i]),
+                                    max(models_data['LENGTH'][i], models_data['WIDTH'][i]),
                                     min(models_data['WIDTH'][i], models_data['LENGTH'][i]),
                                     models_data['HEIGHT'][i],
                                     stack_limit, overhang]
@@ -116,7 +110,7 @@ class LoadBuilder:
                     warehouse = self.warehouse
                     crates_manager = self.remaining_crates
 
-                elif crate_type == 'M':
+                else:  # elif crate_type == 'M'
                     warehouse = self.metal_warehouse
                     crates_manager = self.metal_remaining_crates
 
@@ -127,26 +121,25 @@ class LoadBuilder:
 
                 for j in range(nbr_stacks):
 
-                    # We compute the number of mandatory crates in the stack
-                    mandatory_crates = min(total_of_mandatory, stack_limit)
+                    # We initialize a list that will contain all the crates needed to build the stack
+                    stack_crates = []
 
-                    # We add the missing number of mandatory crates and avg ranking to the stacks component list
-                    temp_components = dc(stacks_component) + [mandatory_crates] + [np.mean(r[index:(index+stack_limit)])]
+                    for k in range(stack_limit):
+                        crate_temp_components = dc(crates_component) + [total_of_mandatory > 0] + [r[index], crate_type]
+                        total_of_mandatory -= 1
+                        index += 1
+                        stack_crates.append(LoadObj.Crate(*crate_temp_components))
 
                     # We build the stack and send it into the warehouse
-                    warehouse.add_stack(LoadObj.Stack(*temp_components))
-
-                    # We update the total number of mandatory left and move our index
-                    total_of_mandatory -= mandatory_crates
-                    index += stack_limit
+                    warehouse.add_stack(LoadObj.Stack(stack_crates))
 
                 for j in range(nbr_individual_crates):
 
                     # We add the missing number of mandatory crates to the stacks component list
-                    temp_components = dc(crates_component) + [total_of_mandatory > 0] + [r[index]]
+                    crate_temp_components = dc(crates_component) + [total_of_mandatory > 0] + [r[index], crate_type]
 
                     # We build the crate and send it to the crates manager
-                    crates_manager.add_crate(LoadObj.Crate(*temp_components))
+                    crates_manager.add_crate(LoadObj.Crate(*crate_temp_components))
 
                     # We update the total number of mandatory left and increment the index
                     total_of_mandatory -= 1
@@ -329,8 +322,8 @@ class LoadBuilder:
         self.__remove_leftover_trailers()
 
         # We save unused models from both warehouses
-        self.warehouse.save_unused_crates(self.unused_models, 'W')
-        self.metal_warehouse.save_unused_crates(self.unused_models, 'M')
+        self.warehouse.save_unused_crates(self.unused_models)
+        self.metal_warehouse.save_unused_crates(self.unused_models)
 
     @staticmethod
     def __select_best_trailer(potential_trailers):
@@ -749,6 +742,7 @@ class LoadBuilder:
         if plot_load_done:
             for trailer in self.trailers:
                 trailer.plot_load()
+                print([stack.models for stack in trailer.load])
 
         # We update all data
         self.__update_trailers_data()

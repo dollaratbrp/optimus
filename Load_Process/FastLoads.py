@@ -154,7 +154,7 @@ class FastLoadsBox(VerticalScrolledFrame):
         table_range = ws._tables[0].ref
 
         # We save the data in a data frame
-        skus_n_qty = build_dataframe(ws[table_range])
+        skus_n_qty = build_dataframe(ws[table_range], fast_loads_input=True)
 
         return skus_n_qty
 
@@ -174,7 +174,6 @@ class FastLoadsBox(VerticalScrolledFrame):
             # (df2) Dataframe needed by the load builder
             complete_dataframe = self.get_complete_dataframe(skus_list, qty_list, str(self.crate_type.get()))
             df1, df2 = self.split_dataframes(complete_dataframe)
-            print(df2)
 
             # Initialization of the tracker (size_code dictionaries with SKUsContainer as value)
             self.tracker = self.tracker_initialization(df1)
@@ -340,7 +339,6 @@ class FastLoadsBox(VerticalScrolledFrame):
 
         # We shape data as a dynamic table
         create_excel_table(ws, "UNUSED", columns_title)
-
 
     @staticmethod
     def positive(a):
@@ -515,12 +513,13 @@ def open_fastloads_box():
     root.mainloop()
 
 
-def build_dataframe(ws):
+def build_dataframe(ws, fast_loads_input=False):
 
     """
     Build a data frame (used to store models' data)
 
     :param ws: Worksheet or part of the worksheet use to build de pandas dataframe
+    :param fast_loads_input: bool indicating if the dataframe is built for the fast loads
     :return: Pandas dataframe
 
     """
@@ -535,8 +534,10 @@ def build_dataframe(ws):
             data_rows.append(data_cols)
 
     df = pd.DataFrame(data=data_rows[1:], columns=data_rows[0])
-    df = df.groupby(['SKU']).sum().reset_index()
-    df = df[data_rows[0]]
+
+    if fast_loads_input:
+        df = df.groupby(['SKU']).sum().reset_index()
+        df = df[data_rows[0]]
 
     return df
 
