@@ -119,6 +119,20 @@ class Stack:
 
         return False
 
+    def get_top_crate(self):
+
+        """
+        Returns the crate at the top of the stack
+        """
+        return self.crates[-1]
+
+    def add_crate(self, crate):
+
+        """
+        Adds a crate on the top of the stack and update all his attribute
+        """
+        self.__init__(crates=self.crates + [crate])
+
 
 class Trailer:
 
@@ -515,15 +529,18 @@ class CratesManager:
 
         :param indexes: list of indexes
         :param option: indicates on which list to remove crates
+
         """
+        # We sort the indexes in decreasing order to avoid conflict when deleting crates
+        indexes.sort(reverse=True)
 
         if option == 1:
             for i in indexes:
-                self.crates.pop(0)
+                self.crates.pop(i)
 
         elif option == 2:
             for i in indexes:
-                self.stand_by_crates.pop(0)
+                self.stand_by_crates.pop(i)
 
     def create_stacks(self, warehouse):
 
@@ -567,7 +584,7 @@ class CratesManager:
             if stacking_available:
 
                 # We save indexes of stacks that we will use
-                index_list = range(0, crates_needed)
+                index_list = list(range(0, crates_needed))
 
                 # We save the crates that we will use
                 crates_list = [self.crates[i] for i in index_list]
@@ -638,4 +655,41 @@ class CratesManager:
             warehouse.add_stack(Stack(crates_list))
 
             # We remove the crates from the stand by crates list
-            self.remove_crates(range(len(crates_list)), option=2)
+            self.remove_crates(list(range(len(crates_list))), option=2)
+
+    def complete_trailers_stack(self, already_packed_trailers):
+        """
+        Before creating any stacks with the individual leftover crates we look through the list of trailers already
+        packed if each crate could fit on an incomplete stack
+
+        :param already_packed_trailers: lis of Trailers object that we're packed earlier
+        """
+
+        # We initialize a list for the index of the crates that will be used
+        used_crates = []
+
+        # For all our individual crates
+        for index, crate in enumerate(self.crates):
+
+            # We look through trailers which crates type match to see if we could place the crate on an incomplete stack
+            for t in [trailer for trailer in already_packed_trailers if trailer.crate_type == crate.type]:
+
+                # We look through all incomplete stack that are
+                for s in [stack for stack in t.load if not stack.completed]:
+
+                    # If we can stack the actual crate on the current stack
+                    if s.get_top_crate().stackable(crate):
+
+                        # We add the crate to the stack and save his index in the list
+                        s.add_crate(crate)
+                        used_crates.append(index)
+                        print("EFFECTIVE STACK COMPLETION!!", '\n')
+
+        # We delete the crates used from our list of crates
+        self.remove_crates(used_crates)
+
+
+
+
+
+
