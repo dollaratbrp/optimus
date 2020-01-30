@@ -14,6 +14,8 @@ from InputOutput import worksheet_formatting, create_excel_table
 from ParametersBox import change_emails_list, set_project_name, VerticalScrolledFrame
 from datetime import datetime
 
+plot_loads = False
+
 workbook_path = 'U:\LoadAutomation\Optimus\FastLoadsSKUs.xlsx'
 
 saving_path = 'U:\LoadAutomation\Optimus\\'
@@ -172,6 +174,7 @@ class FastLoadsBox(VerticalScrolledFrame):
             # (df2) Dataframe needed by the load builder
             complete_dataframe = self.get_complete_dataframe(skus_list, qty_list, str(self.crate_type.get()))
             df1, df2 = self.split_dataframes(complete_dataframe)
+            print(df2)
 
             # Initialization of the tracker (size_code dictionaries with SKUsContainer as value)
             self.tracker = self.tracker_initialization(df1)
@@ -188,7 +191,7 @@ class FastLoadsBox(VerticalScrolledFrame):
 
             # Closing of the GUI and construction of loads
             self.master.destroy()
-            size_code_used = self.LoadBuilder.build(models_data=df2, max_load=max_loads, plot_load_done=False)
+            size_code_used = self.LoadBuilder.build(models_data=df2, max_load=max_loads, plot_load_done=plot_loads)
 
             # We save all the results in a workbook at the path mentioned
             reference = self.write_results(df2)
@@ -531,5 +534,9 @@ def build_dataframe(ws):
         if len(data_cols) == len(row):
             data_rows.append(data_cols)
 
-    return pd.DataFrame(data=data_rows[1:], columns=data_rows[0])
+    df = pd.DataFrame(data=data_rows[1:], columns=data_rows[0])
+    df = df.groupby(['SKU']).sum().reset_index()
+    df = df[data_rows[0]]
+
+    return df
 

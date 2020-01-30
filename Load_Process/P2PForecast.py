@@ -75,9 +75,22 @@ def forecast():
             downloaded = True
 
             ####################################################################################
+            #                      Get details on point from and shipping point
+            ####################################################################################
+            header = 'SHPPING_PLANT,SHIPPING_POINT,DESCRIPTION,SOLD_TO_NUMBER'
+            shipping_points_connection = SQLConnection('CAVLSQLPD2\pbi2', 'Business_Planning',
+                                                       'BP_CONFIG_SHIPPING_PLANT_TO_SHIPPING_POINT', headers=header)
+            query = """SELECT [SHIPPING_POINT], [DESCRIPTION]
+                       FROM [Business_Planning].[dbo].[BP_CONFIG_SHIPPING_PLANT_TO_SHIPPING_POINT]
+                    """
+            shipping_points = {}
+            data = shipping_points_connection.GetSQLData(query)
+            for lines in data:
+                shipping_points[lines[0]] = lines[1]
+
+            ####################################################################################
             #                                 Email address Query
             ####################################################################################
-
             EmailList = get_emails_list('FORECAST')
 
             ####################################################################################
@@ -194,17 +207,18 @@ def forecast():
         sys.exit()
 
     ####################################################################################################################
-    #                                                 SQL tables declaration
+    #                                     SQL tables declaration and cleaning
     ####################################################################################################################
     headerLoads = 'POINT_FROM,SHIPPING_POINT,QUANTITY,DATE,IMPORT_DATE,IS_ADHOC'
     SQLLoads = SQLConnection('CAVLSQLPD2\pbi2', 'Business_Planning', 'OTD_1_P2P_F_FORECAST_LOADS', headers=headerLoads)
+    SQLLoads.deleteFromSQL()
 
     headerPRIORITY = 'SALES_DOCUMENT_NUMBER,SALES_ITEM_NUMBER,SOLD_TO_NUMBER,POINT_FROM,SHIPPING_POINT,DIVISION,'\
                      'MATERIAL_NUMBER,SIZE_DIMENSIONS,LENGTH,WIDTH,HEIGHT,STACKABILITY,OVERHANG,QUANTITY,' \
                      'PRIORITY_RANK,X_IF_MANDATORY,PROJECTED_DATE,IMPORT_DATE,IS_ADHOC'
-
     SQLPRIORITY = SQLConnection('CAVLSQLPD2\pbi2', 'Business_Planning', 'OTD_1_P2P_F_FORECAST_PRIORITY',
                                 headers=headerPRIORITY)
+    SQLPRIORITY.deleteFromSQL()
 
     ####################################################################################################################
     #                                           Excel Workbook declaration
@@ -249,7 +263,7 @@ def forecast():
 
     # Initialization of the load bar
     progress = tqdm(total=len(DATADATE), desc='Forecast progress')
-    for date in DATADATE:
+    for date in DATADATE[0:3]:
 
         # We reset the number of shared flatbed_53
         reset_flatbed_53()
@@ -448,8 +462,8 @@ def forecast():
 
             if len(param.LoadBuilder) > 0:
                 consider_date_in_output = True
-                summary_data.append([param.POINT_FROM, param.POINT_TO, len(param.LoadBuilder),
-                                     weekdays(max(0, param.days_to-1), officialDay=date)])
+                summary_data.append([shipping_points[param.POINT_FROM], shipping_points[param.POINT_TO],
+                                     len(param.LoadBuilder), weekdays(max(0, param.days_to-1), officialDay=date)])
 
         # Update progress bar and column counter
         progress.update()

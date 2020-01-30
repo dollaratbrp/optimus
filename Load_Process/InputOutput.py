@@ -267,7 +267,7 @@ class SQLConnection:
         self.cursor = cursor = self.conn.cursor()
         self.headers = headers
 
-    def deleteFromSQL(self, conditions):
+    def deleteFromSQL(self, conditions=''):
         """
         Deletes data from the sql table
         :param conditions: sql condition that indicates data to delete  (Example : NAMEOFCOLUMN < 0)
