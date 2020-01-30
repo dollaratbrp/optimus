@@ -51,6 +51,22 @@ class Crate:
     def volume(self):
         return self.length*self.width*self.height
 
+    def stackable(self, upper_crate):
+        """
+        Looks if the upper stack could fit on the current stack
+
+        :param upper_crate Other crate
+        :return: True or False
+        """
+        if self.type == 'W':
+            if upper_crate.length <= self.length:
+                if self.width - 3 <= upper_crate.width <= self.width:
+                    return True
+
+        else:  # elif type == 'M'
+            if upper_crate.length == self.length and upper_crate.width == self.width:
+                return True
+
 
 class Stack:
 
@@ -68,10 +84,10 @@ class Stack:
         self.length = max([crate.length for crate in crates])
         self.width = max([crate.width for crate in crates])
         self.height = sum([crate.height for crate in crates])
-        self.volume = sum([crate.volume for crate in crates])
+        self.volume = sum([crate.volume() for crate in crates])
         self.crates = crates
         self.crates_type = crates[0].type
-        self.models = sum(crate.model_names for crate in crates)
+        self.models = sum([crate.model_names for crate in crates], [])
         self.overhang = crates[0].overhang  # We look if the bottom crate can overhang
         self.nb_of_mandatory = sum([crate.mandatory for crate in crates])
         self.average_ranking = np.mean([crate.ranking for crate in crates])
@@ -476,11 +492,10 @@ class CratesManager:
     that were not stacked and introduced in the main warehouse at first.
     """
 
-    def __init__(self, crates_type):
+    def __init__(self):
 
         self.crates = []                # List of individual crates (used in create_stacks function)
         self.stand_by_crates = []       # List of individual crates (used in create_incomplete_stacks function)
-        self.crates_type = crates_type  # 'W' for wood, "M" for metal
 
     def add_crate(self, crate):
 
@@ -524,6 +539,9 @@ class CratesManager:
         # Initialization of the number of crates needed to build a complete stack
         crates_needed = self.crates[0].stack_limit
 
+        # Initialization of the base crate on which we want to stack another crate
+        base = self.crates[0]
+
         # While there is enough crates left to build a complete stack with the crate at the beginning of the list
         while len(self.crates) >= crates_needed:
 
@@ -534,17 +552,17 @@ class CratesManager:
             for crate in [self.crates[i] for i in range(1, crates_needed)]:
 
                 # We apply stacking rules of the crates type considered
-                if crate.width != self.crates[0].width:
+                if not base.stackable(crate):
+
                     stacking_available = False
 
                     # We stop the process for this stack to avoid waste of time
                     break
 
-                if self.crates_type == 'M' and crate.length != self.crates[0].length:
-                    stacking_available = False
+                else:  # If we can fit a crate on the base
 
-                    # We stop the process for this stack to avoid waste of time
-                    break
+                    # We update de base crate
+                    base = crate
 
             if stacking_available:
 
@@ -599,14 +617,18 @@ class CratesManager:
             # We initialize a list of crates that will be used to create a stack
             crates_list = [self.stand_by_crates[0]]
 
+            # Initialization of the base crate on which we want to stack another crate
+            base = self.stand_by_crates[0]
+
             # We search in a range limited by the number of crates wanted and the number of crates available
             for crate in [self.stand_by_crates[i] for i in range(1, min(len(self.stand_by_crates), crates_wanted))]:
 
-                if crate.width == self.stand_by_crates[0].width:
-                    if self.crates_type == 'W' or (self.crates_type == 'M' and
-                                                   crate.length == self.stand_by_crates[0].length):
+                # If it's possible to stack the crate on the actual base
+                if base.stackable(crate):
 
-                        crates_list.append(crate)
+                    # We add the crate to the crates list and update the base crate
+                    crates_list.append(crate)
+                    base = crate
 
                 # We stop the process if the next crate can't be on top of the actual one
                 else:
