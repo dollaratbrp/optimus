@@ -14,7 +14,7 @@ from LoadBuilder import LoadBuilder
 from openpyxl import load_workbook
 
 # Import read_and_write
-wd = os.getcwd()
+wd = os.path.dirname(sys.argv[0])
 sys.path.append(wd)
 import Read_And_Write as rw
 
@@ -22,8 +22,7 @@ import Read_And_Write as rw
 def main():
 
     # We get data on models and trailers
-    workbook_path = os.path.join(wd, "Models_and_trailers.xlsx")
-    wb = load_workbook(workbook_path, data_only=True)
+    wb = load_workbook(wd + '\\Models_and_trailers.xlsx', data_only=True)
     ws = wb.active
     models_data = rw.read_models_data(ws)
     trailers_data = rw.read_trailers_data(ws)
@@ -32,35 +31,21 @@ def main():
     # rw.display_df(trailers_data)
 
     # We initialize a dummy load builder to manage plant to plant between Juarez and El Paso
-    lb1 = LoadBuilder('Juarez', 'El Paso', trailers_data)
+    lb1 = LoadBuilder(trailers_data)
 
     # We build loads
-    res = lb1.build(models_data, 10, plot_load_done=False)
-    print(res)
+    res = lb1.build(models_data, 2)
 
-    # We look again at the data frames to see if the were correctly updated
-    # rw.display_df(trailers_data)
+    for trailer in lb1.trailers_done:
+        print([stack.models for stack in trailer.load], '\n')
 
-    # We initialize a dummy load builder to manage plant to plant between Juarez and Juarez 2
-    lb2 = LoadBuilder('Juarez', 'Juarez 2', trailers_data)
+    print(models_data, '\n')
 
-    # We build loads
-    res = lb2.build(models_data, 10, plot_load_done=False)
-    print(res)
-
-    # We look a last time at the data frames to see if the were correctly updated
-    # rw.display_df(trailers_data)
+    res = lb1.build(models_data, 0)
 
     # We look at the loading summaries
     lb1_summary = lb1.get_loading_summary()
-    lb2_summary = lb2.get_loading_summary()
-    rw.display_df(lb1_summary)
-    rw.display_df(lb2_summary)
-
-    # We save the results of loading
-    res_directory = os.path.join(wd, "Results", '')
-    rw.write_summarized_data(lb1_summary, lb1.plant_from, lb1.plant_to, res_directory)
-    rw.write_summarized_data(lb2_summary, lb2.plant_from, lb2.plant_to, res_directory)
+    print(lb1_summary)
 
 
 if __name__ == "__main__":

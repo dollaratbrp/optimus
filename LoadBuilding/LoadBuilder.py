@@ -704,6 +704,17 @@ class LoadBuilder:
 
         return data_frame
 
+    def __fill_trailers_empty_spaces(self):
+
+        """
+        Looks if the new inputs items could fit in an already packed trailer
+        """
+        if len(self.trailers_done) != 0:
+
+            # We look if it's possible to complete some stacks in already packed trailer
+            self.remaining_crates.complete_trailers_stack(self.trailers_done)
+            self.metal_remaining_crates.complete_trailers_stack(self.trailers_done)
+
     def build(self, models_data, max_load, plot_load_done=False, ranking={}):
 
         """
@@ -724,6 +735,9 @@ class LoadBuilder:
 
         # We init the list of trailers
         self.__trailers_init()
+
+        # We try to complete loads that we're already done with the new inputs
+        self.__fill_trailers_empty_spaces()
 
         # We finish the stacking process with leftover crates
         self.__prepare_warehouse()
