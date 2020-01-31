@@ -555,6 +555,7 @@ class LoadBuilder:
         :param trailer: Object of class Trailer
         :param packer: Packer object
         :param start_index: If i is the index of the last item we considered in first part, then start_index = i + 1
+        :returns : number of stacks added
         """
 
         # We look if there are items remaining in the warehouse (that were not considered in the first phase of packing)
@@ -584,9 +585,11 @@ class LoadBuilder:
             # We pack the new packer
             new_packer.pack(reset_opened_bins=False)
 
-            # We send a message if the second phase of packing was effective
-            # if last_res < len(new_packer[0]):
-            #     print('COMPLETION EFFECTIVE')
+            # We return the number of stacks added
+            return len(new_packer[0]) - last_res
+
+        else:
+            return 0
 
     def __remove_leftover_trailers(self):
 
@@ -704,6 +707,14 @@ class LoadBuilder:
 
         return data_frame
 
+    def __complete_packed_stacks(self):
+
+        if len(self.trailers_done) != 0:
+
+            # We look if it's possible to complete some stacks in already packed trailer
+            self.remaining_crates.complete_trailers_stack(self.trailers_done)
+            self.metal_remaining_crates.complete_trailers_stack(self.trailers_done)
+
     def __fill_trailers_empty_spaces(self):
 
         """
@@ -711,9 +722,22 @@ class LoadBuilder:
         """
         if len(self.trailers_done) != 0:
 
-            # We look if it's possible to complete some stacks in already packed trailer
-            self.remaining_crates.complete_trailers_stack(self.trailers_done)
-            self.metal_remaining_crates.complete_trailers_stack(self.trailers_done)
+            # We also try to fill empty spaces in already packed trailer
+            for trailer in self.trailers_done:
+
+                # We save the warehouse we can use to fill the rest of the trailer
+                if trailer.crate_type == 'W':
+                    warehouse = self.warehouse
+
+                else:  # elif crate_type == 'M'
+                    warehouse = self.metal_warehouse
+
+                nb_stacks_added = self.__complete_packing(warehouse, trailer, trailer.packer, start_index=0)
+
+                if nb_stacks_added > 0:
+
+                    print('LOAD COMPLETION EFFECTIVE!', '\n')
+                    trailer.pack(warehouse, nb_stacks_added)
 
     def build(self, models_data, max_load, plot_load_done=False, ranking={}):
 
@@ -736,11 +760,14 @@ class LoadBuilder:
         # We init the list of trailers
         self.__trailers_init()
 
-        # We try to complete loads that we're already done with the new inputs
-        self.__fill_trailers_empty_spaces()
+        # We try to complete stacks that we're already done with the new inputs
+        self.__complete_packed_stacks()
 
         # We finish the stacking process with leftover crates
         self.__prepare_warehouse()
+
+        # We try to fill empty spaces in loads that we're already done with the new inputs
+        self.__fill_trailers_empty_spaces()
 
         # We execute the loading of the trailers
         self.__trailer_packing()
@@ -756,7 +783,6 @@ class LoadBuilder:
         if plot_load_done:
             for trailer in self.trailers:
                 trailer.plot_load()
-                print([stack.models for stack in trailer.load])
 
         # We update all data
         self.__update_trailers_data()
