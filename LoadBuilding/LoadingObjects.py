@@ -204,6 +204,8 @@ class Trailer:
             ax.add_patch(patch)
 
         plt.axis('scaled')
+        plt.title(label='Length : {} on {} - {} %'.format(self.length_used, self.length,
+                                                          round((self.length_used/self.length)*100, 2)), pad=10)
         ax.set_xlim(0, self.width)
         ax.set_ylim(0, self.length + self.oh)
 
