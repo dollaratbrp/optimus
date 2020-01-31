@@ -252,6 +252,23 @@ def get_number_of_rows(ws):
     return len(ws['A'])
 
 
+def apply_filling_to_rows(ws, row_indexes, nb_of_columns, filling=None):
+    """
+    Apply a filling to a whole row in a worksheet
+
+    :param ws: worksheet
+    :param row_indexes: list with indexes of the rows on which we want to apply the filling (start at 1 in excel)
+    :param filling : PaternFill object from openpyxl.style
+    :param nb_of_columns: number of columns in the worksheet
+    """
+    if filling is None:
+        filling = PatternFill(fill_type="solid", start_color="a6a6a6", end_color="a6a6a6")
+
+    for index in row_indexes:
+        for j in range(1, nb_of_columns+1):
+            ws.cell(row=index, column=j).fill = filling
+
+
 class SQLConnection:
 
     """Connection to SQL servers"""

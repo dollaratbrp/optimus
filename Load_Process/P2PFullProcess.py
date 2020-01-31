@@ -240,13 +240,17 @@ def p2p_full_process():
 
     connection = SQLConnection('CAVLSQLPD2\pbi2', 'Business_Planning', 'OTD_1_P2P_F_HISTORICAL', headers=table_header)
 
+    # We initialize a variable to keep the total of loads done, another one to keep track of row numbers in "APPROVED"
+    # worksheet and a list to keep indexex of row to fill in grey
+    total_load_number, approved_row_location, indexes_to_fill = 0, 0, []
+
     # We start to write the results
     for order in p2ps_order_list:  # To send data in excel workbook, order by : -point_from , -point_to
 
         # For the p2p that match with the order
         for param in [p2p for p2p in p2ps_list if (p2p.POINT_FROM == order[0] and p2p.POINT_TO == order[1])]:
 
-            load_number = 0  # Number of each load (reset for each plant to plant)
+            p2p_load_number = 0  # Number of each load (reset for each plant to plant)
 
             # We write a line in the summary worksheet
             summary_ws.append([param.POINT_FROM, param.POINT_TO, len(param.LoadBuilder)])
@@ -269,13 +273,20 @@ def p2p_full_process():
                     # For every load of this kind
                     for i in range(int(loads["QTY"][line])):
 
-                        load_number += 1
+                        # We update load numbers
+                        p2p_load_number += 1
+                        total_load_number += 1
+
+                        # We indicate if the next rows must be filled
+                        row_must_be_filled = (total_load_number % 2) == 0
 
                         # For every different size_code on this load
                         for column in [col for col in loads.columns[4::] if loads[col][line] != '']:
 
                             # For every unit of this crate on the load
                             for QUANTITY in range(int(loads[column][line])):
+
+                                approved_row_location += 1
 
                                 # We associate a wish unit to this crate, then we save it
                                 for wish in param.AssignedWish:
@@ -287,18 +298,22 @@ def p2p_full_process():
                                         wish.Finished = True
 
                                         # We create the line of values to send to sql
-                                        sql_line = [(param.POINT_FROM, param.POINT_TO, load_number,
+                                        sql_line = [(param.POINT_FROM, param.POINT_TO, p2p_load_number,
                                                      wish.MATERIAL_NUMBER, wish.ORIGINAL_QUANTITY,
                                                      column, wish.SALES_DOCUMENT_NUMBER,
                                                      wish.SALES_ITEM_NUMBER,
                                                      wish.SOLD_TO_NUMBER, dayTodayComplete)]
 
                                         # We send a line of values to the "APPROVED" worksheet
-                                        approved_ws.append([param.POINT_FROM, param.POINT_TO, load_number,
+                                        approved_ws.append([param.POINT_FROM, param.POINT_TO, p2p_load_number,
                                                            loads['TRAILER'][line], loads['LOAD LENGTH'][line],
                                                            wish.MATERIAL_NUMBER, wish.ORIGINAL_QUANTITY,
                                                            column, wish.SALES_DOCUMENT_NUMBER,
                                                            wish.SALES_ITEM_NUMBER, wish.SOLD_TO_NUMBER])
+
+                                        # We save line indexes of worksheet if it must be filled in grey
+                                        if row_must_be_filled:
+                                            indexes_to_fill.append(approved_row_location+1)
 
                                         # We append a line of data for the "SAP INPUT" worksheet to the list concerned
                                         sap_input_data.append([param.POINT_FROM, param.POINT_TO,
@@ -357,6 +372,9 @@ def p2p_full_process():
             unused_ws.append([inv.POINT, inv.MATERIAL_NUMBER, inv.unused])
         if inv.QUANTITY - inv.unused > 0:
             unbooked_ws.append([inv.POINT, inv.MATERIAL_NUMBER, inv.QUANTITY-inv.unused])
+
+    # We filled rows that must be filled in the "APPROVED" worksheet
+    apply_filling_to_rows(approved_ws, indexes_to_fill, len(approved_columns))
 
     # We group by the SAP input data and send it in the output
     sap_input_frame = pd.DataFrame(sap_input_data, columns=sap_input_columns)
