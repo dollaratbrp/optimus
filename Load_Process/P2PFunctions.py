@@ -537,6 +537,9 @@ def satisfy_max_or_min(Wishes, Inventory, Parameters, satisfy_min=True, print_lo
 
         if len(param.LoadBuilder) < (check_min*param.LOADMIN + (1-check_min)*param.LOADMAX):
 
+            # We update LoadBuilder plc_lb depending on the situation
+            param.LoadBuilder.plc_lb = 0.75*check_min + (1-check_min)*0.80
+
             # Initialization of empty list
             temporary_on_load = []  # List to remember the INVobj that will be sent to the LoadBuilder
             load_builder_input = []  # List that will contain the data to build the frame we'll send to the LoadBuilder
