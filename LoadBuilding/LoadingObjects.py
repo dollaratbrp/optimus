@@ -229,18 +229,28 @@ class Trailer:
         """
         self.load += list_of_stacks
 
-    def pack(self, warehouse):
+    def pack(self, warehouse, nb_rect_to_pack=None):
 
         """
         Packs the trailer using the data from the packer
         :param warehouse: Warehouse from which we have to take the stacks
+        :param nb_rect_to_pack : Numbers of new rectangles (used in function __fill_trailers_empty_spaces)
         """
 
         # We initialize a list that will contain stacks stored in the trailer
         stacks_used = []
 
+        # We save the packer object containing details of the load
+        packer = self.packer[0]
+
+        # We save the starting index from which we start to pack rectangles in the packer
+        if nb_rect_to_pack is None:
+            index = 0
+        else:
+            index = -nb_rect_to_pack
+
         # We load the trailer chosen and marked it as "packed"
-        for stack in self.packer[0]:
+        for stack in packer[index:]:
 
             # We concretely assign the stack to the trailer and note his location index
             self.add_stack(warehouse[stack.rid])
@@ -664,6 +674,9 @@ class CratesManager:
 
         :param already_packed_trailers: lis of Trailers object that we're packed earlier
         """
+
+        # We first sort crates in decreasing order by width and then in decreasing order by length
+        self.crates.sort(key=lambda s: (s.width, s.length), reverse=True)
 
         # We initialize a list for the index of the crates that will be used
         used_crates = []

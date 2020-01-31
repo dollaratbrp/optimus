@@ -12,6 +12,7 @@ import sys
 import os
 from LoadBuilder import LoadBuilder
 from openpyxl import load_workbook
+from copy import deepcopy
 
 # Import read_and_write
 wd = os.path.dirname(sys.argv[0])
@@ -34,18 +35,25 @@ def main():
     lb1 = LoadBuilder(trailers_data)
 
     # We build loads
-    res = lb1.build(models_data, 2)
+    res = lb1.build(models_data, 2, plot_load_done=True)
+    print(lb1.get_loading_summary(), '\n')
 
     for trailer in lb1.trailers_done:
-        print([stack.models for stack in trailer.load], '\n')
+        print([stack.models for stack in trailer.load])
 
-    print(models_data, '\n')
+    models_data.loc[0, 'QTY'] = 1
+
+    print('\n', models_data, '\n')
 
     res = lb1.build(models_data, 0)
 
+    for trailer in lb1.trailers_done:
+        trailer.plot_load()
+        print([stack.models for stack in trailer.load])
+
     # We look at the loading summaries
     lb1_summary = lb1.get_loading_summary()
-    print(lb1_summary)
+    print('\n', lb1_summary)
 
 
 if __name__ == "__main__":
