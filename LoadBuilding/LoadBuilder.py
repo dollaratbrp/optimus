@@ -21,7 +21,7 @@ class LoadBuilder:
 
     score_multiplicator_basis = 1.02  # used to boost the score of a load when there's mandatory crates
 
-    def __init__(self, trailers_data, overhang_authorized=51.5, maximum_trailer_length=636, plc_lb=0.74):
+    def __init__(self, trailers_data, overhang_authorized=51.5, maximum_trailer_length=636, plc_lb=0.80):
 
         """
         :param trailers_data: Pandas data frame containing details on trailers available
@@ -40,6 +40,7 @@ class LoadBuilder:
         self.metal_warehouse, self.metal_remaining_crates = LoadObj.Warehouse(), LoadObj.CratesManager()
         self.trailers, self.trailers_done, self.unused_models = [], [], []
         self.all_size_codes = set()
+        self.patching_activated = False
 
     def __len__(self):
         return len(self.trailers_done)
@@ -185,20 +186,28 @@ class LoadBuilder:
 
         """
         Finishes stacking procedure with crates that weren't stacked at first
+
         """
+
         # Finishing stacking procedure for wooden crates
         if len(self.remaining_crates.crates) > 0:
             self.remaining_crates.create_stacks(self.warehouse)
 
-            if len(self.remaining_crates.stand_by_crates) > 0:
+            if self.patching_activated and len(self.remaining_crates.stand_by_crates) > 0:
                 self.remaining_crates.create_incomplete_stacks(self.warehouse)
+
+            else:
+                self.remaining_crates.save_unused_crates(self.unused_models)
 
         # Finishing stacking for metal crates
         if len(self.metal_remaining_crates.crates) > 0:
             self.metal_remaining_crates.create_stacks(self.metal_warehouse)
 
-            if len(self.metal_remaining_crates.stand_by_crates) > 0:
+            if self.patching_activated and len(self.metal_remaining_crates.stand_by_crates) > 0:
                 self.metal_remaining_crates.create_incomplete_stacks(self.metal_warehouse)
+
+            else:
+                self.metal_remaining_crates.save_unused_crates(self.unused_models)
 
     def __trailer_packing(self, initial_lb=1.00, decreasing_step=0.02):
         """
@@ -733,6 +742,7 @@ class LoadBuilder:
                     warehouse = self.metal_warehouse
 
                 nb_stacks_added = self.__complete_packing(warehouse, trailer, trailer.packer, start_index=0)
+                print([stack.models for stack in warehouse.stacks_to_ship if stack.models == ['VT']])
 
                 if nb_stacks_added > 0:
 
