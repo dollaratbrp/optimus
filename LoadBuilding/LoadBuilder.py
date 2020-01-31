@@ -742,7 +742,6 @@ class LoadBuilder:
                     warehouse = self.metal_warehouse
 
                 nb_stacks_added = self.__complete_packing(warehouse, trailer, trailer.packer, start_index=0)
-                print([stack.models for stack in warehouse.stacks_to_ship if stack.models == ['VT']])
 
                 if nb_stacks_added > 0:
 
