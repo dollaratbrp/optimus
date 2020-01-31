@@ -263,7 +263,7 @@ def forecast():
 
     # Initialization of the load bar
     progress = tqdm(total=len(DATADATE), desc='Forecast progress')
-    for date in DATADATE[0:3]:
+    for date in DATADATE:
 
         # We reset the number of shared flatbed_53
         reset_flatbed_53()

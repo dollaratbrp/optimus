@@ -45,6 +45,7 @@ def main():
 
     print('\n', models_data, '\n')
 
+    lb1.patching_activated = True
     res = lb1.build(models_data, 0)
 
     for trailer in lb1.trailers_done:

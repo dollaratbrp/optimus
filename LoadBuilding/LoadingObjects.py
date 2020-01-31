@@ -554,6 +554,21 @@ class CratesManager:
             for i in indexes:
                 self.stand_by_crates.pop(i)
 
+    def save_unused_crates(self, unused_crates_list):
+
+        """
+        Saves unused model names in the list indicated as parameter (only effective if the patching isn't activated
+
+        :param unused_crates_list: list of model names
+        """
+        # For crate with which we were not able to build a complete stacks
+        for crate in self.stand_by_crates:
+            for model in crate.model_names:
+                unused_crates_list.append((model, crate.type))
+
+        # We clear the list of stand by crates
+        self.stand_by_crates.clear()
+
     def create_stacks(self, warehouse):
 
         """
