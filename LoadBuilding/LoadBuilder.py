@@ -758,6 +758,7 @@ class LoadBuilder:
         :param models_data: Pandas data frame containing details on models to load
         :param max_load: maximum number of loads
         :param plot_load_done: boolean that indicates if plots of loads are going to be shown
+        :param ranking: dictionnary with ranking lists associated with each size code
         :return: list of tuples with size code used and crate types
         """
         # We look if models_data is empty
@@ -771,7 +772,7 @@ class LoadBuilder:
         self.__trailers_init()
 
         # We try to complete stacks that we're already done with the new inputs
-        self.__complete_packed_stacks()
+        # self.__complete_packed_stacks()
 
         # We finish the stacking process with leftover crates
         self.__prepare_warehouse()
