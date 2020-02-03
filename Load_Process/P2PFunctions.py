@@ -10,7 +10,7 @@ By : Nicolas Raymond
 
 """
 
-from LoadBuilder import LoadBuilder
+from LoadBuilder import LoadBuilder, set_trailer_reference
 from InputOutput import *
 DATAInclude = []
 shared_flatbed_53 = {'QTY': 2, 'POINT_FROM': ['4100', '4125']}
@@ -181,8 +181,6 @@ def clean_p2p_history(expiration_date):
                    'SALES_DOCUMENT_NUMBER,SALES_ITEM_NUMBER,SOLD_TO_NUMBER,IMPORT_DATE'
 
     connection = SQLConnection('CAVLSQLPD2\pbi2', 'Business_Planning', 'OTD_1_P2P_F_HISTORICAL', headers=table_header)
-
-    print("IMPORT_DATE < " + "'" + str(expiration_date) + "'")
 
     connection.deleteFromSQL("IMPORT_DATE < " + "'" + str(expiration_date) + "'")
 
