@@ -17,6 +17,7 @@ from ProcessValidation import validate_process
 import pandas as pd
 from openpyxl.styles import PatternFill
 from openpyxl import Workbook
+from datetime import datetime, timedelta
 import os
 
 """ Used SQL Table and actions: """
@@ -38,6 +39,7 @@ printLoads = False  # Print created loads
 AutomaticRun = False  # set to True to automate code
 validation = True     # set to True to validate the results received after the process
 dest_filename = 'P2P_Summary_'+dayToday  # Name of excel file with today's date
+history_expiration_date = dayTodayComplete - timedelta(days=365)  # Expiration date set one year ago
 
 
 def p2p_full_process():
@@ -241,11 +243,8 @@ def p2p_full_process():
 
     line_index = 2  # To display a warning if number of loads is lower than parameters min
 
-    # We initialize the connection the the SQL table that will receive the results
-    table_header = 'POINT_FROM,SHIPPING_POINT,LOAD_NUMBER,MATERIAL_NUMBER,QUANTITY,SIZE_DIMENSIONS,' \
-                   'SALES_DOCUMENT_NUMBER,SALES_ITEM_NUMBER,SOLD_TO_NUMBER,IMPORT_DATE'
-
-    connection = SQLConnection('CAVLSQLPD2\pbi2', 'Business_Planning', 'OTD_1_P2P_F_HISTORICAL', headers=table_header)
+    # We get the connection to the history table while deleting expired data
+    connection = clean_p2p_history(history_expiration_date)
 
     # We initialize a variable to keep the total of loads done, another one to keep track of row numbers in "APPROVED"
     # worksheet and a list to keep indexex of row to fill in grey
