@@ -20,6 +20,7 @@ from copy import deepcopy as dc
 class LoadBuilder:
 
     score_multiplicator_basis = 1.02  # used to boost the score of a load when there's mandatory crates
+    patching_activated = False
 
     def __init__(self, trailers_data, overhang_authorized=51.5, maximum_trailer_length=636, plc_lb=0.80):
 
@@ -40,7 +41,6 @@ class LoadBuilder:
         self.metal_warehouse, self.metal_remaining_crates = LoadObj.Warehouse(), LoadObj.CratesManager()
         self.trailers, self.trailers_done, self.unused_models = [], [], []
         self.all_size_codes = set()
-        self.patching_activated = False
 
     def __len__(self):
         return len(self.trailers_done)
@@ -731,6 +731,9 @@ class LoadBuilder:
         """
         if len(self.trailers_done) != 0:
 
+            # We sort trailers done by their used length (to fill trailer with more
+            self.trailers_done.sort(key=lambda t: t.used_area())
+
             # We also try to fill empty spaces in already packed trailer
             for trailer in self.trailers_done:
 
@@ -745,6 +748,7 @@ class LoadBuilder:
 
                 if nb_stacks_added > 0:
 
+                    print('ONE EMPTY SPACE FILLED', '\n')
                     trailer.pack(warehouse, nb_stacks_added)
 
     def build(self, models_data, max_load, plot_load_done=False, ranking={}):
