@@ -630,8 +630,6 @@ def distribute_leftovers(Wishes, Inventory, Parameters):
     :param Parameters: List of Parameters
     :return:
     """
-    print('\n', 'LEFTOVER DISTRIBUTION', '\n')
-
     # We set all LoadBuilders attribute "patching_activated" to True
     LoadBuilder.patching_activated = True
 
