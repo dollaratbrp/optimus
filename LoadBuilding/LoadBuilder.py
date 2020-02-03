@@ -19,7 +19,8 @@ from copy import deepcopy as dc
 
 class LoadBuilder:
 
-    score_multiplicator_basis = 1.02  # used to boost the score of a load when there's mandatory crates
+    trailer_reference = None
+    score_multiplication_base = 1.02  # used to boost the score of a load when there's mandatory crates
     patching_activated = False
 
     def __init__(self, trailers_data, overhang_authorized=51.5, maximum_trailer_length=636, plc_lb=0.80):
@@ -242,7 +243,7 @@ class LoadBuilder:
 
                 if t.category != last_category:
 
-                    # We initialize a list that will containc tuples of crate type
+                    # We initialize a list that will contain tuples of crate type
                     # and "packer" loading strategies that were tried.
                     packers = []
 
@@ -402,12 +403,12 @@ class LoadBuilder:
             used_area = bin.used_area()
             if crate_type == 'W':
                 mandatory_crates += sum([self.warehouse[rect.rid].nb_of_mandatory for rect in bin])
-                score_boost = self.score_multiplicator_basis**mandatory_crates
+                score_boost = self.score_multiplication_base**mandatory_crates
                 score = used_area*score_boost
 
             elif crate_type == 'M':
                 mandatory_crates += sum([self.metal_warehouse[rect.rid].nb_of_mandatory for rect in bin])
-                score_boost = self.score_multiplicator_basis**mandatory_crates
+                score_boost = self.score_multiplication_base**mandatory_crates
                 score = used_area * score_boost
 
         return qualified, score
@@ -553,6 +554,9 @@ class LoadBuilder:
             warehouse.remove_stacks(leftover)
 
         return configs
+
+    # @staticmethod
+    # def drybox_sanity_check(warehouse, warehouse_indexes_list):
 
     @staticmethod
     def __complete_packing(warehouse, trailer, packer, start_index):
@@ -801,4 +805,16 @@ class LoadBuilder:
 
         return self.__size_code_used()
 
+
+def set_trailer_reference(ref):
+
+    """
+    Set the trailer_reference static attribute of the Trailer class
+
+    :param ref: pandas dataframe containing one row with trailer's data
+    """
+    LoadBuilder.trailer_reference = LoadObj.Trailer(cat='FLATBED_48', l=ref['LENGTH'][0], w=ref['WIDTH'][0],
+                                                    h=ref['HEIGHT'][0], p=0, oh=ref['OVERHANG'][0])
+    t = LoadBuilder.trailer_reference
+    print([t.category, t.length, t.width, t.height])
 
