@@ -1,9 +1,9 @@
 """
 
-Author : Olivier Lefebre,
+Author : Olivier Lefebvre
          Nicolas Raymond
 
-This file contained informations on WishlistObj class
+This file contained all main functions related to P2P full process
 
 Last update : 2020-01-14
 By : Nicolas Raymond
@@ -518,7 +518,7 @@ def find_perfect_match(Wishes, Inventory, Parameters):
     return ApprovedWish
 
 
-def satisfy_max_or_min(Wishes, Inventory, Parameters, satisfy_min=True, print_loads=False):
+def satisfy_max_or_min(Wishes, Inventory, Parameters, satisfy_min=True, print_loads=False, **kwargs):
     """
     Attributes wishes wisely among p2p'S in Parameters list in order to satisfy their min or their max value
 
@@ -528,6 +528,8 @@ def satisfy_max_or_min(Wishes, Inventory, Parameters, satisfy_min=True, print_lo
     :param satisfy_min: (bool) if false -> we want to satisfy the max
     :param print_loads: (bool) indicates if we plot each load or not
     """
+    # We look if we're distributing leftovers or processing to normal stack packing
+    leftover_distribution = kwargs.get('leftovers', False)
 
     # We save a "trigger" integer value indicating if we want to satisfy min or max
     check_min = int(satisfy_min)  # Will be 1 if we want to satisfy min and 0 instead
@@ -535,7 +537,7 @@ def satisfy_max_or_min(Wishes, Inventory, Parameters, satisfy_min=True, print_lo
     # For each parameters in Parameters list
     for param in Parameters:
 
-        if len(param.LoadBuilder) < (check_min*param.LOADMIN + (1-check_min)*param.LOADMAX):
+        if len(param.LoadBuilder) < (check_min*param.LOADMIN + (1-check_min)*param.LOADMAX) or leftover_distribution:
 
             # We update LoadBuilder plc_lb depending on the situation
             param.LoadBuilder.plc_lb = 0.75*check_min + (1-check_min)*0.80
@@ -596,9 +598,15 @@ def satisfy_max_or_min(Wishes, Inventory, Parameters, satisfy_min=True, print_lo
             # We update the trailers dataframe of the LoadBuild associated to the p2p
             param.update_load_builder_trailers_data()
 
+            # We save the maximum number of loads that can be done
+            if leftover_distribution:
+                max_load = 0
+            else:
+                max_load = (check_min * param.LOADMIN + (1 - check_min) * param.LOADMAX)
+
             # Construction of loadings
             result = param.LoadBuilder.build(models_data=input_dataframe,
-                                             max_load=(check_min*param.LOADMIN + (1-check_min)*param.LOADMAX),
+                                             max_load=max_load,
                                              plot_load_done=print_loads,
                                              ranking=ranking)
 
@@ -610,6 +618,25 @@ def satisfy_max_or_min(Wishes, Inventory, Parameters, satisfy_min=True, print_lo
 
             # Store unallocated units in inv pool
             throw_back_to_pool(temporary_on_load)
+
+
+def distribute_leftovers(Wishes, Inventory, Parameters):
+
+    """
+    Distributes leftover crates among packed trailers that aren't completely filled
+
+    :param Wishes: List of wishes (list of WishlistObj)
+    :param Inventory: List of INVobj
+    :param Parameters: List of Parameters
+    :return:
+    """
+    print('\n', 'LEFTOVER DISTRIBUTION', '\n')
+
+    # We set all LoadBuilders attribute "patching_activated" to True
+    LoadBuilder.patching_activated = True
+
+    # We distribute leftover crates among trailers that aren't completely filled
+    satisfy_max_or_min(Wishes, Inventory, Parameters, satisfy_min=False, leftovers=True)
 
 
 def loadbuilder_input_dataframe(data):
