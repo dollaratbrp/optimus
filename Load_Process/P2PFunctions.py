@@ -169,6 +169,26 @@ class NestedSourcePoints:
         self.include = point_include
 
 
+def clean_p2p_history(expiration_date):
+    """
+    Delete all rows where import date was set before expiration date
+
+    :param expiration_date: date that determine if a row is expired or not
+    :return connection to the table
+    """
+    # We initialize the connection the the SQL table that will receive the results
+    table_header = 'POINT_FROM,SHIPPING_POINT,LOAD_NUMBER,MATERIAL_NUMBER,QUANTITY,SIZE_DIMENSIONS,' \
+                   'SALES_DOCUMENT_NUMBER,SALES_ITEM_NUMBER,SOLD_TO_NUMBER,IMPORT_DATE'
+
+    connection = SQLConnection('CAVLSQLPD2\pbi2', 'Business_Planning', 'OTD_1_P2P_F_HISTORICAL', headers=table_header)
+
+    print("IMPORT_DATE < " + "'" + str(expiration_date) + "'")
+
+    connection.deleteFromSQL("IMPORT_DATE < " + "'" + str(expiration_date) + "'")
+
+    return connection
+
+
 def get_emails_list(project_name):
     """
     Recuperates the list of email associate to the project
