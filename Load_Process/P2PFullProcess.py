@@ -1,6 +1,7 @@
 """
 
-Author : Olivier Lefebre
+Authors : Olivier Lefebvre
+          Nicolas Raymond
 
 This file creates loads for P2P
 
@@ -217,6 +218,12 @@ def p2p_full_process():
     satisfy_max_or_min(wishlist, inventory, p2ps_list, satisfy_min=False, print_loads=printLoads)
 
     ####################################################################################################################
+    #                                       Distribution of leftover crates
+    ####################################################################################################################
+
+    distribute_leftovers(wishlist, inventory, p2ps_list)
+
+    ####################################################################################################################
     #                                           Writing of the results
     ####################################################################################################################
 
@@ -404,7 +411,3 @@ def p2p_full_process():
 
     # We open excel workbook
     os.system('start "excel" "'+str(reference[0])+'"')
-
-
-if __name__ == '__main__':
-    p2p_full_process()

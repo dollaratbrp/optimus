@@ -66,7 +66,7 @@ class Guillotine(PackingAlgorithm):
         # First remove the section we are splitting so it doesn't 
         # interfere when later we try to merge the resulting split
         # rectangles, with the rest of free sections.
-        self._sections.remove(section)
+        # self._sections.remove(section)
 
         # Creates two new empty sections, and returns the new rectangle.
         if height < section.height:
@@ -123,7 +123,7 @@ class Guillotine(PackingAlgorithm):
 
         """The subclass for each one of the Guillotine selection methods,
         BAF, BLSF.... will override this method, this is here only
-        to asure a valid value return if the worst happens.
+        to ensure a valid value return if the worst happens.
         """
         raise NotImplementedError
 
@@ -131,7 +131,7 @@ class Guillotine(PackingAlgorithm):
 
         """Calls _section_fitness for each of the sections in free section 
         list. Returns the section with the minimal fitness value, all the rest 
-        is boilerplate to make the fitness comparison, to rotatate the rectangles,
+        is boilerplate to make the fitness comparison, to rotate the rectangles,
         and to take into account when _section_fitness returns None because 
         the rectangle couldn't be placed.
 
@@ -140,7 +140,7 @@ class Guillotine(PackingAlgorithm):
             h (int, float): Rectangle height
 
         Returns:
-            (section, was_rotated): Returns the tuple 
+                (section, was_rotated): Returns the tuple
                 section (Rectangle): Section with best fitness
                 was_rotated (bool): The rectangle was rotated 
         """
