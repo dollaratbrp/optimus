@@ -162,6 +162,9 @@ def p2p_full_process():
     #                                                Create Loads
     ####################################################################################################################
 
+    # We first set flatbed_48 as trailer reference of LoadBuilder for sanity check
+    set_trailer_reference(get_trailers_data(['FLATBED_48'], [1]))
+
     for param in p2ps_list:  # for all P2P in parameters
 
         # Initialization of empty list
