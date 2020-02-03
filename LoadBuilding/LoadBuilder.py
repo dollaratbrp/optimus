@@ -748,7 +748,6 @@ class LoadBuilder:
 
                 if nb_stacks_added > 0:
 
-                    print('ONE EMPTY SPACE FILLED', '\n')
                     trailer.pack(warehouse, nb_stacks_added)
 
     def build(self, models_data, max_load, plot_load_done=False, ranking={}):
