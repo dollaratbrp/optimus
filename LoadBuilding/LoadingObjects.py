@@ -222,6 +222,13 @@ class Trailer:
         """
         return self.length*self.width
 
+    def used_area(self):
+
+        """
+        Computes the area of the trailer used by the load
+        """
+        return self.packer[0].used_area()
+
     def add_load(self, list_of_stacks):
 
         """
