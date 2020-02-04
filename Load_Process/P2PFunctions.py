@@ -96,6 +96,21 @@ class INVObj:
         """
         return [self.POINT, self.MATERIAL_NUMBER, self.QUANTITY, self.DATE, self.STATUS]
 
+    def __eq__(self, other):
+        """
+        Definition of the equality "==" of two INVObj
+        :param other: other INVObj
+        """
+        return (EquivalentPlantFrom(self.POINT, other.POINT) and self.MATERIAL_NUMBER == other.MATERIAL_NUMBER
+                and self.Future == other.Future)
+
+    def __iadd__(self, other):
+        """
+        Definition of "+=" operator for an INVObj
+        :param other: other INVObj
+        """
+        return INVObj(self.POINT, self.MATERIAL_NUMBER, self.QUANTITY+other.QUANTITY, self.DATE, self.STATUS)
+
 
 class Parameters:
 
@@ -333,13 +348,13 @@ def get_inventory_and_qa():
 
     # We first get the inventory
     connection = SQLConnection('CAVLSQLPD2\pbi2', 'Business_Planning',
-                                         'OTD_1_P2P_F_INVENTORY', headers='')
+                               'OTD_1_P2P_F_INVENTORY', headers='')
 
     inventory_query = """ SELECT *
         FROM (
         SELECT DISTINCT SHIPPING_POINT
           ,RTRIM([MATERIAL_NUMBER]) as MATERIAL_NUMBER
-          ,CASE WHEN sum(tempo.[QUANTITY]) <0 then 0 else convert(int,sum(tempo.QUANTITY)) end as [QUANTITY]
+          ,sum(tempo.QUANTITY) as [QUANTITY]
           ,CONVERT(DATE,GETDATE()) as [AVAILABLE_DATE]
           ,'INVENTORY' as [STATUS]
           FROM(
@@ -358,11 +373,11 @@ def get_inventory_and_qa():
           ,'INVENTORY' as [STATUS]
            FROM [Business_Planning].[dbo].[OTD_1_P2P_F_INVENTORY]
       WHERE STATUS in ('QA HOLD') and AVAILABLE_DATE between convert(DATE,GETDATE()-1) and GETDATE())) as tempo
-     GROUP BY SHIPPING_POINT
+     GROUP BY SHIPPING_POINT 
           ,[MATERIAL_NUMBER]
           ,  [AVAILABLE_DATE]
           , [STATUS] ) as tempo2
-     WHERE QUANTITY > 0
+     
      ORDER BY SHIPPING_POINT, MATERIAL_NUMBER
                         """
 
@@ -376,7 +391,7 @@ def get_inventory_and_qa():
                       ,convert (DATE,[AVAILABLE_DATE]) as AVAILABLE_DATE
                       ,[STATUS]
                   FROM [Business_Planning].[dbo].[OTD_1_P2P_F_INVENTORY]
-                  where STATUS = 'QA HOLD' and QUANTITY > 0
+                  where STATUS = 'QA HOLD'
                   and AVAILABLE_DATE = (case when DATEPART(WEEKDAY,getdate()) = 6 then convert(DATE,GETDATE()+3) else convert(DATE,GETDATE() +1) end)
                     """
 
@@ -386,7 +401,49 @@ def get_inventory_and_qa():
     for line in data:
         inventory.append(INVObj(*line))  # add QA HOLD with inv
 
-    return inventory
+    official_inventory = adjust_inventory(inventory)
+
+    return official_inventory
+
+
+def adjust_inventory(original_inventory):
+    """
+    Group common inventory together
+    :param original_inventory: list of INVObj
+    """
+
+    # We initialize a list of official INVObj that we'll keep
+    official_inventory = []
+
+    # We group common INVobj together
+    while len(original_inventory) > 0:
+
+        # We save the current object we're looking at
+        current_obj = original_inventory[0]
+
+        # We initialize an empty list that will contain index of INVObj
+        indexes = []
+
+        # We go through all the inventory to sum qty of equivalent object
+        for i in range(1, len(original_inventory)):
+
+            if current_obj == original_inventory[i]:
+                current_obj += original_inventory[i]
+
+                indexes.append(i)
+
+        # We remove INVObjs which the inventory was included in he current INVObj
+        indexes.sort(reverse=True)
+        for i in indexes:
+            original_inventory.pop(i)
+
+        # If the qty of the current INVObj is greater than 0 we add it to the official inventory
+        if current_obj.QUANTITY > 0:
+            official_inventory.append(current_obj)
+
+        original_inventory.pop(0)
+
+    return official_inventory
 
 
 def get_nested_source_points(l):
