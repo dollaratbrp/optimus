@@ -81,12 +81,12 @@ def p2p_full_process():
             # Get the wishlist
             wishlist = get_wish_list()
 
-            # Get the inventory
-            inventory = get_inventory_and_qa()
-
-            # We get the nested shipping points
+            # We get the nested shipping points (needs to be done before inventory recuperation)
             global DATAInclude
             get_nested_source_points(DATAInclude)
+
+            # Get the inventory
+            inventory = get_inventory_and_qa()
 
             #  Look if all point_from + shipping_point are in parameters
             missing_p2ps_list = get_missing_p2p()
