@@ -19,24 +19,25 @@ from copy import deepcopy as dc
 
 class LoadBuilder:
 
+    """
+    Object that deals with loadings construction from one plant to another
+    """
+
+    validate_with_ref = True
     trailer_reference = None
-    score_multiplication_base = 1.02  # used to boost the score of a load when there's mandatory crates
     patching_activated = False
+    score_multiplication_base = 1.02  # used to boost the score of a load when there's mandatory crates
+    overhang_authorized = 51.5
+    max_trailer_length = 636
+    plc_lb = 0.80
 
-    def __init__(self, trailers_data, overhang_authorized=51.5, maximum_trailer_length=636, plc_lb=0.80):
-
+    def __init__(self, trailers_data):
         """
+
         :param trailers_data: Pandas data frame containing details on trailers available
-        :param overhang_authorized: maximum overhanging measure authorized by law for a trailer
-        :param maximum_trailer_length: maximum length authorized by law for a trailer
-        :param plc_lb: lower bound of length percentage covered that must be satisfied for all trailer
-        :param pac_lb : lower bound for percentage of area covered
         """
 
         self.trailers_data = trailers_data
-        self.overhang_authorized = overhang_authorized  # In inches
-        self.max_trailer_length = maximum_trailer_length  # In inches
-        self.plc_lb = plc_lb
         self.model_names = []
         self.warehouse, self.remaining_crates = LoadObj.Warehouse(), LoadObj.CratesManager()
         self.metal_warehouse, self.metal_remaining_crates = LoadObj.Warehouse(), LoadObj.CratesManager()
@@ -251,49 +252,11 @@ class LoadBuilder:
                     # wooden warehouse and metal warehouse
                     for crate_type, warehouse in [('W', self.warehouse), ('M', self.metal_warehouse)]:
 
-                        # We compute all possible configurations of loading (efficiently)
-                        if len(warehouse) != 0:
-                            warehouse.sort_by_ranking_and_volume()
-                            all_configs = self.__create_all_configs(warehouse, t)
-
-                        else:
-                            all_configs = []
-
-                        # If there's possible configurations
-                        if len(all_configs) != 0:
-
-                            for config in all_configs:
-
-                                # We initialize a packer with default parameter (except rotation)
-                                packer = newPacker(rotation=False)
-
-                                # We add stacks to load in the trailer (the rectangles)
-                                for i in range(len(config)):
-
-                                    # If the rectangle is rotated
-                                    if config[i]:
-                                        packer.add_rect(warehouse[i].length, warehouse[i].width, rid=i,
-                                                        overhang=warehouse[i].overhang)
-
-                                    else:
-                                        packer.add_rect(warehouse[i].width, warehouse[i].length, rid=i,
-                                                        overhang=warehouse[i].overhang)
-
-                                # We add other dummy bins to store rectangles that do not enter in our trailer (1st bin)
-                                for i in range(2):
-                                    packer.add_bin(t.width, t.length, bid=None, overhang=t.oh)
-
-                                # We execute the packing
-                                packer.pack()
-
-                                # We complete the packing (look if some unconsidered rectangles could enter at the end)
-                                self.__complete_packing(warehouse, t, packer, len(config))
-
-                                # We save the loading configuration (the packer)
-                                packers.append((crate_type, packer))
+                        # We update the packers tuple list
+                        self.__test_all_config(packers, crate_type, warehouse, t)
 
                     # We save the index of the best loading configuration that respected the constraint of plc_lb
-                    best_packer_index, score = self.__select_best_packer(packers, lower_bound)
+                    best_packer_index, score = self.__select_best_packer(t, packers, lower_bound)
 
                     # If an index is found (at least one load satisfies the constraint for this category of trailer)
                     if best_packer_index is not None:
@@ -351,12 +314,13 @@ class LoadBuilder:
 
         return potential_trailers[0]
 
-    def __select_best_packer(self, packers_list, lower_bound):
+    def __select_best_packer(self, trailer, packers_list, lower_bound):
 
         """
         Pick the best loading configuration done (the best packer) among the list according to the number of units
         placed in the trailer.
 
+        :param trailer: trailer for which we're testing configurations possible
         :param packers_list: List containing tuples with crate_types and packers object
         :param lower_bound: actual lower bound of coverage that must be satisfied
         :return: Index of the location of the best packer and the best score
@@ -369,7 +333,7 @@ class LoadBuilder:
         for crate_type, packer in packers_list:
 
             # We check if packing respect plc lower bound and how many items it contains
-            qualified, score = self.__validate_packing(crate_type, packer, lower_bound)
+            qualified, score = self.__validate_packing(trailer, crate_type, packer, lower_bound)
 
             # If the packing respect constraints and has more items than the best one yet,
             # we change our best packer for this one.
@@ -381,35 +345,91 @@ class LoadBuilder:
 
         return best_packer_index, best_score
 
-    def __validate_packing(self, crate_type, packer, lower_bound):
+    def __test_all_config(self, packers, crate_type, warehouse, trailer):
+
+        """
+        Tests efficiently all load configurations possible for the trailer and selected warehouse
+
+        :param packers: list of tuples with crate types and packers object
+        :param crate_type: One type among 'W' and 'M'
+        :param warehouse: object of class Warehouse from which we'll pull the stacks
+        :param trailer: object of class Trailer
+        """
+
+        # We compute all possible configurations of loading (efficiently)
+        if len(warehouse) != 0:
+            warehouse.sort_by_ranking_and_volume()
+            all_configs = self.__create_all_configs(warehouse, trailer)
+
+        else:
+            all_configs = []
+
+        # If there's possible configurations
+        if len(all_configs) != 0:
+
+            for config in all_configs:
+
+                # We initialize a packer with default parameter (except rotation)
+                packer = newPacker(rotation=False)
+
+                # We add stacks to load in the trailer (the rectangles)
+                for i in range(len(config)):
+
+                    # If the rectangle is rotated
+                    if config[i]:
+                        packer.add_rect(warehouse[i].length, warehouse[i].width, rid=i,
+                                        overhang=warehouse[i].overhang)
+
+                    else:
+                        packer.add_rect(warehouse[i].width, warehouse[i].length, rid=i,
+                                        overhang=warehouse[i].overhang)
+
+                # We add other dummy bins to store rectangles that do not enter in our trailer (1st bin)
+                for i in range(2):
+                    packer.add_bin(trailer.width, trailer.length, bid=None, overhang=trailer.oh)
+
+                # We execute the packing
+                packer.pack()
+
+                # We complete the packing (look if some unconsidered rectangles could enter at the end)
+                self.__complete_packing(warehouse, trailer, packer, len(config))
+
+                # We save the loading configuration (the packer)
+                packers.append((crate_type, packer))
+
+    def __validate_packing(self, trailer, crate_type, packer, lower_bound):
 
         """
         Verifies if the packing satisfies plc_lb constraint (Lower bound of percentage of length that must be covered)
 
+        :param trailer: trailer for which we're testing configurations possible
         :param crate_type: 'W' for wood, 'M' for metal
         :param packer: Packer object
         :param lower_bound: actual lower bound of coverage that must be satisfied
         :returns: Boolean indicating if the loading satisfies constraint and a score for the load
         """
 
+        # We set few useful variable values
         mandatory_crates = 0
         score = 0
         qualified = True
         bin = packer[0]
+        if crate_type == 'W':
+            warehouse = self.warehouse
+        else:
+            warehouse = self.metal_warehouse
 
         if max([rect.top for rect in bin]) / bin.height < lower_bound:
             qualified = False
+
+        elif trailer.category == 'DRYBOX' and self.validate_with_ref and\
+                not self.__sanity_check(crate_type, warehouse, [rect.rid for rect in bin]):
+            qualified = False
         else:
             used_area = bin.used_area()
-            if crate_type == 'W':
-                mandatory_crates += sum([self.warehouse[rect.rid].nb_of_mandatory for rect in bin])
-                score_boost = self.score_multiplication_base**mandatory_crates
-                score = used_area*score_boost
-
-            elif crate_type == 'M':
-                mandatory_crates += sum([self.metal_warehouse[rect.rid].nb_of_mandatory for rect in bin])
-                score_boost = self.score_multiplication_base**mandatory_crates
-                score = used_area * score_boost
+            mandatory_crates += sum([warehouse[rect.rid].nb_of_mandatory for rect in bin])
+            score_boost = self.score_multiplication_base**mandatory_crates
+            score = used_area*score_boost
 
         return qualified, score
 
@@ -555,8 +575,32 @@ class LoadBuilder:
 
         return configs
 
-    # @staticmethod
-    # def drybox_sanity_check(warehouse, warehouse_indexes_list):
+    def __sanity_check(self, crate_type, warehouse, warehouse_used_indexes):
+
+        # Initialization of the reference trailer
+        t = dc(LoadBuilder.trailer_reference)
+
+        # Initialization of an empty list that will contain tuples of crate_type and packer
+        packers = []
+
+        # Construction of a copy of the warehouse
+        w = dc(warehouse)
+
+        # We build a list with all indexes unused
+        all_indexes = set(list(range(len(warehouse))))
+        unused_indexes = list(all_indexes-set(warehouse_used_indexes))
+
+        # We remove unused index from the warehouse copy
+        w.remove_stacks(unused_indexes)
+
+        # We test all configurations possible
+        self.__test_all_config(packers, crate_type, w, t)
+
+        # We select the best packer
+        best_packer_index, score = self.__select_best_packer(t, packers, self.plc_lb)
+
+        # False would indicate that no satisfying load could be done with the reference trailer
+        return best_packer_index is not None
 
     @staticmethod
     def __complete_packing(warehouse, trailer, packer, start_index):
@@ -815,6 +859,4 @@ def set_trailer_reference(ref):
     """
     LoadBuilder.trailer_reference = LoadObj.Trailer(cat='FLATBED_48', l=ref['LENGTH'][0], w=ref['WIDTH'][0],
                                                     h=ref['HEIGHT'][0], p=0, oh=ref['OVERHANG'][0])
-    t = LoadBuilder.trailer_reference
-    print([t.category, t.length, t.width, t.height])
 
