@@ -35,6 +35,7 @@ saveFolder = 'S:\Shared\Business_Planning\Personal\Raymond\P2P\\'
 # Parameters variables
 dayTodayComplete = pd.datetime.now().replace(second=0, microsecond=0)  # date to set in SQL for import date
 dayToday = weekdays(0)  # Date to display in report
+drybox_sanity_check = True
 printLoads = False  # Print created loads
 AutomaticRun = False  # set to True to automate code
 validation = True     # set to True to validate the results received after the process
@@ -159,11 +160,18 @@ def p2p_full_process():
     approved_wishes = find_perfect_match(wishlist, inventory, p2ps_list)
 
     ####################################################################################################################
-    #                                                Create Loads
+    #                                    Set some LoadBuilder class' attributes
     ####################################################################################################################
 
     # We first set flatbed_48 as trailer reference of LoadBuilder for sanity check
     set_trailer_reference(get_trailers_data(['FLATBED_48'], [1]))
+
+    # We set the attribute "validate_with_ref" for LoadBuilder class
+    LoadBuilder.validate_with_ref = drybox_sanity_check
+
+    ####################################################################################################################
+    #                                                Create Loads
+    ####################################################################################################################
 
     for param in p2ps_list:  # for all P2P in parameters
 
