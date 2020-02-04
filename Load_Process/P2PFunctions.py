@@ -609,13 +609,13 @@ def satisfy_max_or_min(Wishes, Inventory, Parameters, satisfy_min=True, print_lo
     # We save a "trigger" integer value indicating if we want to satisfy min or max
     check_min = int(satisfy_min)  # Will be 1 if we want to satisfy min and 0 instead
 
+    # We update LoadBuilder class attribute plc_lb depending on the situation
+    LoadBuilder.plc_lb = 0.75 * check_min + (1 - check_min) * 0.80
+
     # For each parameters in Parameters list
     for param in Parameters:
 
         if len(param.LoadBuilder) < (check_min*param.LOADMIN + (1-check_min)*param.LOADMAX) or leftover_distribution:
-
-            # We update LoadBuilder plc_lb depending on the situation
-            param.LoadBuilder.plc_lb = 0.75*check_min + (1-check_min)*0.80
 
             # Initialization of empty list
             temporary_on_load = []  # List to remember the INVobj that will be sent to the LoadBuilder
@@ -635,7 +635,7 @@ def satisfy_max_or_min(Wishes, Inventory, Parameters, satisfy_min=True, print_lo
                     # We look if there's inventory available to satisfy each unit needed for our wish
                     for unit_needed in range(wish.QUANTITY):
 
-                        # For all pairs of (index, INVobj) of our list of INVobj
+                        # For all pairs of (index, INVObj) of our list of INVObj
                         for It, inv in enumerate(Inventory[position::]):
                             if EquivalentPlantFrom(inv.POINT, wish.POINT_FROM) and\
                                     inv.MATERIAL_NUMBER == wish.MATERIAL_NUMBER and inv.QUANTITY > 0 and\
