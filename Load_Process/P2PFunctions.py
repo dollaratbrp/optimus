@@ -10,7 +10,7 @@ By : Nicolas Raymond
 
 """
 
-from LoadBuilder import LoadBuilder
+from LoadBuilder import LoadBuilder, set_trailer_reference
 from InputOutput import *
 DATAInclude = []
 shared_flatbed_53 = {'QTY': 2, 'POINT_FROM': ['4100', '4125']}
@@ -96,6 +96,21 @@ class INVObj:
         """
         return [self.POINT, self.MATERIAL_NUMBER, self.QUANTITY, self.DATE, self.STATUS]
 
+    def __eq__(self, other):
+        """
+        Definition of the equality "==" of two INVObj
+        :param other: other INVObj
+        """
+        return (EquivalentPlantFrom(self.POINT, other.POINT) and self.MATERIAL_NUMBER == other.MATERIAL_NUMBER
+                and self.Future == other.Future)
+
+    def __iadd__(self, other):
+        """
+        Definition of "+=" operator for an INVObj
+        :param other: other INVObj
+        """
+        return INVObj(self.POINT, self.MATERIAL_NUMBER, self.QUANTITY+other.QUANTITY, self.DATE, self.STATUS)
+
 
 class Parameters:
 
@@ -167,6 +182,24 @@ class NestedSourcePoints:
     def __init__(self, point_source, point_include):
         self.source = point_source
         self.include = point_include
+
+
+def clean_p2p_history(expiration_date):
+    """
+    Delete all rows where import date was set before expiration date
+
+    :param expiration_date: date that determine if a row is expired or not
+    :return connection to the table
+    """
+    # We initialize the connection the the SQL table that will receive the results
+    table_header = 'POINT_FROM,SHIPPING_POINT,LOAD_NUMBER,MATERIAL_NUMBER,QUANTITY,SIZE_DIMENSIONS,' \
+                   'SALES_DOCUMENT_NUMBER,SALES_ITEM_NUMBER,SOLD_TO_NUMBER,IMPORT_DATE'
+
+    connection = SQLConnection('CAVLSQLPD2\pbi2', 'Business_Planning', 'OTD_1_P2P_F_HISTORICAL', headers=table_header)
+
+    connection.deleteFromSQL("IMPORT_DATE < " + "'" + str(expiration_date) + "'")
+
+    return connection
 
 
 def get_emails_list(project_name):
@@ -315,13 +348,13 @@ def get_inventory_and_qa():
 
     # We first get the inventory
     connection = SQLConnection('CAVLSQLPD2\pbi2', 'Business_Planning',
-                                         'OTD_1_P2P_F_INVENTORY', headers='')
+                               'OTD_1_P2P_F_INVENTORY', headers='')
 
     inventory_query = """ SELECT *
         FROM (
         SELECT DISTINCT SHIPPING_POINT
           ,RTRIM([MATERIAL_NUMBER]) as MATERIAL_NUMBER
-          ,CASE WHEN sum(tempo.[QUANTITY]) <0 then 0 else convert(int,sum(tempo.QUANTITY)) end as [QUANTITY]
+          ,sum(tempo.QUANTITY) as [QUANTITY]
           ,CONVERT(DATE,GETDATE()) as [AVAILABLE_DATE]
           ,'INVENTORY' as [STATUS]
           FROM(
@@ -340,11 +373,11 @@ def get_inventory_and_qa():
           ,'INVENTORY' as [STATUS]
            FROM [Business_Planning].[dbo].[OTD_1_P2P_F_INVENTORY]
       WHERE STATUS in ('QA HOLD') and AVAILABLE_DATE between convert(DATE,GETDATE()-1) and GETDATE())) as tempo
-     GROUP BY SHIPPING_POINT
+     GROUP BY SHIPPING_POINT 
           ,[MATERIAL_NUMBER]
           ,  [AVAILABLE_DATE]
           , [STATUS] ) as tempo2
-     WHERE QUANTITY > 0
+     
      ORDER BY SHIPPING_POINT, MATERIAL_NUMBER
                         """
 
@@ -358,7 +391,7 @@ def get_inventory_and_qa():
                       ,convert (DATE,[AVAILABLE_DATE]) as AVAILABLE_DATE
                       ,[STATUS]
                   FROM [Business_Planning].[dbo].[OTD_1_P2P_F_INVENTORY]
-                  where STATUS = 'QA HOLD' and QUANTITY > 0
+                  where STATUS = 'QA HOLD'
                   and AVAILABLE_DATE = (case when DATEPART(WEEKDAY,getdate()) = 6 then convert(DATE,GETDATE()+3) else convert(DATE,GETDATE() +1) end)
                     """
 
@@ -368,7 +401,49 @@ def get_inventory_and_qa():
     for line in data:
         inventory.append(INVObj(*line))  # add QA HOLD with inv
 
-    return inventory
+    official_inventory = adjust_inventory(inventory)
+
+    return official_inventory
+
+
+def adjust_inventory(original_inventory):
+    """
+    Group common inventory together
+    :param original_inventory: list of INVObj
+    """
+
+    # We initialize a list of official INVObj that we'll keep
+    official_inventory = []
+
+    # We group common INVobj together
+    while len(original_inventory) > 0:
+
+        # We save the current object we're looking at
+        current_obj = original_inventory[0]
+
+        # We initialize an empty list that will contain index of INVObj
+        indexes = []
+
+        # We go through all the inventory to sum qty of equivalent object
+        for i in range(1, len(original_inventory)):
+
+            if current_obj == original_inventory[i]:
+                current_obj += original_inventory[i]
+
+                indexes.append(i)
+
+        # We remove INVObjs which the inventory was included in he current INVObj
+        indexes.sort(reverse=True)
+        for i in indexes:
+            original_inventory.pop(i)
+
+        # If the qty of the current INVObj is greater than 0 we add it to the official inventory
+        if current_obj.QUANTITY > 0:
+            official_inventory.append(current_obj)
+
+        original_inventory.pop(0)
+
+    return official_inventory
 
 
 def get_nested_source_points(l):
@@ -534,13 +609,13 @@ def satisfy_max_or_min(Wishes, Inventory, Parameters, satisfy_min=True, print_lo
     # We save a "trigger" integer value indicating if we want to satisfy min or max
     check_min = int(satisfy_min)  # Will be 1 if we want to satisfy min and 0 instead
 
+    # We update LoadBuilder class attribute plc_lb depending on the situation
+    LoadBuilder.plc_lb = 0.75 * check_min + (1 - check_min) * 0.80
+
     # For each parameters in Parameters list
     for param in Parameters:
 
         if len(param.LoadBuilder) < (check_min*param.LOADMIN + (1-check_min)*param.LOADMAX) or leftover_distribution:
-
-            # We update LoadBuilder plc_lb depending on the situation
-            param.LoadBuilder.plc_lb = 0.75*check_min + (1-check_min)*0.80
 
             # Initialization of empty list
             temporary_on_load = []  # List to remember the INVobj that will be sent to the LoadBuilder
@@ -560,7 +635,7 @@ def satisfy_max_or_min(Wishes, Inventory, Parameters, satisfy_min=True, print_lo
                     # We look if there's inventory available to satisfy each unit needed for our wish
                     for unit_needed in range(wish.QUANTITY):
 
-                        # For all pairs of (index, INVobj) of our list of INVobj
+                        # For all pairs of (index, INVObj) of our list of INVObj
                         for It, inv in enumerate(Inventory[position::]):
                             if EquivalentPlantFrom(inv.POINT, wish.POINT_FROM) and\
                                     inv.MATERIAL_NUMBER == wish.MATERIAL_NUMBER and inv.QUANTITY > 0 and\

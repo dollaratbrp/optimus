@@ -17,6 +17,7 @@ from ProcessValidation import validate_process
 import pandas as pd
 from openpyxl.styles import PatternFill
 from openpyxl import Workbook
+from datetime import datetime, timedelta
 import os
 
 """ Used SQL Table and actions: """
@@ -34,10 +35,12 @@ saveFolder = 'S:\Shared\Business_Planning\Personal\Raymond\P2P\\'
 # Parameters variables
 dayTodayComplete = pd.datetime.now().replace(second=0, microsecond=0)  # date to set in SQL for import date
 dayToday = weekdays(0)  # Date to display in report
+drybox_sanity_check = True
 printLoads = False  # Print created loads
 AutomaticRun = False  # set to True to automate code
 validation = True     # set to True to validate the results received after the process
 dest_filename = 'P2P_Summary_'+dayToday  # Name of excel file with today's date
+history_expiration_date = dayTodayComplete - timedelta(days=365)  # Expiration date set one year ago
 
 
 def p2p_full_process():
@@ -79,12 +82,12 @@ def p2p_full_process():
             # Get the wishlist
             wishlist = get_wish_list()
 
-            # Get the inventory
-            inventory = get_inventory_and_qa()
-
-            # We get the nested shipping points
+            # We get the nested shipping points (needs to be done before inventory recuperation)
             global DATAInclude
             get_nested_source_points(DATAInclude)
+
+            # Get the inventory
+            inventory = get_inventory_and_qa()
 
             #  Look if all point_from + shipping_point are in parameters
             missing_p2ps_list = get_missing_p2p()
@@ -155,6 +158,16 @@ def p2p_full_process():
 
     # We initialize a list that will contain all wish approved
     approved_wishes = find_perfect_match(wishlist, inventory, p2ps_list)
+
+    ####################################################################################################################
+    #                                    Set some LoadBuilder class' attributes
+    ####################################################################################################################
+
+    # We first set flatbed_48 as trailer reference of LoadBuilder for sanity check
+    set_trailer_reference(get_trailers_data(['FLATBED_48'], [1]))
+
+    # We set the attribute "validate_with_ref" for LoadBuilder class
+    LoadBuilder.validate_with_ref = drybox_sanity_check
 
     ####################################################################################################################
     #                                                Create Loads
@@ -241,11 +254,8 @@ def p2p_full_process():
 
     line_index = 2  # To display a warning if number of loads is lower than parameters min
 
-    # We initialize the connection the the SQL table that will receive the results
-    table_header = 'POINT_FROM,SHIPPING_POINT,LOAD_NUMBER,MATERIAL_NUMBER,QUANTITY,SIZE_DIMENSIONS,' \
-                   'SALES_DOCUMENT_NUMBER,SALES_ITEM_NUMBER,SOLD_TO_NUMBER,IMPORT_DATE'
-
-    connection = SQLConnection('CAVLSQLPD2\pbi2', 'Business_Planning', 'OTD_1_P2P_F_HISTORICAL', headers=table_header)
+    # We get the connection to the history table while deleting expired data
+    connection = clean_p2p_history(history_expiration_date)
 
     # We initialize a variable to keep the total of loads done, another one to keep track of row numbers in "APPROVED"
     # worksheet and a list to keep indexex of row to fill in grey

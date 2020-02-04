@@ -27,6 +27,7 @@ from openpyxl import Workbook, load_workbook
 from tqdm import tqdm
 import numpy as np
 
+drybox_sanity_check = True
 AutomaticRun = False  # set to True to automate code
 
 
@@ -239,6 +240,16 @@ def forecast():
 
     columns_width = [20]*(len(detailed_columns)-1) + [25]
     worksheet_formatting(detailed_ws, detailed_columns, columns_width)
+
+    ####################################################################################################################
+    #                                    Set some LoadBuilder class' attributes
+    ####################################################################################################################
+
+    # We first set flatbed_48 as trailer reference of LoadBuilder for sanity check
+    set_trailer_reference(get_trailers_data(['FLATBED_48'], [1]))
+
+    # We set the attribute "validate_with_ref" for LoadBuilder class
+    LoadBuilder.validate_with_ref = drybox_sanity_check
 
     ####################################################################################################################
     #                                                Main loop for everyday

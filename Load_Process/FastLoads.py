@@ -8,7 +8,7 @@ import pandas as pd
 from openpyxl import load_workbook, Workbook
 from InputOutput import SQLConnection, savexlsxFile, send_email
 from P2PFunctions import get_trailers_data, get_emails_list
-from LoadBuilder import LoadBuilder
+from LoadBuilder import LoadBuilder, set_trailer_reference
 from random import randint
 from InputOutput import worksheet_formatting, create_excel_table
 from ParametersBox import change_emails_list, set_project_name, VerticalScrolledFrame
@@ -180,6 +180,9 @@ class FastLoadsBox(VerticalScrolledFrame):
 
             # Initialization of our LoadBuilder
             self.LoadBuilder = LoadBuilder(trailers_data=self.trailers_data)
+
+            # We set flatbed_48 as trailer reference of LoadBuilder for sanity check
+            set_trailer_reference(get_trailers_data(['FLATBED_48'], [1]))
 
             # Recuperation of the maximum of loads
             max_loads = self.max_entry.get()
