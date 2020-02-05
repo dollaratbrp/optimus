@@ -23,7 +23,7 @@ class LoadBuilder:
     Object that deals with loadings construction from one plant to another
     """
 
-    validate_with_ref = True
+    validate_with_ref = False
     trailer_reference = None
     patching_activated = False
     score_multiplication_base = 1.02  # used to boost the score of a load when there's mandatory crates
@@ -580,6 +580,12 @@ class LoadBuilder:
         # Initialization of the reference trailer
         t = dc(LoadBuilder.trailer_reference)
 
+        # We save the actual length of the trailer
+        original_length = t.length
+
+        # We change the length of the trailer to avoid wrong sanity check results because of overflow problem
+        t.length = self.max_trailer_length
+
         # Initialization of an empty list that will contain tuples of crate_type and packer
         packers = []
 
@@ -596,8 +602,9 @@ class LoadBuilder:
         # We test all configurations possible
         self.__test_all_config(packers, crate_type, w, t)
 
-        # We select the best packer
-        best_packer_index, score = self.__select_best_packer(t, packers, self.plc_lb)
+        # We compute the plc_lb to satisfy based on original_length and select the best packer with our function
+        lowerbound = round((self.plc_lb*original_length)/t.length, 4)
+        best_packer_index, score = self.__select_best_packer(t, packers, lowerbound)
 
         # False would indicate that no satisfying load could be done with the reference trailer
         return best_packer_index is not None
