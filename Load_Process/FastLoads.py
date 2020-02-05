@@ -14,7 +14,7 @@ from InputOutput import worksheet_formatting, create_excel_table
 from ParametersBox import change_emails_list, set_project_name, VerticalScrolledFrame
 from datetime import datetime
 
-plot_loads = False
+plot_loads = True
 
 workbook_path = 'U:\LoadAutomation\Optimus\FastLoadsSKUs.xlsx'
 
@@ -42,6 +42,9 @@ class FastLoadsBox(VerticalScrolledFrame):
         self.crate_type = StringVar()
         self.crate_type.set('W')
 
+        # Initialization of a bool indicating if we want to do sanity check for drybox
+        self.sanity_check = BooleanVar()
+
         # Initialization and positioning of a frame that will contain sku labels and entries
         self.sku_frame = LabelFrame(self.interior, borderwidth=2, relief=RIDGE, text='Crates')
         self.sku_frame.grid(row=0, column=0)
@@ -67,14 +70,18 @@ class FastLoadsBox(VerticalScrolledFrame):
         # All single trailer labels and qty entries initialization and positioning
         self.trailer_labels, self.trailer_qty_entries = self.create_trailer_labels_and_entries(self.trailer_frame)
 
-        # Initialization and positioning of a frame for max loads entry
+        # Initialization and positioning of a frame for max loads entry and sanity check button
         self.max_frame = Frame(self.trailer_frame, borderwidth=2, relief=RIDGE)
         self.max_frame.grid(row=len(self.trailer_labels)+1, columnspan=2)
         self.max_label = Label(self.max_frame, text="MAX LOADS", padx=4, pady=10)
         self.max_entry = Entry(self.max_frame, justify='center', width=10)
         self.max_entry.insert(0, "∞")
+        self.sc_radio_button = Checkbutton(self.max_frame, text='Drybox validation', onvalue=TRUE, offvalue=FALSE,
+                                           variable=self.sanity_check)
+
         self.max_label.grid(row=0, column=0)
         self.max_entry.grid(row=0, column=1)
+        self.sc_radio_button.grid(row=1, columnspan=2)
 
         # Modify emails list button configurations
         self.modify_email = Button(self.interior, text='Modify Emails List', padx=30, pady=10, bd=2,
@@ -182,7 +189,9 @@ class FastLoadsBox(VerticalScrolledFrame):
             self.LoadBuilder = LoadBuilder(trailers_data=self.trailers_data)
 
             # We set flatbed_48 as trailer reference of LoadBuilder for sanity check
-            set_trailer_reference(get_trailers_data(['FLATBED_48'], [1]))
+            if self.sanity_check.get():
+                set_trailer_reference(get_trailers_data(['FLATBED_48'], [1]))
+                LoadBuilder.validate_with_ref = True
 
             # Recuperation of the maximum of loads
             max_loads = self.max_entry.get()
