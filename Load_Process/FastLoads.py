@@ -14,7 +14,7 @@ from InputOutput import worksheet_formatting, create_excel_table
 from ParametersBox import change_emails_list, set_project_name, VerticalScrolledFrame
 from datetime import datetime
 
-plot_loads = True
+plot_loads = False
 
 workbook_path = 'U:\LoadAutomation\Optimus\FastLoadsSKUs.xlsx'
 
