@@ -151,37 +151,52 @@ def validate_process(workbook_path):
 
     print('\n\n', 'PROCESS VALIDATION STARTED', '\n')
 
-    # We recuperate wishlist original data
-    wishlist = get_wish_list()
+    # We import some SQL data for our validation
+    downloaded = False
+    nbr_of_try = 0
+    while not downloaded and nbr_of_try < 3:  # 3 trials, SQL Queries sometime crash for no reason
+        nbr_of_try += 1
+        try:
+            downloaded = True
 
-    # We recuperate inventory original data
-    inventory = get_inventory_and_qa()
+            # We recuperate wishlist original data
+            wishlist = get_wish_list()
 
-    # We recuperate the original parameters grid (ParameterBox)
-    parameters, connection = get_parameter_grid()
+            # We recuperate inventory original data
+            inventory = get_inventory_and_qa()
 
-    # We recuperate all items approved in the "APPROVED" worksheet
-    approved_items = read_approved_items(workbook_path, parameters)
+            # We recuperate the original parameters grid (ParameterBox)
+            parameters, connection = get_parameter_grid()
 
-    # We initialize a list of problematic items
-    conflict_items = []
+        except pyodbc.Error as err:
+            downloaded = False
+            sql_state = err.args[1]
+            print('SQL Query failed :', sql_state)
 
-    # We sort approved_items by days to to make sure that future items aren't link first to today's inventory
-    approved_items.sort(key=lambda i: i.days_to)
+    if downloaded:
 
-    # We validate if every items were in the wishlist and available in inventory
-    for index, item in enumerate(approved_items):
-        print(index, '.', item.material_number)
-        if not item.find_associated_wish(wishlist):
-            if not warning('wish'):
-                return
-            else:
-                conflict_items.append(item)
+        # We recuperate all items approved in the "APPROVED" worksheet
+        approved_items = read_approved_items(workbook_path, parameters)
 
-        if not item.find_associated_inventory(inventory):
-            if not warning('inv'):
-                return
-            else:
-                conflict_items.append(item)
+        # We initialize a list of problematic items
+        conflict_items = []
 
-    print('NUMBER OF CONFLICTS FOUND :', len(conflict_items))
+        # We sort approved_items by days to to make sure that future items aren't link first to today's inventory
+        approved_items.sort(key=lambda i: i.days_to)
+
+        # We validate if every items were in the wishlist and available in inventory
+        for index, item in enumerate(approved_items):
+            print(index, '.', item.material_number)
+            if not item.find_associated_wish(wishlist):
+                if not warning('wish'):
+                    return
+                else:
+                    conflict_items.append(item)
+
+            if not item.find_associated_inventory(inventory):
+                if not warning('inv'):
+                    return
+                else:
+                    conflict_items.append(item)
+
+        print('NUMBER OF CONFLICTS FOUND :', len(conflict_items))
