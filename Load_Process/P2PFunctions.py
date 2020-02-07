@@ -353,6 +353,14 @@ def reset_flatbed_53():
     shared_flatbed_53 = {'QTY': 2, 'POINT_FROM': ['4100', '4125']}
 
 
+def reset_residuals_counter():
+    """
+    Resets the residuals counter
+    """
+    global residuals_counter
+    residuals_counter = {}
+
+
 def get_wish_list(forecast=False):
 
     """
@@ -479,6 +487,8 @@ def adjust_inventory(original_inventory):
         # We save the current object we're looking at
         current_obj = original_inventory[0]
 
+        original_qty = current_obj.QUANTITY
+
         # We initialize an empty list that will contain index of INVObj
         indexes = []
 
@@ -498,6 +508,12 @@ def adjust_inventory(original_inventory):
         # If the qty of the current INVObj is greater than 0 we add it to the official inventory
         if current_obj.QUANTITY > 0:
             official_inventory.append(current_obj)
+
+        if current_obj.QUANTITY != original_qty:
+            print('POINT FROM :', current_obj.POINT, 'MATERIAL NUMBER :',
+                  current_obj.MATERIAL_NUMBER, 'BEFORE :', original_qty)
+            print('POINT FROM :', current_obj.POINT, 'MATERIAL NUMBER :',
+                  current_obj.MATERIAL_NUMBER, 'AFTER :', current_obj.QUANTITY, '\n')
 
         original_inventory.pop(0)
 
@@ -577,7 +593,7 @@ def get_trailers_data(category_list=[], qty_list=[]):
     return pd.DataFrame(data=data, columns=columns)
 
 
-def find_perfect_match(Wishes, Inventory, Parameters):
+def find_perfect_match(Wishes, Inventory, Parameters, forecast=False):
 
     """
     Finds perfect match between wishes of the wish list, inventory available and p2p available in the parameter box
@@ -606,7 +622,7 @@ def find_perfect_match(Wishes, Inventory, Parameters):
                         and inv.QUANTITY > 0:
 
                     # If the inventory object (INVobj) will be available later than today
-                    if inv.Future:  # QA of tomorrow, need to look if load is for today or later
+                    if not forecast and inv.Future:  # QA of tomorrow, need to look if load is for today or later
 
                         InvToTake = False
 
@@ -649,6 +665,52 @@ def find_perfect_match(Wishes, Inventory, Parameters):
             ApprovedWish.append(wish)
 
     return ApprovedWish
+
+
+def perfect_match_loads_construction(Parameters, ApprovedWishes, print_loads=False):
+    """
+    Builds loads after perfect match
+
+    :param Parameters: List with Parameters objects
+    :param ApprovedWishes: List of wishes approved
+    :param print_loads: bool indicating if we must plot loads done
+    """
+
+    for param in Parameters:  # for all P2P in parameters
+
+        # We update LOADMIN and LOADMAX attribute
+        param.update_max()
+
+        # Initialization of empty list
+        temporary_on_load = []  # List to remember the INVobjs that will be sent to the LoadBuilder
+        loadbuilder_input = []  # List that will contain the data to build the frame we'll send to the LoadBuilder
+
+        # Initialization of an empty ranking dictionary
+        ranking = {}
+
+        # We loop through our wishes list
+        for wish in ApprovedWishes:
+
+            # If the wish is not fulfilled and his POINT FROM and POINT TO are corresponding with the param (p2p)
+            if wish.QUANTITY > 0 and wish.POINT_FROM == param.POINT_FROM and wish.SHIPPING_POINT == param.POINT_TO:
+                temporary_on_load.append(wish)
+
+                # Here we set QTY and NBR_PER_CRATE to 1 because each line of the wishlist correspond to
+                # one crate and not one unit! Must be done this way to avoid having getting to many size_code
+                # in the returning list of the LoadBuilder
+                loadbuilder_input.append(wish.get_loadbuilder_input_line())
+
+                # We add the ranking of the wish in the ranking dictionary
+                if wish.SIZE_DIMENSIONS in ranking:
+                    ranking[wish.SIZE_DIMENSIONS] += [wish.RANK]
+                else:
+                    ranking[wish.SIZE_DIMENSIONS] = [wish.RANK]
+
+        param.build_loads(loadbuilder_input, ranking, temporary_on_load, param.LOADMAX, print_loads=print_loads)
+        param.add_residuals()
+
+    # Store unallocated units in inv pool
+    throw_back_to_pool(ApprovedWishes)
 
 
 def satisfy_max_or_min(Wishes, Inventory, Parameters, satisfy_min=True, print_loads=False, **kwargs):
@@ -746,6 +808,7 @@ def satisfy_max_or_min(Wishes, Inventory, Parameters, satisfy_min=True, print_lo
         if not satisfy_min:
             param.add_residuals()
 
+
 def distribute_leftovers(Wishes, Inventory, Parameters):
 
     """
@@ -785,7 +848,7 @@ def loadbuilder_input_dataframe(data):
     return input_frame
 
 
-def link_load_to_wishes(loadbuilder_output, available_wishes, p2p):
+def link_load_to_wishes(loadbuilder_output, available_wishes, p2p, forecast=False, **kwargs):
     """
     Choose which wishes to link with the load based on selected crates and priority order
     :param loadbuilder_output: LoadBuilder output (list of tuples with size_code and crate type)
