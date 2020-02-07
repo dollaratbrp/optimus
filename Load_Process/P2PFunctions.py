@@ -487,7 +487,7 @@ def adjust_inventory(original_inventory):
         # We save the current object we're looking at
         current_obj = original_inventory[0]
 
-        original_qty = current_obj.QUANTITY
+        # original_qty = current_obj.QUANTITY
 
         # We initialize an empty list that will contain index of INVObj
         indexes = []
@@ -509,11 +509,11 @@ def adjust_inventory(original_inventory):
         if current_obj.QUANTITY > 0:
             official_inventory.append(current_obj)
 
-        if current_obj.QUANTITY != original_qty:
-            print('POINT FROM :', current_obj.POINT, 'MATERIAL NUMBER :',
-                  current_obj.MATERIAL_NUMBER, 'BEFORE :', original_qty)
-            print('POINT FROM :', current_obj.POINT, 'MATERIAL NUMBER :',
-                  current_obj.MATERIAL_NUMBER, 'AFTER :', current_obj.QUANTITY, '\n')
+        # if current_obj.QUANTITY != original_qty:
+            # print('POINT FROM :', current_obj.POINT, 'MATERIAL NUMBER :',
+                  # current_obj.MATERIAL_NUMBER, 'BEFORE :', original_qty)
+            # print('POINT FROM :', current_obj.POINT, 'MATERIAL NUMBER :',
+                  # current_obj.MATERIAL_NUMBER, 'AFTER :', current_obj.QUANTITY, '\n')
 
         original_inventory.pop(0)
 
@@ -848,7 +848,7 @@ def loadbuilder_input_dataframe(data):
     return input_frame
 
 
-def link_load_to_wishes(loadbuilder_output, available_wishes, p2p, forecast=False, **kwargs):
+def link_load_to_wishes(loadbuilder_output, available_wishes, p2p):
     """
     Choose which wishes to link with the load based on selected crates and priority order
     :param loadbuilder_output: LoadBuilder output (list of tuples with size_code and crate type)
