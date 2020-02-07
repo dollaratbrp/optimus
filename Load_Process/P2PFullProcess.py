@@ -408,7 +408,7 @@ def p2p_full_process():
     # We validate the process' results if the user wants to
     if validation:
         workbook_path = saveFolder + dest_filename + '.xlsx'
-        validate_process(workbook_path)
+        validate_process(workbook_path, p2ps_list, residuals_counter)
 
     # We open excel workbook
     os.system('start "excel" "'+str(reference[0])+'"')
