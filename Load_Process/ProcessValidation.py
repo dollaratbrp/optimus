@@ -105,6 +105,59 @@ def warning(option):
     return response
 
 
+def compare_maximum_sum(modified_parameters, original_parameters, residuals_counter):
+    """
+    Compares sum of maximums between commons POINT TO between original parameters and modified parameters
+
+    :param modified_parameters: List of Parameters objects that were used in the process
+    :param original_parameters: original list of Parameters from parameter box
+    :param residuals_counter: residuals_counter used in the process
+    :return: bool indicating if both sums are equal
+    """
+
+    # For both set of parameters (p2p) compute sums of maximum for each POINT TO
+    original_sums = sum_maximums(original_parameters)
+    modified_sums = sum_maximums(modified_parameters)
+
+    # We add residuals to the modified sums
+    for key in modified_sums.keys():
+        modified_sums[key] += residuals_counter[key]
+
+    print('ORIGINAL MAX SUMS : ', original_sums)
+    print('PROCESS MAX SUMS : ', modified_sums)
+
+    for key in original_sums.keys():
+        if original_sums[key] != modified_sums[key]:
+            response = messagebox.askokcancel(title='Warning', message='Sum of maximum loads for POINT TO : '+str(key)+
+                                                                       'is not matching between process and original'
+                                                                       ' grid')
+            if not response:
+                print('\n', 'VALIDATION PROCESS STOPPED', '\n')
+                sys.exit()
+
+    print('SUMS ALL MATCHING!', '\n')
+
+
+def sum_maximums(parameters_list):
+    """
+    Sum maximum for each POINT TO in the parameters list
+
+    :param parameters_list: List of Parameters objects
+    :return: dictionary with sums of each POINT To
+    """
+    # We initialize the dict that will contain the results
+    results = {}
+
+    # We sum the maximum
+    for p2p in parameters_list:
+        if p2p.POINT_TO in results:
+            results[p2p.POINT_TO] += p2p.LOADMAX
+        else:
+            results[p2p.POINT_TO] = p2p.LOADMAX
+
+    return results
+
+
 def read_approved_items(workbook_path, parameters):
     """
     For each line saved in the "APPROVED" tab of the workbook at the path indicated, we'll build an
@@ -147,7 +200,14 @@ def read_approved_items(workbook_path, parameters):
     return approved_items
 
 
-def validate_process(workbook_path):
+def validate_process(workbook_path, modified_parameters, residuals):
+    """
+    Validates process results
+
+    :param workbook_path: path of the workbook where the output was stored
+    :param modified_parameters: List of Parameters objects that were used in the process
+    :param residuals: residuals_counter used in the process
+    """
 
     print('\n\n', 'PROCESS VALIDATION STARTED', '\n')
 
@@ -175,6 +235,8 @@ def validate_process(workbook_path):
 
     if downloaded:
 
+        compare_maximum_sum(modified_parameters, parameters, residuals_counter)
+
         # We recuperate all items approved in the "APPROVED" worksheet
         approved_items = read_approved_items(workbook_path, parameters)
 
@@ -199,4 +261,4 @@ def validate_process(workbook_path):
                 else:
                     conflict_items.append(item)
 
-        print('NUMBER OF CONFLICTS FOUND :', len(conflict_items))
+        print('NUMBER OF CONFLICTS FOUND IN INVENTORY:', len(conflict_items))

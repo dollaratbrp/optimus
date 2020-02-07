@@ -13,7 +13,8 @@ By : Nicolas Raymond
 from LoadBuilder import LoadBuilder, set_trailer_reference
 from InputOutput import *
 DATAInclude = []
-shared_flatbed_53 = {'QTY': 2, 'POINT_FROM': ['4100', '4125']}
+shared_flatbed_53 = {'QTY': 2, 'POINT_FROM': ['4100', '4125']}  # Used to keep track of the quantity of flat53 available
+residuals_counter = {}  # Use to keep track of the residuals of min and max among p2p with same POINT TO
 
 
 class Wish:
@@ -138,9 +139,9 @@ class Parameters:
             self.FLATBED_48 = flatbed
             self.FLATBED_53 = 0
 
-        self.LoadBuilder = self.new_LoadBuilder()
+        self.LoadBuilder = self.new_loadbuilder()
 
-    def new_LoadBuilder(self):
+    def new_loadbuilder(self):
         """"
         Reset the loadBuilder
         """
@@ -158,7 +159,6 @@ class Parameters:
         """
         Updates the number of flatbed 53 available for our LoadBuilder
         """
-
         global shared_flatbed_53
         if self.POINT_FROM in shared_flatbed_53['POINT_FROM']:
             df = self.LoadBuilder.trailers_data
@@ -170,12 +170,70 @@ class Parameters:
         Updates the number of flatbet 53 left
         :return:
         """
-
         global shared_flatbed_53
         if self.POINT_FROM in shared_flatbed_53['POINT_FROM']:
             df = self.LoadBuilder.trailers_data
             if len(df.loc[df['CATEGORY'] == 'FLATBED_53', 'QTY'].values) != 0:
                 shared_flatbed_53['QTY'] = df.loc[df['CATEGORY'] == 'FLATBED_53', 'QTY'].values[0]
+
+    def update_max(self):
+        """
+        Updates our number of LOADMIN and LOADMAX that we can do according to the residuals from other p2ps
+        with the same POINT TO
+        """
+        global residuals_counter
+        self.LOADMAX += residuals_counter.get(self.POINT_TO, 0)
+
+    def add_residuals(self):
+        """
+        Add residuals to the residuals counter
+        """
+
+        global residuals_counter
+
+        # We save the number of loads done
+        nb_of_loads_done = len(self.LoadBuilder)
+
+        # If we're satisfying the maximum and the number of loads is less than the maximum
+        if nb_of_loads_done <= self.LOADMAX:
+
+            # We save the residual number
+            residual = self.LOADMAX - nb_of_loads_done
+
+            # We update our LOADMAX attribute
+            self.LOADMAX -= residual
+
+            # We send it to our residuals counter
+            value_in_place = residuals_counter.setdefault(self.POINT_TO, residual)
+            if value_in_place != residual:
+                residuals_counter[self.POINT_TO] = residual
+
+    def build_loads(self, loadbuilder_input, ranking, temporary_on_load, max_load, print_loads=False):
+
+        """
+        Holds all procedures linked to the loadbuilding of a plant to plant
+
+        :param loadbuilder_input: list of lists that will be used to build loadbuilder input dataframe
+        :param ranking: dictionary with rankings of crates
+        :param temporary_on_load: list of wishes that have been send to create loads
+        :param max_load: maximum number of loads to do
+        :param print_loads: bool indicating if we should plot the loads done
+        """
+
+        # Construction of the data frame which we'll send to the LoadBuilder of our parameters object (p2p)
+        input_dataframe = loadbuilder_input_dataframe(loadbuilder_input)
+
+        # We update the trailers data frame of the LoadBuilder associated to the p2p
+        self.update_load_builder_trailers_data()
+
+        # Create loads
+        result = self.LoadBuilder.build(input_dataframe, max_load, ranking=ranking, plot_load_done=print_loads)
+
+        # We update the number of common flatbed 53
+        self.update_flatbed_53()
+
+        # Choose which wish to send in load based on selected crates and priority order
+        link_load_to_wishes(result, temporary_on_load, self)
 
 
 class NestedSourcePoints:
@@ -603,6 +661,8 @@ def satisfy_max_or_min(Wishes, Inventory, Parameters, satisfy_min=True, print_lo
     :param satisfy_min: (bool) if false -> we want to satisfy the max
     :param print_loads: (bool) indicates if we plot each load or not
     """
+    global residuals_counter
+
     # We look if we're distributing leftovers or processing to normal stack packing
     leftover_distribution = kwargs.get('leftovers', False)
 
@@ -614,6 +674,10 @@ def satisfy_max_or_min(Wishes, Inventory, Parameters, satisfy_min=True, print_lo
 
     # For each parameters in Parameters list
     for param in Parameters:
+
+        # We update LOADMAX attribute
+        if not satisfy_min:
+            param.update_max()
 
         if len(param.LoadBuilder) < (check_min*param.LOADMIN + (1-check_min)*param.LOADMAX) or leftover_distribution:
 
@@ -667,33 +731,20 @@ def satisfy_max_or_min(Wishes, Inventory, Parameters, satisfy_min=True, print_lo
                         else:
                             ranking[wish.SIZE_DIMENSIONS] = [wish.RANK]
 
-            # Construction of the data frame which we'll send to the LoadBuilder of our parameters object (p2p)
-            input_dataframe = loadbuilder_input_dataframe(load_builder_input)
-
-            # We update the trailers dataframe of the LoadBuild associated to the p2p
-            param.update_load_builder_trailers_data()
-
             # We save the maximum number of loads that can be done
             if leftover_distribution:
                 max_load = 0
             else:
                 max_load = (check_min * param.LOADMIN + (1 - check_min) * param.LOADMAX)
 
-            # Construction of loadings
-            result = param.LoadBuilder.build(models_data=input_dataframe,
-                                             max_load=max_load,
-                                             plot_load_done=print_loads,
-                                             ranking=ranking)
-
-            # We update the number of common flatbed 53
-            param.update_flatbed_53()
-
-            # Choice the wish items to put on loads
-            link_load_to_wishes(result, temporary_on_load, param)
+            # We build loads:
+            param.build_loads(load_builder_input, ranking, temporary_on_load, max_load, print_loads=print_loads)
 
             # Store unallocated units in inv pool
             throw_back_to_pool(temporary_on_load)
 
+        if not satisfy_min:
+            param.add_residuals()
 
 def distribute_leftovers(Wishes, Inventory, Parameters):
 

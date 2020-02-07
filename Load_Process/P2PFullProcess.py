@@ -175,6 +175,9 @@ def p2p_full_process():
 
     for param in p2ps_list:  # for all P2P in parameters
 
+        # We update LOADMIN and LOADMAX attribute
+        param.update_max()
+
         # Initialization of empty list
         temporary_on_load = []  # List to remember the INVobjs that will be sent to the LoadBuilder
         loadbuilder_input = []  # List that will contain the data to build the frame we'll send to the LoadBuilder
@@ -200,20 +203,8 @@ def p2p_full_process():
                 else:
                     ranking[wish.SIZE_DIMENSIONS] = [wish.RANK]
 
-        # Construction of the data frame which we'll send to the LoadBuilder of our parameters object (p2p)
-        input_dataframe = loadbuilder_input_dataframe(loadbuilder_input)
-
-        # We update the trailers dataframe of the LoadBuild associated to the p2p
-        param.update_load_builder_trailers_data()
-
-        # Create loads
-        result = param.LoadBuilder.build(input_dataframe, param.LOADMAX, ranking=ranking, plot_load_done=printLoads)
-
-        # We update the number of common flatbed 53
-        param.update_flatbed_53()
-
-        # Choose which wish to send in load based on selected crates and priority order
-        link_load_to_wishes(result, temporary_on_load, param)
+        param.build_loads(loadbuilder_input, ranking, temporary_on_load, param.LOADMAX, print_loads=printLoads)
+        param.add_residuals()
 
     # Store unallocated units in inv pool
     throw_back_to_pool(approved_wishes)
@@ -417,7 +408,7 @@ def p2p_full_process():
     # We validate the process' results if the user wants to
     if validation:
         workbook_path = saveFolder + dest_filename + '.xlsx'
-        validate_process(workbook_path)
+        validate_process(workbook_path, p2ps_list, residuals_counter)
 
     # We open excel workbook
     os.system('start "excel" "'+str(reference[0])+'"')
