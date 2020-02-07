@@ -294,7 +294,7 @@ def forecast():
 
         # Now we create new loadBuilders
         for param in DATAParams:
-            param.new_LoadBuilder()
+            param.new_loadbuilder()
 
         # Isolate perfect match
         ListApprovedWish = []
