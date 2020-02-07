@@ -173,41 +173,7 @@ def p2p_full_process():
     #                                                Create Loads
     ####################################################################################################################
 
-    for param in p2ps_list:  # for all P2P in parameters
-
-        # We update LOADMIN and LOADMAX attribute
-        param.update_max()
-
-        # Initialization of empty list
-        temporary_on_load = []  # List to remember the INVobjs that will be sent to the LoadBuilder
-        loadbuilder_input = []  # List that will contain the data to build the frame we'll send to the LoadBuilder
-
-        # Initialization of an empty ranking dictionary
-        ranking = {}
-
-        # We loop through our wishes list
-        for wish in approved_wishes:
-
-            # If the wish is not fulfilled and his POINT FROM and POINT TO are corresponding with the param (p2p)
-            if wish.QUANTITY > 0 and wish.POINT_FROM == param.POINT_FROM and wish.SHIPPING_POINT == param.POINT_TO:
-                temporary_on_load.append(wish)
-
-                # Here we set QTY and NBR_PER_CRATE to 1 because each line of the wishlist correspond to
-                # one crate and not one unit! Must be done this way to avoid having getting to many size_code
-                # in the returning list of the LoadBuilder
-                loadbuilder_input.append(wish.get_loadbuilder_input_line())
-
-                # We add the ranking of the wish in the ranking dictionary
-                if wish.SIZE_DIMENSIONS in ranking:
-                    ranking[wish.SIZE_DIMENSIONS] += [wish.RANK]
-                else:
-                    ranking[wish.SIZE_DIMENSIONS] = [wish.RANK]
-
-        param.build_loads(loadbuilder_input, ranking, temporary_on_load, param.LOADMAX, print_loads=printLoads)
-        param.add_residuals()
-
-    # Store unallocated units in inv pool
-    throw_back_to_pool(approved_wishes)
+    perfect_match_loads_construction(p2ps_list, approved_wishes, print_loads=printLoads)
 
     ####################################################################################################################
     #                             Try to Make the minimum number of loads for each P2P
