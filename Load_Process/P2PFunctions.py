@@ -169,7 +169,7 @@ class Parameters:
 
     def update_flatbed_53(self):
         """
-        Updates the number of flatbet 53 left
+        Updates the number of flatbed 53 left
         :return:
         """
         global shared_flatbed_53
