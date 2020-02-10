@@ -13,7 +13,8 @@ By : Nicolas Raymond
 from LoadBuilder import LoadBuilder, set_trailer_reference
 from InputOutput import *
 DATAInclude = []
-shared_flatbed_53 = {'QTY': 2, 'POINT_FROM': ['4100', '4125']}  # Used to keep track of the quantity of flat53 available
+sharing_points_from = ['4100', '4125']
+shared_flatbed_53 = {'QTY': 2, 'POINT_FROM': sharing_points_from}  # Used to keep track of flat53 available
 residuals_counter = {}  # Use to keep track of the residuals of min and max among p2p with same POINT TO
 
 
@@ -167,7 +168,7 @@ class Parameters:
 
     def update_flatbed_53(self):
         """
-        Updates the number of flatbet 53 left
+        Updates the number of flatbed 53 left
         :return:
         """
         global shared_flatbed_53
@@ -182,7 +183,10 @@ class Parameters:
         with the same POINT TO
         """
         global residuals_counter
-        self.LOADMAX += residuals_counter.get(self.POINT_TO, 0)
+        global sharing_points_from
+
+        if self.POINT_FROM in sharing_points_from:
+            self.LOADMAX += residuals_counter.get(self.POINT_TO, 0)
 
     def add_residuals(self):
         """
@@ -190,23 +194,26 @@ class Parameters:
         """
 
         global residuals_counter
+        global sharing_points_from
 
-        # We save the number of loads done
-        nb_of_loads_done = len(self.LoadBuilder)
+        if self.POINT_FROM in sharing_points_from:
 
-        # If we're satisfying the maximum and the number of loads is less than the maximum
-        if nb_of_loads_done <= self.LOADMAX:
+            # We save the number of loads done
+            nb_of_loads_done = len(self.LoadBuilder)
 
-            # We save the residual number
-            residual = self.LOADMAX - nb_of_loads_done
+            # If we're satisfying the maximum and the number of loads is less than the maximum
+            if nb_of_loads_done <= self.LOADMAX:
 
-            # We update our LOADMAX attribute
-            self.LOADMAX -= residual
+                # We save the residual number
+                residual = self.LOADMAX - nb_of_loads_done
 
-            # We send it to our residuals counter
-            value_in_place = residuals_counter.setdefault(self.POINT_TO, residual)
-            if value_in_place != residual:
-                residuals_counter[self.POINT_TO] = residual
+                # We update our LOADMAX attribute
+                self.LOADMAX -= residual
+
+                # We send it to our residuals counter
+                value_in_place = residuals_counter.setdefault(self.POINT_TO, residual)
+                if value_in_place != residual:
+                    residuals_counter[self.POINT_TO] = residual
 
     def build_loads(self, loadbuilder_input, ranking, temporary_on_load, max_load, print_loads=False):
 
