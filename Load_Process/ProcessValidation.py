@@ -126,7 +126,7 @@ def compare_maximum_sum(modified_parameters, original_parameters, residuals_coun
     print('ORIGINAL MAX SUMS : ', original_sums)
     print('PROCESS MAX SUMS : ', modified_sums)
 
-    for key in original_sums.keys():
+    for key in modified_sums.keys():
         if original_sums[key] != modified_sums[key]:
             response = messagebox.askokcancel(title='Warning', message='Sum of maximum loads for POINT TO : '+str(key)+
                                                                        'is not matching between process and original'
