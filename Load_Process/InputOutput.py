@@ -269,6 +269,20 @@ def apply_filling_to_rows(ws, row_indexes, nb_of_columns, filling=None):
             ws.cell(row=index, column=j).fill = filling
 
 
+def group_by_all_except_qty(dataframe_input, columns_name):
+    """
+    Create a data frame and execute a group by on all columns except QTY
+
+    :param dataframe_input: list with lists of input to create pandas dataframe
+    :param columns_name: list with columns name
+    :return: pandas dataframe
+    """
+    frame = pd.DataFrame(data=dataframe_input, columns=columns_name)
+    frame = frame.groupby([column for column in columns_name if column != 'QUANTITY']).sum()
+    frame = frame.reset_index()
+
+    return frame
+
 class SQLConnection:
 
     """Connection to SQL servers"""
