@@ -77,7 +77,7 @@ def forecast():
             ####################################################################################
             #                      Get details on point from and shipping point
             ####################################################################################
-            header = 'SHPPING_PLANT,SHIPPING_POINT,DESCRIPTION,SOLD_TO_NUMBER'
+            header = 'SHIPPING_PLANT,SHIPPING_POINT,DESCRIPTION,SOLD_TO_NUMBER'
             shipping_points_connection = SQLConnection('CAVLSQLPD2\pbi2', 'Business_Planning',
                                                        'BP_CONFIG_SHIPPING_PLANT_TO_SHIPPING_POINT', headers=header)
             query = """SELECT [SHIPPING_POINT], [DESCRIPTION]
@@ -154,18 +154,18 @@ def forecast():
                                   ,convert(date,[AVAILABLE_DATE]) as AVAILABLE_DATE
                                   ,[STATUS]
                               FROM [Business_Planning].[dbo].[OTD_1_P2P_F_INVENTORY]
-                              where status in ('QA HOLD','PRODUCTION PLAN')
+                              where status in ('QA HOLD','production PLAN')
                               and AVAILABLE_DATE between convert(date,getdate()) and convert(date, getdate() + 9*7)
                               order by AVAILABLE_DATE,SHIPPING_POINT,MATERIAL_NUMBER
                                     """
 
-            Production = [INVObj(*obj) for obj in inventory_connection.GetSQLData(prod_query)]
+            production = [INVObj(*obj) for obj in inventory_connection.GetSQLData(prod_query)]
 
             ####################################################################################
             #                                 WishList Query
             ####################################################################################
 
-            DATAWishList = get_wish_list(forecast=True)
+            wishes = get_wish_list()
 
             ####################################################################################
             #                             Included Shipping_point
@@ -236,10 +236,12 @@ def forecast():
     ####################################################################################################################
 
     # We adjust original inventory
-    adjust_inventory(inventory)
+    official_inventory = adjust_inventory(inventory)
+    inventory = official_inventory
+    print(inventory)
 
     # We add today's prod and QA to inventory, but we don't create load for today (we make them for tomorrow or later)
-    for prod in Production:
+    for prod in production:
         if prod.DATE > weekdays(0):  # Ordered by date, so no need to continue
             break
         elif prod.DATE == weekdays(0) and prod.QUANTITY > 0 and prod.STATUS == 'QA HOLD':
@@ -264,7 +266,7 @@ def forecast():
         reset_residuals_counter()
 
         # we add today's prod and QA to inventory
-        for prod in Production:
+        for prod in production:
             if prod.DATE > date:  # Ordered by date, so no need to continue
                 break
             elif prod.DATE == date and prod.QUANTITY > 0:
@@ -280,17 +282,20 @@ def forecast():
         #                                 Perfect match and first loads creation
         ################################################################################################################
 
+        print('CREATE LOADS', '\n\n')
+
         # Now we create new loadBuilders
         for param in p2ps_list:
-            param.new_loadbuilder()
+            param.reset()
 
         # Isolate perfect match
-        approved_wishes = find_perfect_match(DATAWishList, inventory, p2ps_list, forecast=True)
+        approved_wishes = find_perfect_match(wishes, inventory, p2ps_list, forecast=True)
 
         # We now create loads with those perfect match
         for param in p2ps_list:
 
             param.update_max()
+            print(['POINT FROM :', param.POINT_FROM, 'POINT TO :', param.POINT_TO, 'MIN :', param.LOADMIN, 'MAX :', param.LOADMAX])
             temporary_on_load = []
             load_builder_input = []
 
@@ -300,6 +305,7 @@ def forecast():
             for wish in approved_wishes:
 
                 if wish.POINT_FROM == param.POINT_FROM and wish.SHIPPING_POINT == param.POINT_TO and wish.QUANTITY > 0:
+
                     temporary_on_load.append(wish)
 
                     load_builder_input.append(wish.get_loadbuilder_input_line())
@@ -312,6 +318,7 @@ def forecast():
 
             # We create loads
             models_data = loadbuilder_input_dataframe(load_builder_input)
+            print(models_data)
             param.update_load_builder_trailers_data()
             result = param.LoadBuilder.build(models_data, param.LOADMAX, ranking=ranking, plot_load_done=printLoads)
             param.update_flatbed_53()
@@ -328,7 +335,7 @@ def forecast():
                         OnLoad.EndDate = weekdays(max(0, param.days_to-1), officialDay=date)
                         priority_connection.sendToSQL(OnLoad.lineToXlsx(dayTodayComplete))
                         detailed_ws.append(OnLoad.lineToXlsx(dayTodayComplete, filtered=True))
-                        DATAWishList.remove(OnLoad)
+                        wishes.remove(OnLoad)
                         break
                 if not found:
                     GeneralErrors += 'Error in Perfect Match: impossible result.\n'
@@ -342,9 +349,11 @@ def forecast():
 
         # Try to Make the minimum number of loads for each P2P
         LoadBuilder.plc_lb = 0.75
-
+        print('SATISFY MIN', '\n\n')
         for param in p2ps_list:
 
+            print(['POINT FROM :', param.POINT_FROM, 'POINT TO :', param.POINT_TO, 'MIN :', param.LOADMIN, 'MAX :',
+                   param.LOADMAX])
             if len(param.LoadBuilder) < param.LOADMIN:  # If the minimum isn't reached
 
                 temporary_on_load = []
@@ -352,7 +361,7 @@ def forecast():
                 ranking = {}
 
                 # create data table
-                for wish in DATAWishList:
+                for wish in wishes:
                     if wish.POINT_FROM == param.POINT_FROM and wish.SHIPPING_POINT == param.POINT_TO and wish.QUANTITY > 0:
                         position = 0
                         for Iteration in range(wish.QUANTITY):
@@ -395,7 +404,7 @@ def forecast():
                             OnLoad.EndDate = weekdays(max(0, param.days_to - 1), officialDay=date)
                             priority_connection.sendToSQL(OnLoad.lineToXlsx(dayTodayComplete))
                             detailed_ws.append(OnLoad.lineToXlsx(dayTodayComplete, filtered=True))
-                            DATAWishList.remove(OnLoad)
+                            wishes.remove(OnLoad)
                             break
                     if not found:
                         GeneralErrors += 'Error in min section: impossible result.\n'
@@ -408,11 +417,14 @@ def forecast():
 
         # Try to Make the maximum number of loads for each P2P
         LoadBuilder.plc_lb = 0.80
+        print('SATISFY MAX', '\n\n')
 
         for param in p2ps_list:
 
             # We update the max
             param.update_max()
+            print(['POINT FROM :', param.POINT_FROM, 'POINT TO :', param.POINT_TO, 'MIN :', param.LOADMIN, 'MAX :',
+                   param.LOADMAX])
 
             if len(param.LoadBuilder) < param.LOADMAX:  # if we haven't reached the max number of loads
 
@@ -421,7 +433,7 @@ def forecast():
                 ranking = {}
 
                 # Create data table
-                for wish in DATAWishList:
+                for wish in wishes:
 
                     if wish.POINT_FROM == param.POINT_FROM and wish.SHIPPING_POINT == param.POINT_TO and\
                             wish.QUANTITY > 0:
@@ -469,7 +481,7 @@ def forecast():
                             OnLoad.EndDate = weekdays(max(0, param.days_to - 1), officialDay=date)
                             priority_connection.sendToSQL(OnLoad.lineToXlsx(dayTodayComplete))
                             detailed_ws.append(OnLoad.lineToXlsx(dayTodayComplete, filtered=True))
-                            DATAWishList.remove(OnLoad)
+                            wishes.remove(OnLoad)
                             break
                     if not found:
                         GeneralErrors += 'Error in max section: impossible result.\n'
@@ -502,7 +514,7 @@ def forecast():
 
     # Loads were made for the next 8 weeks, now we send not assigned wishes to SQL
 
-    for wish in DATAWishList:
+    for wish in wishes:
         if wish.QUANTITY != wish.ORIGINAL_QUANTITY:
             GeneralErrors += 'Error : this unit was not assigned and has a different quantity; \n {0}'.format(wish.lineToXlsx())
         priority_connection.sendToSQL(wish.lineToXlsx(dayTodayComplete))
