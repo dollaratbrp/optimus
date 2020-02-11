@@ -315,7 +315,7 @@ class SkylineBl(Skyline):
         :return: length (float)
         """
         # We initialize an horizontal segment
-        h_segment = HSegment(P(0, starting_height), self.width*0.55)
+        h_segment = HSegment(P(0, starting_height), self.width*0.58)
 
         # We initialize a variable memorizing if we met another horizontal segment
         intersect = False
