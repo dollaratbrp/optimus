@@ -252,22 +252,32 @@ def forecast():
         obj.Future = False
 
     # We add today's prod and QA to inventory, but we don't create load for today (we make them for tomorrow or later)
-    for prod in production:
+    prod_used = []
+    for i, item in enumerate(production):
         found = False
-        if prod.DATE > weekdays(0):  # Ordered by date, so no need to continue
+        if item.DATE > weekdays(0):  # Ordered by date, so no need to continue
             break
-        elif prod.DATE == weekdays(0) and prod.QUANTITY > 0 and prod.STATUS == 'QA HOLD':
+
+        # if item can be considered as inventory
+        elif item.DATE == weekdays(0) and item.QUANTITY > 0 and item.STATUS == 'QA HOLD':
+
+            # We save is index to remove it later
+            prod_used.append(i)
+
             for inv in inventory:
-                if inv.POINT == prod.POINT and inv.MATERIAL_NUMBER == prod.MATERIAL_NUMBER:
+                if inv.POINT == item.POINT and inv.MATERIAL_NUMBER == item.MATERIAL_NUMBER:
                     found = True
-                    inv.QUANTITY += prod.QUANTITY
-                    prod.QUANTITY = 0
+                    inv.QUANTITY += item.QUANTITY
+                    item.QUANTITY = 0
                     break  # we found the good inv
 
             # We add the object if it wasn't already existing in the inventory
             if not found:
-                prod.Future = False
-                inventory.append(prod)
+                item.Future = False
+                inventory.append(item)
+
+    # We remove prod used
+    remove_indexes_from_list(production, prod_used)
 
     # Inventory is now updated.
 
@@ -279,29 +289,39 @@ def forecast():
 
     # Initialization of the load bar
     progress = tqdm(total=len(dates), desc='Forecast progress')
-    for date in dates[0:2]:
+    for date in dates:
+
+        print(len(production))
 
         # We reset the number of shared flatbed_53 and the residuals counter
         reset_flatbed_53()
         reset_residuals_counter()
 
         # we add today's prod and QA to inventory
-        for prod in production:
+        prod_used.clear()
+        for i, item in enumerate(production):
             found = False
-            if prod.DATE > date:  # Ordered by date, so no need to continue
+            if item.DATE > date:  # Ordered by date, so no need to continue
                 break
-            elif prod.DATE == date and prod.QUANTITY > 0:
+            elif item.DATE == date and item.QUANTITY > 0:
+
+                # We save is index to remove it later
+                prod_used.append(i)
+
                 for inv in inventory:
-                    if inv.POINT == prod.POINT and inv.MATERIAL_NUMBER == prod.MATERIAL_NUMBER:
+                    if inv.POINT == item.POINT and inv.MATERIAL_NUMBER == item.MATERIAL_NUMBER:
                         found = True
-                        inv.QUANTITY += prod.QUANTITY
-                        prod.QUANTITY = 0
+                        inv.QUANTITY += item.QUANTITY
+                        item.QUANTITY = 0
                         break  # we found the good inv
 
                 # We add the object if it wasn't already existing in the inventory
                 if not found:
-                    prod.Future = False
-                    inventory.append(prod)
+                    item.Future = False
+                    inventory.append(item)
+
+        # We remove prod used
+        remove_indexes_from_list(production, prod_used)
 
         # Inventory is now updated.
 
