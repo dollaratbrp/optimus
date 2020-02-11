@@ -622,7 +622,7 @@ def get_trailers_data(category_list=[], qty_list=[]):
     return pd.DataFrame(data=data, columns=columns)
 
 
-def find_perfect_match(Wishes, Inventory, Parameters, forecast=False):
+def find_perfect_match(Wishes, Inventory, Parameters):
 
     """
     Finds perfect match between wishes of the wish list, inventory available and p2p available in the parameter box
@@ -651,7 +651,7 @@ def find_perfect_match(Wishes, Inventory, Parameters, forecast=False):
                         and inv.QUANTITY > 0:
 
                     # If the inventory object (INVobj) will be available later than today
-                    if not forecast and inv.Future:  # QA of tomorrow, need to look if load is for today or later
+                    if inv.Future:  # QA of tomorrow, need to look if load is for today or later
 
                         inventory_to_take = False
 
@@ -884,6 +884,13 @@ def link_load_to_wishes(loadbuilder_output, available_wishes, p2p, **kwargs):
     :param available_wishes: List of wishes that were temporary assigned to the load
     :param p2p : plant to plant for which we built the load (object of class Parameters)
     """
+    # We look if there's any function to save wish assignment and a date that are also passed as parameter
+    save_wish_assignment = kwargs.get('assignment_function', None)
+    inventory_availability_date = kwargs.get('inventory_available_date', None)
+
+    # If we got both parameters we looked for, it means we're linking load to wishes in the forecast process
+    forecast_process = save_wish_assignment is not None and inventory_availability_date is not None
+
     for model, crate_type in loadbuilder_output:
         found = False
         for wish in available_wishes:
@@ -891,6 +898,8 @@ def link_load_to_wishes(loadbuilder_output, available_wishes, p2p, **kwargs):
                 wish.QUANTITY = 0
                 found = True
                 p2p.AssignedWish.append(wish)
+                if forecast_process:
+                    save_wish_assignment(wish, p2p, inventory_availability_date)
                 break
         if not found:
             print('Error in Perfect Match: impossible result.\n')
@@ -968,20 +977,22 @@ def compute_booked_unused(wishlist, inventory, parameters):
     return list(possible_plant_to)
 
 
-def build_forecast_output_sending_function(priority_table_connection, forecast_running_date, detailed_worksheet):
+def build_forecast_output_sending_function(wishlist, priority_table_connection,
+                                           forecast_running_date, detailed_worksheet):
     """
 
     Builds the function need to throw output of forecast correctly is function "link_load_to_wishes"
 
+    :param wishlist: complete list of wishes
     :param priority_table_connection: SQLconnection object connect to OTD_1_P2P_F_FORECAST_PRIORITY table
     :param forecast_running_date: date at which the forecast process is running
     :param detailed_worksheet: worksheet on which we write the detailed results of forecast
     :return: A function
     """
-    def save_wish_assignment(wishlist, wish, p2p, inventory_availability_date):
+    def save_wish_assignment(wish, p2p, inventory_availability_date):
         """
         Saves wish assignement to SQL forecast output table and DETAILED forecast output worksheet
-        :param wishlist: list of wishes
+
         :param wish: wish that we save the assignment
         :param p2p: plant to plant to which the wish is assigned
         :param inventory_availability_date: date where the inventory to fulfill the wish is available
