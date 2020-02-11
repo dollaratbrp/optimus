@@ -21,6 +21,7 @@ from ParametersBox import *
 from P2PFunctions import *
 from openpyxl import Workbook, load_workbook
 from tqdm import tqdm
+from copy import deepcopy
 import numpy as np
 
 # Path where the forecast results are saved
@@ -232,24 +233,41 @@ def forecast():
     LoadBuilder.validate_with_ref = drybox_sanity_check
 
     ####################################################################################################################
+    #                             Creation of the function to send wish assignment results
+    ####################################################################################################################
+
+    save_wish_assignment = build_forecast_output_sending_function(wishes, priority_connection,
+                                                                  dayTodayComplete, detailed_ws)
+
+    ####################################################################################################################
     #                                                Main loop for everyday
     ####################################################################################################################
 
     # We adjust original inventory
     official_inventory = adjust_inventory(inventory)
     inventory = official_inventory
-    print(inventory)
+
+    # We set INVObjs attribute Future to false to be able to use P2P normal process' functions
+    for obj in inventory:
+        obj.Future = False
 
     # We add today's prod and QA to inventory, but we don't create load for today (we make them for tomorrow or later)
     for prod in production:
+        found = False
         if prod.DATE > weekdays(0):  # Ordered by date, so no need to continue
             break
         elif prod.DATE == weekdays(0) and prod.QUANTITY > 0 and prod.STATUS == 'QA HOLD':
             for inv in inventory:
                 if inv.POINT == prod.POINT and inv.MATERIAL_NUMBER == prod.MATERIAL_NUMBER:
+                    found = True
                     inv.QUANTITY += prod.QUANTITY
                     prod.QUANTITY = 0
                     break  # we found the good inv
+
+            # We add the object if it wasn't already existing in the inventory
+            if not found:
+                prod.Future = False
+                inventory.append(prod)
 
     # Inventory is now updated.
 
@@ -257,9 +275,11 @@ def forecast():
     summary_data = []
     column_counter = 3  # Starts at 3 because of the columns point from and point to
 
+    # START OF THE LOOP ################################################################################################
+
     # Initialization of the load bar
     progress = tqdm(total=len(dates), desc='Forecast progress')
-    for date in dates:
+    for date in dates[0:2]:
 
         # We reset the number of shared flatbed_53 and the residuals counter
         reset_flatbed_53()
@@ -267,14 +287,21 @@ def forecast():
 
         # we add today's prod and QA to inventory
         for prod in production:
+            found = False
             if prod.DATE > date:  # Ordered by date, so no need to continue
                 break
             elif prod.DATE == date and prod.QUANTITY > 0:
                 for inv in inventory:
                     if inv.POINT == prod.POINT and inv.MATERIAL_NUMBER == prod.MATERIAL_NUMBER:
+                        found = True
                         inv.QUANTITY += prod.QUANTITY
                         prod.QUANTITY = 0
                         break  # we found the good inv
+
+                # We add the object if it wasn't already existing in the inventory
+                if not found:
+                    prod.Future = False
+                    inventory.append(prod)
 
         # Inventory is now updated.
 
@@ -282,211 +309,35 @@ def forecast():
         #                                 Perfect match and first loads creation
         ################################################################################################################
 
-        print('CREATE LOADS', '\n\n')
-
         # Now we create new loadBuilders
         for param in p2ps_list:
             param.reset()
 
         # Isolate perfect match
-        approved_wishes = find_perfect_match(wishes, inventory, p2ps_list, forecast=True)
+        approved_wishes = find_perfect_match(wishes, inventory, p2ps_list)
 
-        # We now create loads with those perfect match
-        for param in p2ps_list:
-
-            param.update_max()
-            print(['POINT FROM :', param.POINT_FROM, 'POINT TO :', param.POINT_TO, 'MIN :', param.LOADMIN, 'MAX :', param.LOADMAX])
-            temporary_on_load = []
-            load_builder_input = []
-
-            # Initialization of an empty ranking dictionary
-            ranking = {}
-
-            for wish in approved_wishes:
-
-                if wish.POINT_FROM == param.POINT_FROM and wish.SHIPPING_POINT == param.POINT_TO and wish.QUANTITY > 0:
-
-                    temporary_on_load.append(wish)
-
-                    load_builder_input.append(wish.get_loadbuilder_input_line())
-
-                    # We add the ranking of the wish in the ranking dictionary
-                    if wish.SIZE_DIMENSIONS in ranking:
-                        ranking[wish.SIZE_DIMENSIONS] += [wish.RANK]
-                    else:
-                        ranking[wish.SIZE_DIMENSIONS] = [wish.RANK]
-
-            # We create loads
-            models_data = loadbuilder_input_dataframe(load_builder_input)
-            print(models_data)
-            param.update_load_builder_trailers_data()
-            result = param.LoadBuilder.build(models_data, param.LOADMAX, ranking=ranking, plot_load_done=printLoads)
-            param.update_flatbed_53()
-            param.add_residuals()
-
-            for model, crate_type in result:
-                found = False
-                for OnLoad in temporary_on_load:
-                    # we send allocated wish units to sql
-                    if OnLoad.SIZE_DIMENSIONS == model and OnLoad.QUANTITY > 0 and OnLoad.CRATE_TYPE == crate_type:
-                        OnLoad.QUANTITY = 0
-                        found = True
-                        param.AssignedWish.append(OnLoad)
-                        OnLoad.EndDate = weekdays(max(0, param.days_to-1), officialDay=date)
-                        priority_connection.sendToSQL(OnLoad.lineToXlsx(dayTodayComplete))
-                        detailed_ws.append(OnLoad.lineToXlsx(dayTodayComplete, filtered=True))
-                        wishes.remove(OnLoad)
-                        break
-                if not found:
-                    GeneralErrors += 'Error in Perfect Match: impossible result.\n'
-
-        # Store unallocated units in inv pool
-        throw_back_to_pool(approved_wishes)
+        # First loads creation
+        perfect_match_loads_construction(p2ps_list, approved_wishes, print_loads=printLoads,
+                                         assignment_function=save_wish_assignment, inventory_available_date=date)
 
         ################################################################################################################
         #                                       Satisfy minimums
         ################################################################################################################
 
         # Try to Make the minimum number of loads for each P2P
-        LoadBuilder.plc_lb = 0.75
-        print('SATISFY MIN', '\n\n')
-        for param in p2ps_list:
-
-            print(['POINT FROM :', param.POINT_FROM, 'POINT TO :', param.POINT_TO, 'MIN :', param.LOADMIN, 'MAX :',
-                   param.LOADMAX])
-            if len(param.LoadBuilder) < param.LOADMIN:  # If the minimum isn't reached
-
-                temporary_on_load = []
-                load_builder_input = []
-                ranking = {}
-
-                # create data table
-                for wish in wishes:
-                    if wish.POINT_FROM == param.POINT_FROM and wish.SHIPPING_POINT == param.POINT_TO and wish.QUANTITY > 0:
-                        position = 0
-                        for Iteration in range(wish.QUANTITY):
-                            for It, inv in enumerate(inventory[position::]):
-                                if EquivalentPlantFrom(inv.POINT, wish.POINT_FROM) and \
-                                        inv.MATERIAL_NUMBER == wish.MATERIAL_NUMBER and inv.QUANTITY > 0:
-                                    inv.QUANTITY -= 1
-                                    wish.INV_ITEMS.append(inv)
-                                    position += It
-                                    break  # no need to look further
-
-                        if len(wish.INV_ITEMS) < wish.QUANTITY:  # We give back taken inv
-                            for invToGiveBack in wish.INV_ITEMS:
-                                invToGiveBack.QUANTITY += 1
-                            wish.INV_ITEMS = []
-                        else:
-                            temporary_on_load.append(wish)
-                            load_builder_input.append(wish.get_loadbuilder_input_line())
-
-                            # We add the ranking of the wish in the ranking dictionary
-                            if wish.SIZE_DIMENSIONS in ranking:
-                                ranking[wish.SIZE_DIMENSIONS] += [wish.RANK]
-                            else:
-                                ranking[wish.SIZE_DIMENSIONS] = [wish.RANK]
-
-                # Create loads
-                models_data = loadbuilder_input_dataframe(load_builder_input)
-                param.update_load_builder_trailers_data()
-                result = param.LoadBuilder.build(models_data, param.LOADMIN, ranking=ranking, plot_load_done=printLoads)
-                param.update_flatbed_53()
-
-                # Choose wish items to put on loads
-                for model, crate_type in result:
-                    found = False
-                    for OnLoad in temporary_on_load:
-                        if OnLoad.SIZE_DIMENSIONS == model and OnLoad.QUANTITY > 0 and OnLoad.CRATE_TYPE == crate_type:
-                            OnLoad.QUANTITY = 0
-                            found = True
-                            param.AssignedWish.append(OnLoad)
-                            OnLoad.EndDate = weekdays(max(0, param.days_to - 1), officialDay=date)
-                            priority_connection.sendToSQL(OnLoad.lineToXlsx(dayTodayComplete))
-                            detailed_ws.append(OnLoad.lineToXlsx(dayTodayComplete, filtered=True))
-                            wishes.remove(OnLoad)
-                            break
-                    if not found:
-                        GeneralErrors += 'Error in min section: impossible result.\n'
-
-                throw_back_to_pool(temporary_on_load)
+        satisfy_max_or_min(wishes, inventory, p2ps_list, print_loads=printLoads,
+                           assignment_function=save_wish_assignment, inventory_available_date=date)
 
         ################################################################################################################
         #                                       Satisfy maximums
         ################################################################################################################
 
-        # Try to Make the maximum number of loads for each P2P
-        LoadBuilder.plc_lb = 0.80
-        print('SATISFY MAX', '\n\n')
+        satisfy_max_or_min(wishes, inventory, p2ps_list, print_loads=printLoads,
+                           assignment_function=save_wish_assignment, inventory_available_date=date)
 
-        for param in p2ps_list:
-
-            # We update the max
-            param.update_max()
-            print(['POINT FROM :', param.POINT_FROM, 'POINT TO :', param.POINT_TO, 'MIN :', param.LOADMIN, 'MAX :',
-                   param.LOADMAX])
-
-            if len(param.LoadBuilder) < param.LOADMAX:  # if we haven't reached the max number of loads
-
-                temporary_on_load = []
-                load_builder_input = []
-                ranking = {}
-
-                # Create data table
-                for wish in wishes:
-
-                    if wish.POINT_FROM == param.POINT_FROM and wish.SHIPPING_POINT == param.POINT_TO and\
-                            wish.QUANTITY > 0:
-
-                        position = 0
-                        for Iteration in range(wish.QUANTITY):
-                            for It, inv in enumerate(inventory[position::]):
-                                if EquivalentPlantFrom(inv.POINT, wish.POINT_FROM) and\
-                                        inv.MATERIAL_NUMBER == wish.MATERIAL_NUMBER and inv.QUANTITY > 0:
-                                    inv.QUANTITY -= 1
-                                    wish.INV_ITEMS.append(inv)
-                                    position += It
-                                    break  # no need to look further
-
-                        if len(wish.INV_ITEMS) < wish.QUANTITY:  # We give back taken inv
-                            for invToGiveBack in wish.INV_ITEMS:
-                                invToGiveBack.QUANTITY += 1
-                            wish.INV_ITEMS = []
-
-                        else:
-                            temporary_on_load.append(wish)
-                            load_builder_input.append(wish.get_loadbuilder_input_line())
-
-                            # We add the ranking of the wish in the ranking dictionary
-                            if wish.SIZE_DIMENSIONS in ranking:
-                                ranking[wish.SIZE_DIMENSIONS] += [wish.RANK]
-                            else:
-                                ranking[wish.SIZE_DIMENSIONS] = [wish.RANK]
-
-                # Create loads
-                models_data = loadbuilder_input_dataframe(load_builder_input)
-                param.update_load_builder_trailers_data()
-                result = param.LoadBuilder.build(models_data, param.LOADMAX, ranking=ranking, plot_load_done=printLoads)
-                param.update_flatbed_53()
-                param.add_residuals()
-
-                # choose wish items to put on loads
-                for model, crate_type in result:
-                    found = False
-                    for OnLoad in temporary_on_load:
-                        if OnLoad.SIZE_DIMENSIONS == model and OnLoad.QUANTITY > 0 and OnLoad.CRATE_TYPE == crate_type:
-                            OnLoad.QUANTITY = 0
-                            found = True
-                            param.AssignedWish.append(OnLoad)
-                            OnLoad.EndDate = weekdays(max(0, param.days_to - 1), officialDay=date)
-                            priority_connection.sendToSQL(OnLoad.lineToXlsx(dayTodayComplete))
-                            detailed_ws.append(OnLoad.lineToXlsx(dayTodayComplete, filtered=True))
-                            wishes.remove(OnLoad)
-                            break
-                    if not found:
-                        GeneralErrors += 'Error in max section: impossible result.\n'
-
-                throw_back_to_pool(temporary_on_load)
+        ################################################################################################################
+        #                                         Results saving
+        ################################################################################################################
 
         # We set a boolean to false that will indicate if there's anything that has been schedule this date
         consider_date_in_output = False
@@ -511,6 +362,8 @@ def forecast():
         # Update progress bar and column counter
         progress.update()
         column_counter += int(consider_date_in_output)
+
+        # END OF THE LOOP ##############################################################################################
 
     # Loads were made for the next 8 weeks, now we send not assigned wishes to SQL
 
