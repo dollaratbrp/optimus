@@ -94,11 +94,15 @@ class INVObj:
         self.SIZE_CODE = None  # Only used to display size_code in BOOKED_UNUSED worksheet
         self.POSSIBLE_PLANT_TO = {}  # Use to show where unbooked quantity could be shipped in BOOKED_UNUSED worksheet
 
-    def lineToXlsx(self):
+    def lineToXlsx(self, booked_unused=True):
         """
-        Return a list of all the details needed on a inventory object to write a line in a .xlsx forecast report
+        Return a list of all the details needed on for BOOKED UNUSED or UNBOOKED worksheet
         """
-        return [self.POINT, self.MATERIAL_NUMBER, self.QUANTITY, self.DATE, self.STATUS]
+        if booked_unused:
+            return [self.POINT, self.MATERIAL_NUMBER, self.unused]
+
+        else:  # elif unbooked
+            return [self.POINT, self.MATERIAL_NUMBER, self.QUANTITY-self.unused]
 
     def __eq__(self, other):
         """
