@@ -40,11 +40,19 @@ class ApprovedItem:
         :param wishlist: List of WishListObj
         :return : boolean indicating if the wish was found
         """
+        original_qty = self.qty
+        indexes_to_remove = []
 
         for index, wish in enumerate(wishlist):
             if self.point_from == wish.POINT_FROM and self.shipping_point == wish.SHIPPING_POINT and \
                     self.material_number == wish.MATERIAL_NUMBER:
-                wishlist.pop(index)
+                original_qty -= wish.QUANTITY
+                indexes_to_remove.append(index)
+
+            if original_qty == 0:
+                indexes_to_remove.sort(reverse=True)
+                for i in indexes_to_remove:
+                    wishlist.pop(i)
                 return True
 
         return False
@@ -56,22 +64,28 @@ class ApprovedItem:
         :param inventory_list: list of INVobj objects
         :return: boolean indicating if the inventory was available
         """
+        original_qty = self.qty
 
         for index, inventory_line in enumerate(inventory_list):
 
             if EquivalentPlantFrom(inventory_line.POINT, self.point_from) and \
-                    self.material_number == inventory_line.MATERIAL_NUMBER and inventory_line.QUANTITY >= self.qty and\
+                    self.material_number == inventory_line.MATERIAL_NUMBER and\
                     (not inventory_line.Future or (inventory_line.Future and self.days_to > 0)):
 
-                inventory_line.QUANTITY -= self.qty
+                qty_to_remove = min(original_qty, inventory_line.QUANTITY)
+                inventory_line.QUANTITY -= qty_to_remove
+                original_qty -= qty_to_remove
+
                 print('POINT FROM :', inventory_line.POINT)
-                print('INVENTORY TAKEN :', self.qty)
+                print('INVENTORY TAKEN :', qty_to_remove)
+                print('QUANTITY REMAINING :', original_qty)
                 print('INVENTORY LEFT : ', inventory_line.QUANTITY, '\n')
 
                 if inventory_line.QUANTITY == 0:
                     inventory_list.pop(index)
 
-                return True
+                if original_qty == 0:
+                    return True
 
         return False
 
@@ -120,7 +134,7 @@ def compare_maximum_sum(modified_parameters, original_parameters, residuals_coun
     modified_sums = sum_maximums(modified_parameters)
 
     # We add residuals to the modified sums
-    for key in modified_sums.keys():
+    for key in residuals_counter.keys():
         modified_sums[key] += residuals_counter[key]
 
     print('ORIGINAL MAX SUMS : ', original_sums)
@@ -128,8 +142,8 @@ def compare_maximum_sum(modified_parameters, original_parameters, residuals_coun
 
     for key in modified_sums.keys():
         if original_sums[key] != modified_sums[key]:
-            response = messagebox.askokcancel(title='Warning', message='Sum of maximum loads for POINT TO : '+str(key)+
-                                                                       'is not matching between process and original'
+            response = messagebox.askokcancel(title='Warning', message='Sum of maximum loads for POINT TO : ' + str(key)
+                                                                       + 'is not matching between process and original'
                                                                        ' grid')
             if not response:
                 print('\n', 'VALIDATION PROCESS STOPPED', '\n')

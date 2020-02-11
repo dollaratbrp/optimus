@@ -233,8 +233,8 @@ class Box(Frame):
                 ,[DAYS_TO]
             FROM [Business_Planning].[dbo].[OTD_1_P2P_F_PARAMETERS]
             where IMPORT_DATE = (select max(IMPORT_DATE) from [Business_Planning].[dbo].[OTD_1_P2P_F_PARAMETERS])
-            order by [POINT_FROM]
-                ,[POINT_TO] """
+            order by [POINT_TO]
+                ,[POINT_FROM] """
         else:
             self.SQL = SQLConnection('CAVLSQLPD2\pbi2', 'Business_Planning',
                                      'OTD_1_P2P_F_FORECAST_PARAMETERS', self.headers)
@@ -252,8 +252,8 @@ class Box(Frame):
 
             FROM [Business_Planning].[dbo].[OTD_1_P2P_F_FORECAST_PARAMETERS]
             where IMPORT_DATE = (select max(IMPORT_DATE) from [Business_Planning].[dbo].[OTD_1_P2P_F_FORECAST_PARAMETERS])
-            order by [POINT_FROM]
-                ,[POINT_TO] """
+            order by [POINT_TO]
+                ,[POINT_FROM] """
 
         self.option_add('*Font', 'Verdana 12 bold')
         self.pack(expand=YES, fill=BOTH)

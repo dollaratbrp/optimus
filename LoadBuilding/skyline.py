@@ -30,6 +30,7 @@ class Skyline(PackingAlgorithm):
             rot (bool): Enable or disable rectangle rotation
         """
         self._waste_management = False
+        self.validation_length = None
         self._waste = WasteManager(rot=rot)
         super(Skyline, self).__init__(width, height, rot, merge=False, *args, **kwargs)
 
@@ -307,6 +308,29 @@ class SkylineBl(Skyline):
     """
     def _rect_fitness(self, rect, left_index, right_index):
         return rect.top
+
+    def get_validation_length(self, starting_height):
+        """
+        Computes a validation length of the load (Only valid with bottom left heuristic)
+        :return: length (float)
+        """
+        # We initialize an horizontal segment
+        h_segment = HSegment(P(0, starting_height), self.width*0.58)
+
+        # We initialize a variable memorizing if we met another horizontal segment
+        intersect = False
+
+        # We slowly decrease segment height until our right edge intersect an other
+        while not intersect and h_segment.top > 0:
+            for segment in self._skyline:
+                if h_segment.right_intersect(segment):
+                    intersect = True
+
+            h_segment.start.y -= 0.1
+            h_segment.end.y -= 0.1
+
+        self.validation_length = h_segment.top
+        return self.validation_length
 
 
 class SkylineBlWm(SkylineBl, SkylineWMixin):

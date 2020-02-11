@@ -132,9 +132,8 @@ def p2p_full_process():
     # Approved loads
     approved_ws = wb.create_sheet("APPROVED")
     approved_columns = ['POINT_FROM', 'SHIPPING_POINT', 'LOAD_NUMBER', 'CATEGORY', 'LOAD_LENGTH',
-                        'MATERIAL_NUMBER', 'QUANTITY', 'SIZE_DIMENSIONS',
-                        'SALES_DOCUMENT_NUMBER', 'SALES_ITEM_NUMBER', 'SOLD_TO_NUMBER']
-    columns_width = [20]*(len(approved_columns)-3) + [27]*3
+                        'MATERIAL_NUMBER', 'QUANTITY', 'SIZE_DIMENSIONS']
+    columns_width = [20]*len(approved_columns)
     worksheet_formatting(approved_ws, approved_columns, columns_width)
 
     # Unbooked
@@ -143,9 +142,7 @@ def p2p_full_process():
     worksheet_formatting(unbooked_ws, unbooked_columns, [20, 20, 12])
 
     # Booked unused
-    unused_ws = wb.create_sheet("BOOKED_UNUSED")
-    unused_columns = ['POINT_FROM', 'MATERIAL_NUMBER', 'QUANTITY']
-    worksheet_formatting(unused_ws, unused_columns, [20, 20, 12])
+    unused_ws = wb.create_sheet("BOOKED_UNUSED")  # The formatting will be done later
 
     # Approved Summarized
     sap_input_ws = wb.create_sheet("SAP INPUT")
@@ -206,17 +203,13 @@ def p2p_full_process():
         print(param.LoadBuilder.trailers_done)
         print(param.LoadBuilder.get_loading_summary())
 
-    # Initialization of a list to keep all data needed for the "APPROVED" summary version ouptput for SAP
-    sap_input_data = []
+    # Initialization of a list to keep all data needed for the "APPROVED" ws and summary version ouptput for SAP
+    approved_ws_data, sap_input_data = [], []
 
     line_index = 2  # To display a warning if number of loads is lower than parameters min
 
     # We get the connection to the history table while deleting expired data
     connection = clean_p2p_history(history_expiration_date)
-
-    # We initialize a variable to keep the total of loads done, another one to keep track of row numbers in "APPROVED"
-    # worksheet and a list to keep indexex of row to fill in grey
-    total_load_number, approved_row_location, indexes_to_fill = 0, 0, []
 
     # We start to write the results
     for order in p2ps_order_list:  # To send data in excel workbook, order by : -point_from , -point_to
@@ -249,18 +242,12 @@ def p2p_full_process():
 
                         # We update load numbers
                         p2p_load_number += 1
-                        total_load_number += 1
-
-                        # We indicate if the next rows must be filled
-                        row_must_be_filled = (total_load_number % 2) == 0
 
                         # For every different size_code on this load
                         for column in [col for col in loads.columns[4::] if loads[col][line] != '']:
 
                             # For every unit of this crate on the load
                             for QUANTITY in range(int(loads[column][line])):
-
-                                approved_row_location += 1
 
                                 # We associate a wish unit to this crate, then we save it
                                 for wish in param.AssignedWish:
@@ -279,15 +266,9 @@ def p2p_full_process():
                                                      wish.SOLD_TO_NUMBER, dayTodayComplete)]
 
                                         # We send a line of values to the "APPROVED" worksheet
-                                        approved_ws.append([param.POINT_FROM, param.POINT_TO, p2p_load_number,
-                                                           loads['TRAILER'][line], loads['LOAD LENGTH'][line],
-                                                           wish.MATERIAL_NUMBER, wish.ORIGINAL_QUANTITY,
-                                                           column, wish.SALES_DOCUMENT_NUMBER,
-                                                           wish.SALES_ITEM_NUMBER, wish.SOLD_TO_NUMBER])
-
-                                        # We save line indexes of worksheet if it must be filled in grey
-                                        if row_must_be_filled:
-                                            indexes_to_fill.append(approved_row_location+1)
+                                        approved_ws_data.append([param.POINT_FROM, param.POINT_TO, p2p_load_number,
+                                                                loads['TRAILER'][line], loads['LOAD LENGTH'][line],
+                                                                wish.MATERIAL_NUMBER, wish.ORIGINAL_QUANTITY, column])
 
                                         # We append a line of data for the "SAP INPUT" worksheet to the list concerned
                                         sap_input_data.append([param.POINT_FROM, param.POINT_TO,
@@ -302,58 +283,49 @@ def p2p_full_process():
             # We use a break statement ensure that we're not looking further in p2ps list for nothing
             break
 
-    # Assign left inventory to wishList, to look for booked but unused
-    for wish in wishlist:
+    # We compute booked unused
+    possible_plant_to = compute_booked_unused(wishlist, inventory, p2ps_list)
 
-        # We look for any conflict
-        if wish.QUANTITY == 0 and not wish.Finished:
-            print('Error with wish: ', wish.lineToXlsx())
-
-        # If the wish was not fulfilled
-        if wish.QUANTITY > 0:
-
-            # We set a position index to avoid going through all the inventory every time
-            position = 0
-
-            # For every unit need to fulfill the wish
-            for i in range(wish.QUANTITY):
-
-                # For index and INVobj in the inventory from position index
-                for j, inv in enumerate(inventory[position::]):
-                    if EquivalentPlantFrom(inv.POINT, wish.POINT_FROM) and \
-                            wish.MATERIAL_NUMBER == inv.MATERIAL_NUMBER and inv.QUANTITY - inv.unused > 0:
-
-                        # QA of tomorrow, need to look if load is for today or later
-                        if inv.Future:
-                            InvToTake = False
-                            for param in p2ps_list:
-                                if wish.POINT_FROM == param.POINT_FROM and wish.SHIPPING_POINT == param.POINT_TO\
-                                        and param.days_to > 0:
-                                    InvToTake = True
-                                    break
-                            if InvToTake:
-                                inv.unused += 1
-                                position += j
-                                break  # no need to look further
-                        else:
-                            inv.unused += 1
-                            position += j
-                            break  # no need to look further
+    # We format BOOKED UNUSED worksheet
+    unused_columns = ['POINT_FROM', 'MATERIAL_NUMBER', 'SIZE_DIMENSIONS', 'QUANTITY'] + possible_plant_to
+    worksheet_formatting(unused_ws, unused_columns, [20, 25, 20, 15] + [15]*len(possible_plant_to))
 
     # We send inventory in unused_ws and unbooked_ws
     for inv in inventory:
         if inv.unused > 0:
-            unused_ws.append([inv.POINT, inv.MATERIAL_NUMBER, inv.unused])
+            unused_ws.append(inv.lineToXlsx(possible_plant_to=possible_plant_to))
         if inv.QUANTITY - inv.unused > 0:
-            unbooked_ws.append([inv.POINT, inv.MATERIAL_NUMBER, inv.QUANTITY-inv.unused])
+            unbooked_ws.append(inv.lineToXlsx(booked_unused=False))
+
+    # We group by the APPROVED input data
+    approved_frame = group_by_all_except_qty(approved_ws_data, approved_columns)
+
+    # We send it in the output and save rows index on which we want to apply the grey filling
+    last_point_from, last_shipping_point = approved_frame['POINT_FROM'][0], approved_frame['SHIPPING_POINT'][0]
+    total_load_number, last_load_number = 1, 1
+    indexes_to_fill = []
+
+    for index, row in approved_frame[approved_columns].iterrows():
+
+        # If we're looking at a different load
+        if row.POINT_FROM != last_point_from or row.SHIPPING_POINT != last_shipping_point or\
+                row.LOAD_NUMBER != last_load_number:
+
+            # We update last load details and update the total_load_number
+            last_point_from, last_shipping_point, last_load_number = row.POINT_FROM, row.SHIPPING_POINT, row.LOAD_NUMBER
+            total_load_number += 1
+
+        # We add the row index in indexes to fill its total_load_number is pair
+        if (total_load_number % 2) == 0:
+            indexes_to_fill.append(index + 2)
+
+        approved_ws.append(list(row))
 
     # We filled rows that must be filled in the "APPROVED" worksheet
     apply_filling_to_rows(approved_ws, indexes_to_fill, len(approved_columns))
 
     # We group by the SAP input data and send it in the output
-    sap_input_frame = pd.DataFrame(sap_input_data, columns=sap_input_columns)
-    sap_input_frame = sap_input_frame.groupby([column for column in sap_input_columns if column != 'QUANTITY']).sum()
-    sap_input_frame = sap_input_frame.reset_index()
+    sap_input_frame = group_by_all_except_qty(sap_input_data, sap_input_columns)
 
     for index, row in sap_input_frame[sap_input_columns].iterrows():
         sap_input_ws.append(list(row))
