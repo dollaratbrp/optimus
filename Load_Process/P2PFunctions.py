@@ -530,9 +530,7 @@ def adjust_inventory(original_inventory):
                 indexes.append(i)
 
         # We remove INVObjs which the inventory was included in he current INVObj
-        indexes.sort(reverse=True)
-        for i in indexes:
-            original_inventory.pop(i)
+        remove_indexes_from_list(original_inventory, indexes)
 
         # If the qty of the current INVObj is greater than 0 we add it to the official inventory
         if current_obj.QUANTITY > 0:
@@ -1016,3 +1014,14 @@ def EquivalentPlantFrom(Point1, Point2):
                 return True
     return False
 
+
+def remove_indexes_from_list(list_to_modify, indexes_list):
+    """
+    Remove all indexes mentionned from the list
+
+    :param list_to_modify: list from which we'll remove item at the indexes mentionned
+    :param indexes_list: list of indexes (list of int)
+    """
+    indexes_list.sort(reverse=True)
+    for i in indexes_list:
+        list_to_modify.pop(i)
