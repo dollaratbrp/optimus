@@ -617,7 +617,7 @@ def find_perfect_match(Wishes, Inventory, Parameters):
                     # If the inventory object (INVobj) will be available later than today
                     if inv.Future:  # QA of tomorrow, need to look if load is for today or later
 
-                        InvToTake = False
+                        inventory_to_take = False
 
                         # We loop through our parameters obj through DATAParams list
                         # (We can see it as looping through lines of parameter box)
@@ -628,11 +628,11 @@ def find_perfect_match(Wishes, Inventory, Parameters):
                                     and p2p.days_to > 0:
 
                                 # We must take the item
-                                InvToTake = True
+                                inventory_to_take = True
                                 break
 
                         # If we decided to take the item from the inventory
-                        if InvToTake:
+                        if inventory_to_take:
 
                             # We decrease its quantity and add the INVobj to the list of inventory items of the wish
                             inv.QUANTITY -= 1
@@ -823,6 +823,66 @@ def throw_back_to_pool(wishes):
             for inv in wish.INV_ITEMS:
                 inv.QUANTITY += 1
             wish.INV_ITEMS = []
+
+
+def compute_booked_unused(wishlist, inventory, parameters):
+    """
+    Match unused inventory to items remaining in the wish list
+    :param wishlist: List of wishes
+    :param inventory: List of INVObj
+    :param parameters: list of Parameters (plant to plant)
+    :return: List of distinct plant to where remaining items could be shipped
+    """
+    # We initialize an empty set that will contain all possible plant to where booked unused could be shipped
+    possible_plant_to = set()
+
+    # Assign left inventory to wishList, to look for booked but unused
+    for wish in wishlist:
+
+        # We look for any conflict
+        if wish.QUANTITY == 0 and not wish.Finished:
+            print('Error with wish: ', wish.lineToXlsx())
+
+        # If the wish was not fulfilled
+        if wish.QUANTITY > 0:
+
+            # We set a position index to avoid going through all the inventory every time
+            position = 0
+
+            # For every unit need to fulfill the wish
+            for i in range(wish.QUANTITY):
+
+                # For index and INVobj in the inventory from position index
+                for j, inv in enumerate(inventory[position::]):
+                    if EquivalentPlantFrom(inv.POINT, wish.POINT_FROM) and \
+                            wish.MATERIAL_NUMBER == inv.MATERIAL_NUMBER and inv.QUANTITY - inv.unused > 0:
+
+                        # QA of tomorrow, need to look if load is for today or later
+                        if inv.Future:
+                            inventory_to_take = False
+                            for param in parameters:
+                                if wish.POINT_FROM == param.POINT_FROM and wish.SHIPPING_POINT == param.POINT_TO \
+                                        and param.days_to > 0:
+                                    inventory_to_take = True
+                                    break
+                            if inventory_to_take:
+                                plant_to = wish.SHIPPING_POINT
+                                possible_plant_to.add(plant_to)
+                                inv.unused += 1
+                                inv.POSSIBLE_PLANT_TO[plant_to] = inv.POSSIBLE_PLANT_TO.get(plant_to, 0) + 1
+                                inv.SIZE_CODE = wish.SIZE_DIMENSIONS
+                                position += j
+                                break  # no need to look further
+                        else:
+                            plant_to = wish.SHIPPING_POINT
+                            possible_plant_to.add(plant_to)
+                            inv.unused += 1
+                            inv.POSSIBLE_PLANT_TO[plant_to] = inv.POSSIBLE_PLANT_TO.get(plant_to, 0) + 1
+                            inv.SIZE_CODE = wish.SIZE_DIMENSIONS
+                            position += j
+                            break  # no need to look further
+
+    return list(possible_plant_to)
 
 
 def EquivalentPlantFrom(Point1, Point2):
