@@ -230,8 +230,6 @@ class Parameters:
                 if value_in_place != residual:
                     residuals_counter[self.POINT_TO] = residual
 
-        print(residuals_counter)
-
     def reset(self):
         """
         Reset the number of loadmax and the loadbuilder
@@ -239,7 +237,7 @@ class Parameters:
         self.LOADMAX = self.ORIGINAL_LOADMAX
         self.LoadBuilder = self.new_loadbuilder()
 
-    def build_loads(self, loadbuilder_input, ranking, temporary_on_load, max_load, print_loads=False):
+    def build_loads(self, loadbuilder_input, ranking, temporary_on_load, max_load, print_loads=False, **kwargs):
 
         """
         Holds all procedures linked to the loadbuilding of a plant to plant
@@ -264,7 +262,7 @@ class Parameters:
         self.update_flatbed_53()
 
         # Choose which wish to send in load based on selected crates and priority order
-        link_load_to_wishes(result, temporary_on_load, self)
+        link_load_to_wishes(result, temporary_on_load, self, **kwargs)
 
 
 class NestedSourcePoints:
@@ -698,7 +696,7 @@ def find_perfect_match(Wishes, Inventory, Parameters, forecast=False):
     return ApprovedWish
 
 
-def perfect_match_loads_construction(Parameters, ApprovedWishes, print_loads=False):
+def perfect_match_loads_construction(Parameters, ApprovedWishes, print_loads=False, **kwargs):
     """
     Builds loads after perfect match
 
@@ -737,7 +735,7 @@ def perfect_match_loads_construction(Parameters, ApprovedWishes, print_loads=Fal
                 else:
                     ranking[wish.SIZE_DIMENSIONS] = [wish.RANK]
 
-        param.build_loads(loadbuilder_input, ranking, temporary_on_load, param.LOADMAX, print_loads=print_loads)
+        param.build_loads(loadbuilder_input, ranking, temporary_on_load, param.LOADMAX, print_loads=print_loads, **kwargs)
         param.add_residuals()
 
     # Store unallocated units in inv pool
@@ -831,7 +829,7 @@ def satisfy_max_or_min(Wishes, Inventory, Parameters, satisfy_min=True, print_lo
                 max_load = (check_min * param.LOADMIN + (1 - check_min) * param.LOADMAX)
 
             # We build loads:
-            param.build_loads(load_builder_input, ranking, temporary_on_load, max_load, print_loads=print_loads)
+            param.build_loads(load_builder_input, ranking, temporary_on_load, max_load, print_loads=print_loads, **kwargs)
 
             # Store unallocated units in inv pool
             throw_back_to_pool(temporary_on_load)
@@ -879,7 +877,7 @@ def loadbuilder_input_dataframe(data):
     return input_frame
 
 
-def link_load_to_wishes(loadbuilder_output, available_wishes, p2p):
+def link_load_to_wishes(loadbuilder_output, available_wishes, p2p, **kwargs):
     """
     Choose which wishes to link with the load based on selected crates and priority order
     :param loadbuilder_output: LoadBuilder output (list of tuples with size_code and crate type)
@@ -968,6 +966,32 @@ def compute_booked_unused(wishlist, inventory, parameters):
                             break  # no need to look further
 
     return list(possible_plant_to)
+
+
+def build_forecast_output_sending_function(priority_table_connection, forecast_running_date, detailed_worksheet):
+    """
+
+    Builds the function need to throw output of forecast correctly is function "link_load_to_wishes"
+
+    :param priority_table_connection: SQLconnection object connect to OTD_1_P2P_F_FORECAST_PRIORITY table
+    :param forecast_running_date: date at which the forecast process is running
+    :param detailed_worksheet: worksheet on which we write the detailed results of forecast
+    :return: A function
+    """
+    def save_wish_assignment(wishlist, wish, p2p, inventory_availability_date):
+        """
+        Saves wish assignement to SQL forecast output table and DETAILED forecast output worksheet
+        :param wishlist: list of wishes
+        :param wish: wish that we save the assignment
+        :param p2p: plant to plant to which the wish is assigned
+        :param inventory_availability_date: date where the inventory to fulfill the wish is available
+        """
+        wish.EndDate = weekdays(max(0, p2p.days_to - 1), officialDay=inventory_availability_date)
+        priority_table_connection.sendToSQL(wish.lineToXlsx(forecast_running_date))
+        detailed_worksheet.append(wish.lineToXlsx(forecast_running_date, filtered=True))
+        wishlist.remove(wish)
+
+    return save_wish_assignment
 
 
 def EquivalentPlantFrom(Point1, Point2):
