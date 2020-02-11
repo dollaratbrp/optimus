@@ -419,7 +419,9 @@ class LoadBuilder:
         else:
             warehouse = self.metal_warehouse
 
-        if max([rect.top for rect in bin]) / bin.height < lower_bound:
+        valid_length = bin.get_validation_length(self.max_trailer_length)
+
+        if valid_length / bin.height < lower_bound:
             qualified = False
 
         elif trailer.category == 'DRYBOX' and self.validate_with_ref and\
