@@ -321,13 +321,13 @@ def p2p_full_process():
     possible_plant_to = compute_booked_unused(wishlist, inventory, p2ps_list)
 
     # We format BOOKED UNUSED worksheet
-    unused_columns = ['POINT_FROM', 'MATERIAL_NUMBER', 'QUANTITY', 'SIZE_DIMENSIONS'] + possible_plant_to
-    worksheet_formatting(unused_ws, unused_columns, [20, 20, 12, 20] + [15]*len(possible_plant_to))
+    unused_columns = ['POINT_FROM', 'MATERIAL_NUMBER', 'SIZE_DIMENSIONS', 'QUANTITY'] + possible_plant_to
+    worksheet_formatting(unused_ws, unused_columns, [20, 25, 20, 15] + [15]*len(possible_plant_to))
 
     # We send inventory in unused_ws and unbooked_ws
     for inv in inventory:
         if inv.unused > 0:
-            unused_ws.append(inv.lineToXlsx())
+            unused_ws.append(inv.lineToXlsx(possible_plant_to=possible_plant_to))
         if inv.QUANTITY - inv.unused > 0:
             unbooked_ws.append(inv.lineToXlsx(booked_unused=False))
 
