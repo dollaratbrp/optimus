@@ -356,6 +356,13 @@ def forecast():
                            assignment_function=save_wish_assignment, inventory_available_date=date)
 
         ################################################################################################################
+        #                                     Leftover distribution
+        ################################################################################################################
+
+        satisfy_max_or_min(wishes, inventory, p2ps_list, print_loads=printLoads, leftovers=True,
+                           assignment_function=save_wish_assignment, inventory_available_date=date)
+
+        ################################################################################################################
         #                                         Results saving
         ################################################################################################################
 
