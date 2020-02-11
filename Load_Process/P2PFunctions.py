@@ -91,6 +91,8 @@ class INVObj:
         self.STATUS = status
         self.Future = not (weekdays(0) == date)  # if available date is not the same as today
         self.unused = 0  # count the number of skus to display on BOOKED_UNUSED worksheet
+        self.SIZE_CODE = None  # Only used to display size_code in BOOKED_UNUSED worksheet
+        self.POSSIBLE_PLANT_TO = {}  # Use to show where unbooked quantity could be shipped in BOOKED_UNUSED worksheet
 
     def lineToXlsx(self):
         """
