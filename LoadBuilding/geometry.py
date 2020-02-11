@@ -95,6 +95,12 @@ class HSegment(Segment):
     def length(self):
         return self.end.x-self.start.x
 
+    def right_intersect(self, other_hsegment):
+        """
+        Returns true if the end of the segment run encounter another segment
+        """
+        return int(self.end.y) == int(other_hsegment.top) and int(other_hsegment.start.x) <= int(self.end.x) <= int(other_hsegment.end.x)
+
 
 class VSegment(Segment):
 
