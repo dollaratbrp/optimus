@@ -142,9 +142,7 @@ def p2p_full_process():
     worksheet_formatting(unbooked_ws, unbooked_columns, [20, 20, 12])
 
     # Booked unused
-    unused_ws = wb.create_sheet("BOOKED_UNUSED")
-    unused_columns = ['POINT_FROM', 'MATERIAL_NUMBER', 'QUANTITY']
-    worksheet_formatting(unused_ws, unused_columns, [20, 20, 12])
+    unused_ws = wb.create_sheet("BOOKED_UNUSED")  # The formatting will be done later
 
     # Approved Summarized
     sap_input_ws = wb.create_sheet("SAP INPUT")
@@ -319,50 +317,19 @@ def p2p_full_process():
             # We use a break statement ensure that we're not looking further in p2ps list for nothing
             break
 
-    # Assign left inventory to wishList, to look for booked but unused
-    for wish in wishlist:
+    # We compute booked unused
+    possible_plant_to = compute_booked_unused(wishlist, inventory, p2ps_list)
 
-        # We look for any conflict
-        if wish.QUANTITY == 0 and not wish.Finished:
-            print('Error with wish: ', wish.lineToXlsx())
-
-        # If the wish was not fulfilled
-        if wish.QUANTITY > 0:
-
-            # We set a position index to avoid going through all the inventory every time
-            position = 0
-
-            # For every unit need to fulfill the wish
-            for i in range(wish.QUANTITY):
-
-                # For index and INVobj in the inventory from position index
-                for j, inv in enumerate(inventory[position::]):
-                    if EquivalentPlantFrom(inv.POINT, wish.POINT_FROM) and \
-                            wish.MATERIAL_NUMBER == inv.MATERIAL_NUMBER and inv.QUANTITY - inv.unused > 0:
-
-                        # QA of tomorrow, need to look if load is for today or later
-                        if inv.Future:
-                            InvToTake = False
-                            for param in p2ps_list:
-                                if wish.POINT_FROM == param.POINT_FROM and wish.SHIPPING_POINT == param.POINT_TO\
-                                        and param.days_to > 0:
-                                    InvToTake = True
-                                    break
-                            if InvToTake:
-                                inv.unused += 1
-                                position += j
-                                break  # no need to look further
-                        else:
-                            inv.unused += 1
-                            position += j
-                            break  # no need to look further
+    # We format BOOKED UNUSED worksheet
+    unused_columns = ['POINT_FROM', 'MATERIAL_NUMBER', 'SIZE_DIMENSIONS', 'QUANTITY'] + possible_plant_to
+    worksheet_formatting(unused_ws, unused_columns, [20, 25, 20, 15] + [15]*len(possible_plant_to))
 
     # We send inventory in unused_ws and unbooked_ws
     for inv in inventory:
         if inv.unused > 0:
-            unused_ws.append([inv.POINT, inv.MATERIAL_NUMBER, inv.unused])
+            unused_ws.append(inv.lineToXlsx(possible_plant_to=possible_plant_to))
         if inv.QUANTITY - inv.unused > 0:
-            unbooked_ws.append([inv.POINT, inv.MATERIAL_NUMBER, inv.QUANTITY-inv.unused])
+            unbooked_ws.append(inv.lineToXlsx(booked_unused=False))
 
     # We group by the APPROVED input data
     approved_frame = group_by_all_except_qty(approved_ws_data, approved_columns)
