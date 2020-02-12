@@ -70,6 +70,9 @@ def p2p_full_process():
         try:
             downloaded = True
 
+            # Get details on point from and shipping point
+            shipping_points_names = shipping_point_names()
+
             # Get email addresses
             emails_list = get_emails_list('P2P')
 
@@ -170,41 +173,7 @@ def p2p_full_process():
     #                                                Create Loads
     ####################################################################################################################
 
-    for param in p2ps_list:  # for all P2P in parameters
-
-        # We update LOADMIN and LOADMAX attribute
-        param.update_max()
-
-        # Initialization of empty list
-        temporary_on_load = []  # List to remember the INVobjs that will be sent to the LoadBuilder
-        loadbuilder_input = []  # List that will contain the data to build the frame we'll send to the LoadBuilder
-
-        # Initialization of an empty ranking dictionary
-        ranking = {}
-
-        # We loop through our wishes list
-        for wish in approved_wishes:
-
-            # If the wish is not fulfilled and his POINT FROM and POINT TO are corresponding with the param (p2p)
-            if wish.QUANTITY > 0 and wish.POINT_FROM == param.POINT_FROM and wish.SHIPPING_POINT == param.POINT_TO:
-                temporary_on_load.append(wish)
-
-                # Here we set QTY and NBR_PER_CRATE to 1 because each line of the wishlist correspond to
-                # one crate and not one unit! Must be done this way to avoid having getting to many size_code
-                # in the returning list of the LoadBuilder
-                loadbuilder_input.append(wish.get_loadbuilder_input_line())
-
-                # We add the ranking of the wish in the ranking dictionary
-                if wish.SIZE_DIMENSIONS in ranking:
-                    ranking[wish.SIZE_DIMENSIONS] += [wish.RANK]
-                else:
-                    ranking[wish.SIZE_DIMENSIONS] = [wish.RANK]
-
-        param.build_loads(loadbuilder_input, ranking, temporary_on_load, param.LOADMAX, print_loads=printLoads)
-        param.add_residuals()
-
-    # Store unallocated units in inv pool
-    throw_back_to_pool(approved_wishes)
+    perfect_match_loads_construction(p2ps_list, approved_wishes, print_loads=printLoads)
 
     ####################################################################################################################
     #                             Try to Make the minimum number of loads for each P2P
@@ -254,7 +223,8 @@ def p2p_full_process():
             p2p_load_number = 0  # Number of each load (reset for each plant to plant)
 
             # We write a line in the summary worksheet
-            summary_ws.append([param.POINT_FROM, param.POINT_TO, len(param.LoadBuilder)])
+            summary_ws.append([shipping_points_names[param.POINT_FROM],
+                               shipping_points_names[param.POINT_TO], len(param.LoadBuilder)])
 
             # If the minimum is not fulfilled we warn the user with a different background color in the output
             if len(param.LoadBuilder) < param.LOADMIN:

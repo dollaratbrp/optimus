@@ -140,6 +140,7 @@ class Parameters:
         self.POINT_TO = point_to
         self.LOADMIN = loadmin
         self.LOADMAX = loadmax
+        self.ORIGINAL_LOADMAX = loadmax  # Use to reset the in the forecast
         self.TRANSIT = transit
         self.PRIORITY = priority
         self.days_to = days_to
@@ -229,7 +230,14 @@ class Parameters:
                 if value_in_place != residual:
                     residuals_counter[self.POINT_TO] = residual
 
-    def build_loads(self, loadbuilder_input, ranking, temporary_on_load, max_load, print_loads=False):
+    def reset(self):
+        """
+        Reset the number of loadmax and the loadbuilder
+        """
+        self.LOADMAX = self.ORIGINAL_LOADMAX
+        self.LoadBuilder = self.new_loadbuilder()
+
+    def build_loads(self, loadbuilder_input, ranking, temporary_on_load, max_load, print_loads=False, **kwargs):
 
         """
         Holds all procedures linked to the loadbuilding of a plant to plant
@@ -254,7 +262,7 @@ class Parameters:
         self.update_flatbed_53()
 
         # Choose which wish to send in load based on selected crates and priority order
-        link_load_to_wishes(result, temporary_on_load, self)
+        link_load_to_wishes(result, temporary_on_load, self, **kwargs)
 
 
 class NestedSourcePoints:
@@ -337,7 +345,26 @@ def get_missing_p2p():
     return connection.GetSQLData(query)
 
 
-def get_parameter_grid():
+def shipping_point_names():
+    """
+    Returns dictionary with names associated to each shipping_points. Useful for outputs
+    """
+
+    header = 'SHIPPING_PLANT,SHIPPING_POINT,DESCRIPTION,SOLD_TO_NUMBER'
+    shipping_points_connection = SQLConnection('CAVLSQLPD2\pbi2', 'Business_Planning',
+                                               'BP_CONFIG_SHIPPING_PLANT_TO_SHIPPING_POINT', headers=header)
+    query = """SELECT [SHIPPING_POINT], [DESCRIPTION]
+                           FROM [Business_Planning].[dbo].[BP_CONFIG_SHIPPING_PLANT_TO_SHIPPING_POINT]
+                        """
+    shipping_points = {}
+    data = shipping_points_connection.GetSQLData(query)
+    for lines in data:
+        shipping_points[lines[0]] = lines[1]
+
+    return shipping_points
+
+
+def get_parameter_grid(forecast=False):
     """
     Recuperates the ParameterBox data from SQL
 
@@ -345,7 +372,12 @@ def get_parameter_grid():
     """
     headers = 'POINT_FROM,POINT_TO,LOAD_MIN,LOAD_MAX,DRYBOX,FLATBED,TRANSIT,PRIORITY_ORDER,SKIP'
 
-    connection = SQLConnection('CAVLSQLPD2\pbi2', 'Business_Planning', 'OTD_1_P2P_F_PARAMETERS', headers=headers)
+    if forecast:
+        table = 'OTD_1_P2P_F_FORECAST_PARAMETERS'
+    else:
+        table = 'OTD_1_P2P_F_PARAMETERS'
+
+    connection = SQLConnection('CAVLSQLPD2\pbi2', 'Business_Planning', table, headers=headers)
 
     query = """ SELECT  [POINT_FROM]
                       ,[POINT_TO]
@@ -356,8 +388,8 @@ def get_parameter_grid():
                       ,[TRANSIT]
                       ,[PRIORITY_ORDER]
                       ,DAYS_TO
-                  FROM [Business_Planning].[dbo].[OTD_1_P2P_F_PARAMETERS]
-                  where IMPORT_DATE = (select max(IMPORT_DATE) from [Business_Planning].[dbo].[OTD_1_P2P_F_PARAMETERS])
+                  FROM """ + table + """ 
+                  where IMPORT_DATE = (select max(IMPORT_DATE) from """ + table + """ )
                   and SKIP = 0
                   order by PRIORITY_ORDER
                 """
@@ -372,6 +404,14 @@ def reset_flatbed_53():
     """
     global shared_flatbed_53
     shared_flatbed_53 = {'QTY': 2, 'POINT_FROM': ['4100', '4125']}
+
+
+def reset_residuals_counter():
+    """
+    Resets the residuals counter
+    """
+    global residuals_counter
+    residuals_counter = {}
 
 
 def get_wish_list(forecast=False):
@@ -500,6 +540,8 @@ def adjust_inventory(original_inventory):
         # We save the current object we're looking at
         current_obj = original_inventory[0]
 
+        # original_qty = current_obj.QUANTITY
+
         # We initialize an empty list that will contain index of INVObj
         indexes = []
 
@@ -512,13 +554,17 @@ def adjust_inventory(original_inventory):
                 indexes.append(i)
 
         # We remove INVObjs which the inventory was included in he current INVObj
-        indexes.sort(reverse=True)
-        for i in indexes:
-            original_inventory.pop(i)
+        remove_indexes_from_list(original_inventory, indexes)
 
         # If the qty of the current INVObj is greater than 0 we add it to the official inventory
         if current_obj.QUANTITY > 0:
             official_inventory.append(current_obj)
+
+        # if current_obj.QUANTITY != original_qty:
+            # print('POINT FROM :', current_obj.POINT, 'MATERIAL NUMBER :',
+                  # current_obj.MATERIAL_NUMBER, 'BEFORE :', original_qty)
+            # print('POINT FROM :', current_obj.POINT, 'MATERIAL NUMBER :',
+                  # current_obj.MATERIAL_NUMBER, 'AFTER :', current_obj.QUANTITY, '\n')
 
         original_inventory.pop(0)
 
@@ -672,6 +718,52 @@ def find_perfect_match(Wishes, Inventory, Parameters):
     return ApprovedWish
 
 
+def perfect_match_loads_construction(Parameters, ApprovedWishes, print_loads=False, **kwargs):
+    """
+    Builds loads after perfect match
+
+    :param Parameters: List with Parameters objects
+    :param ApprovedWishes: List of wishes approved
+    :param print_loads: bool indicating if we must plot loads done
+    """
+
+    for param in Parameters:  # for all P2P in parameters
+
+        # We update LOADMIN and LOADMAX attribute
+        param.update_max()
+
+        # Initialization of empty list
+        temporary_on_load = []  # List to remember the INVobjs that will be sent to the LoadBuilder
+        loadbuilder_input = []  # List that will contain the data to build the frame we'll send to the LoadBuilder
+
+        # Initialization of an empty ranking dictionary
+        ranking = {}
+
+        # We loop through our wishes list
+        for wish in ApprovedWishes:
+
+            # If the wish is not fulfilled and his POINT FROM and POINT TO are corresponding with the param (p2p)
+            if wish.QUANTITY > 0 and wish.POINT_FROM == param.POINT_FROM and wish.SHIPPING_POINT == param.POINT_TO:
+                temporary_on_load.append(wish)
+
+                # Here we set QTY and NBR_PER_CRATE to 1 because each line of the wishlist correspond to
+                # one crate and not one unit! Must be done this way to avoid having getting to many size_code
+                # in the returning list of the LoadBuilder
+                loadbuilder_input.append(wish.get_loadbuilder_input_line())
+
+                # We add the ranking of the wish in the ranking dictionary
+                if wish.SIZE_DIMENSIONS in ranking:
+                    ranking[wish.SIZE_DIMENSIONS] += [wish.RANK]
+                else:
+                    ranking[wish.SIZE_DIMENSIONS] = [wish.RANK]
+
+        param.build_loads(loadbuilder_input, ranking, temporary_on_load, param.LOADMAX, print_loads=print_loads, **kwargs)
+        param.add_residuals()
+
+    # Store unallocated units in inv pool
+    throw_back_to_pool(ApprovedWishes)
+
+
 def satisfy_max_or_min(Wishes, Inventory, Parameters, satisfy_min=True, print_loads=False, **kwargs):
     """
     Attributes wishes wisely among p2p'S in Parameters list in order to satisfy their min or their max value
@@ -759,13 +851,14 @@ def satisfy_max_or_min(Wishes, Inventory, Parameters, satisfy_min=True, print_lo
                 max_load = (check_min * param.LOADMIN + (1 - check_min) * param.LOADMAX)
 
             # We build loads:
-            param.build_loads(load_builder_input, ranking, temporary_on_load, max_load, print_loads=print_loads)
+            param.build_loads(load_builder_input, ranking, temporary_on_load, max_load, print_loads=print_loads, **kwargs)
 
             # Store unallocated units in inv pool
             throw_back_to_pool(temporary_on_load)
 
         if not satisfy_min:
             param.add_residuals()
+
 
 def distribute_leftovers(Wishes, Inventory, Parameters):
 
@@ -806,13 +899,20 @@ def loadbuilder_input_dataframe(data):
     return input_frame
 
 
-def link_load_to_wishes(loadbuilder_output, available_wishes, p2p):
+def link_load_to_wishes(loadbuilder_output, available_wishes, p2p, **kwargs):
     """
     Choose which wishes to link with the load based on selected crates and priority order
     :param loadbuilder_output: LoadBuilder output (list of tuples with size_code and crate type)
     :param available_wishes: List of wishes that were temporary assigned to the load
     :param p2p : plant to plant for which we built the load (object of class Parameters)
     """
+    # We look if there's any function to save wish assignment and a date that are also passed as parameter
+    save_wish_assignment = kwargs.get('assignment_function', None)
+    inventory_availability_date = kwargs.get('inventory_available_date', None)
+
+    # If we got both parameters we looked for, it means we're linking load to wishes in the forecast process
+    forecast_process = save_wish_assignment is not None and inventory_availability_date is not None
+
     for model, crate_type in loadbuilder_output:
         found = False
         for wish in available_wishes:
@@ -820,6 +920,8 @@ def link_load_to_wishes(loadbuilder_output, available_wishes, p2p):
                 wish.QUANTITY = 0
                 found = True
                 p2p.AssignedWish.append(wish)
+                if forecast_process:
+                    save_wish_assignment(wish, p2p, inventory_availability_date)
                 break
         if not found:
             print('Error in Perfect Match: impossible result.\n')
@@ -897,6 +999,34 @@ def compute_booked_unused(wishlist, inventory, parameters):
     return list(possible_plant_to)
 
 
+def build_forecast_output_sending_function(wishlist, priority_table_connection,
+                                           forecast_running_date, detailed_worksheet):
+    """
+
+    Builds the function need to throw output of forecast correctly is function "link_load_to_wishes"
+
+    :param wishlist: complete list of wishes
+    :param priority_table_connection: SQLconnection object connect to OTD_1_P2P_F_FORECAST_PRIORITY table
+    :param forecast_running_date: date at which the forecast process is running
+    :param detailed_worksheet: worksheet on which we write the detailed results of forecast
+    :return: A function
+    """
+    def save_wish_assignment(wish, p2p, inventory_availability_date):
+        """
+        Saves wish assignement to SQL forecast output table and DETAILED forecast output worksheet
+
+        :param wish: wish that we save the assignment
+        :param p2p: plant to plant to which the wish is assigned
+        :param inventory_availability_date: date where the inventory to fulfill the wish is available
+        """
+        wish.EndDate = weekdays(max(0, p2p.days_to - 1), officialDay=inventory_availability_date)
+        priority_table_connection.sendToSQL(wish.lineToXlsx(forecast_running_date))
+        detailed_worksheet.append(wish.lineToXlsx(forecast_running_date, filtered=True))
+        wishlist.remove(wish)
+
+    return save_wish_assignment
+
+
 def EquivalentPlantFrom(Point1, Point2):
     """" Point1 is shipping_point_from for inv, Point2 is shipping_point_from for wishlist
         Point1 is included in Point2                                                      """
@@ -908,3 +1038,14 @@ def EquivalentPlantFrom(Point1, Point2):
                 return True
     return False
 
+
+def remove_indexes_from_list(list_to_modify, indexes_list):
+    """
+    Remove all indexes mentionned from the list
+
+    :param list_to_modify: list from which we'll remove item at the indexes mentionned
+    :param indexes_list: list of indexes (list of int)
+    """
+    indexes_list.sort(reverse=True)
+    for i in indexes_list:
+        list_to_modify.pop(i)
