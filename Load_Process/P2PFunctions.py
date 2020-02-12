@@ -345,7 +345,7 @@ def get_missing_p2p():
     return connection.GetSQLData(query)
 
 
-def get_parameter_grid():
+def get_parameter_grid(forecast=False):
     """
     Recuperates the ParameterBox data from SQL
 
@@ -353,7 +353,12 @@ def get_parameter_grid():
     """
     headers = 'POINT_FROM,POINT_TO,LOAD_MIN,LOAD_MAX,DRYBOX,FLATBED,TRANSIT,PRIORITY_ORDER,SKIP'
 
-    connection = SQLConnection('CAVLSQLPD2\pbi2', 'Business_Planning', 'OTD_1_P2P_F_PARAMETERS', headers=headers)
+    if forecast:
+        table = 'OTD_1_P2P_F_FORECAST_PARAMETERS'
+    else:
+        table = 'OTD_1_P2P_F_PARAMETERS'
+
+    connection = SQLConnection('CAVLSQLPD2\pbi2', 'Business_Planning', table, headers=headers)
 
     query = """ SELECT  [POINT_FROM]
                       ,[POINT_TO]
@@ -364,8 +369,8 @@ def get_parameter_grid():
                       ,[TRANSIT]
                       ,[PRIORITY_ORDER]
                       ,DAYS_TO
-                  FROM [Business_Planning].[dbo].[OTD_1_P2P_F_PARAMETERS]
-                  where IMPORT_DATE = (select max(IMPORT_DATE) from [Business_Planning].[dbo].[OTD_1_P2P_F_PARAMETERS])
+                  FROM """ + table + """ 
+                  where IMPORT_DATE = (select max(IMPORT_DATE) from """ + table + """ )
                   and SKIP = 0
                   order by PRIORITY_ORDER
                 """
