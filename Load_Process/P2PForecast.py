@@ -98,7 +98,7 @@ def forecast():
             #                                     Parameters Query
             ####################################################################################
 
-            p2ps_list, connection = get_parameter_grid()
+            p2ps_list, connection = get_parameter_grid(forecast=True)
 
             ####################################################################################
             #                               Distinct date
@@ -166,7 +166,7 @@ def forecast():
             #                                 WishList Query
             ####################################################################################
 
-            wishes = get_wish_list()
+            wishes = get_wish_list(forecast=True)
 
             ####################################################################################
             #                             Included Shipping_point
@@ -285,13 +285,12 @@ def forecast():
     summary_data = []
     column_counter = 3  # Starts at 3 because of the columns point from and point to
 
-    # START OF THE LOOP ################################################################################################
-
     # Initialization of the load bar
     progress = tqdm(total=len(dates), desc='Forecast progress')
-    for date in dates:
 
-        print(len(production))
+    # START OF THE LOOP ################################################################################################
+
+    for date in dates:
 
         # We reset the number of shared flatbed_53 and the residuals counter
         reset_flatbed_53()
@@ -393,7 +392,6 @@ def forecast():
         # END OF THE LOOP ##############################################################################################
 
     # Loads were made for the next 8 weeks, now we send not assigned wishes to SQL
-
     for wish in wishes:
         if wish.QUANTITY != wish.ORIGINAL_QUANTITY:
             GeneralErrors += 'Error : this unit was not assigned and has a different quantity; \n {0}'.format(wish.lineToXlsx())
