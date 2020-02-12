@@ -60,7 +60,7 @@ class Crate:
         """
         if self.type == 'W':
             if upper_crate.length <= self.length:
-                if self.width - 3 <= upper_crate.width <= self.width:
+                if self.width - 6 <= upper_crate.width <= self.width:
                     return True
 
         else:  # elif type == 'M'
