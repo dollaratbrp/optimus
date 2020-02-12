@@ -95,20 +95,16 @@ class HSegment(Segment):
     def length(self):
         return self.end.x-self.start.x
 
-    def right_intersect(self, other_hsegment):
+    def intersect(self, other_hsegment, right=True):
         """
         Returns true if the end of the segment touch the other hsegment
         """
-        return round(self.end.y, 1) == round(other_hsegment.top, 1) and \
-               round(other_hsegment.start.x, 1) <= round(self.end.x, 1) <= round(other_hsegment.end.x, 1)
-
-    def left_intersect(self, other_hsegment):
-        """
-        Returns true if the start of the segment touch the other hsegment
-        """
-        return round(self.start.y, 1) == round(other_hsegment.top, 1) and \
-               round(other_hsegment.start.x, 1) <= round(self.start.x, 1) <= round(other_hsegment.end.x, 1)
-
+        if right:
+            return round(self.top, 1) == round(other_hsegment.top, 1) and \
+                    round(other_hsegment.start.x, 1) <= round(self.end.x, 1) <= round(other_hsegment.end.x, 1)
+        else:
+            return round(self.top, 1) == round(other_hsegment.top, 1) and \
+                    round(other_hsegment.start.x, 1) <= round(self.start.x, 1) <= round(other_hsegment.end.x, 1)
 
 class VSegment(Segment):
 
