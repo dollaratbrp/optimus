@@ -97,9 +97,17 @@ class HSegment(Segment):
 
     def right_intersect(self, other_hsegment):
         """
-        Returns true if the end of the segment encounter another segment
+        Returns true if the end of the segment touch the other hsegment
         """
-        return int(self.end.y) == int(other_hsegment.top) and int(other_hsegment.start.x) <= int(self.end.x) <= int(other_hsegment.end.x)
+        return round(self.end.y, 1) == round(other_hsegment.top, 1) and \
+               round(other_hsegment.start.x, 1) <= round(self.end.x, 1) <= round(other_hsegment.end.x, 1)
+
+    def left_intersect(self, other_hsegment):
+        """
+        Returns true if the start of the segment touch the other hsegment
+        """
+        return round(self.start.y, 1) == round(other_hsegment.top, 1) and \
+               round(other_hsegment.start.x, 1) <= round(self.start.x, 1) <= round(other_hsegment.end.x, 1)
 
 
 class VSegment(Segment):
