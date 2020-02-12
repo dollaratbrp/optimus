@@ -27,9 +27,10 @@ class LoadBuilder:
     trailer_reference = None
     patching_activated = False
     score_multiplication_base = 1.02  # used to boost the score of a load when there's mandatory crates
-    overhang_authorized = 51.5
-    max_trailer_length = 636
-    plc_lb = 0.80
+    overhang_authorized = 51.5   # Maximum of overhang authorized for a trailer (in inches)
+    max_trailer_length = 636  # Maximum load length possible
+    plc_lb = 0.80  # Lowest percentage of trailer's length that must be covered (using validation length)
+    individual_width_tolerance = 75  # Smallest width tolerated for a lonely crate (without anything by his side)
 
     def __init__(self, trailers_data):
         """
@@ -419,7 +420,7 @@ class LoadBuilder:
         else:
             warehouse = self.metal_warehouse
 
-        valid_length = bin.get_validation_length(self.max_trailer_length)
+        valid_length = bin.get_validation_length(self.max_trailer_length, self.individual_width_tolerance)
 
         if valid_length / bin.height < lower_bound:
             qualified = False
