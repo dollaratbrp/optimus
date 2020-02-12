@@ -78,16 +78,7 @@ def forecast():
             ####################################################################################
             #                      Get details on point from and shipping point
             ####################################################################################
-            header = 'SHIPPING_PLANT,SHIPPING_POINT,DESCRIPTION,SOLD_TO_NUMBER'
-            shipping_points_connection = SQLConnection('CAVLSQLPD2\pbi2', 'Business_Planning',
-                                                       'BP_CONFIG_SHIPPING_PLANT_TO_SHIPPING_POINT', headers=header)
-            query = """SELECT [SHIPPING_POINT], [DESCRIPTION]
-                       FROM [Business_Planning].[dbo].[BP_CONFIG_SHIPPING_PLANT_TO_SHIPPING_POINT]
-                    """
-            shipping_points = {}
-            data = shipping_points_connection.GetSQLData(query)
-            for lines in data:
-                shipping_points[lines[0]] = lines[1]
+            shipping_points = shipping_point_names()
 
             ####################################################################################
             #                                 Email address Query
