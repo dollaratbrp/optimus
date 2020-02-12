@@ -70,6 +70,9 @@ def p2p_full_process():
         try:
             downloaded = True
 
+            # Get details on point from and shipping point
+            shipping_points_names = shipping_point_names()
+
             # Get email addresses
             emails_list = get_emails_list('P2P')
 
@@ -220,7 +223,8 @@ def p2p_full_process():
             p2p_load_number = 0  # Number of each load (reset for each plant to plant)
 
             # We write a line in the summary worksheet
-            summary_ws.append([param.POINT_FROM, param.POINT_TO, len(param.LoadBuilder)])
+            summary_ws.append([shipping_points_names[param.POINT_FROM],
+                               shipping_points_names[param.POINT_TO], len(param.LoadBuilder)])
 
             # If the minimum is not fulfilled we warn the user with a different background color in the output
             if len(param.LoadBuilder) < param.LOADMIN:
