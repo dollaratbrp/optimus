@@ -37,7 +37,7 @@ def forecast():
 
     """
     if not AutomaticRun:
-        if not OpenParameters():  # If user cancel request
+        if not OpenParameters('FORECAST'):  # If user cancel request
             sys.exit()
         IsAdhoc = 1  # 1 for True, 0 for False (if automatic)
     else:
