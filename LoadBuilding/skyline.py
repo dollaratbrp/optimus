@@ -332,14 +332,14 @@ class SkylineBl(Skyline):
 
                 # We check if left segment intersect with the skyline segment
                 if not left_seg_intersect:
-                    if h_left_segment.right_intersect(segment):
+                    if h_left_segment.intersect(segment, right=True):
                         left_seg_intersect = True
                     else:
                         h_left_segment.start.y = round(h_left_segment.start.y - 0.1, 1)
                         h_left_segment.end.y = round(h_left_segment.end.y - 0.1, 1)
 
                 if not right_seg_intersect:
-                    if h_right_segment.left_intersect(segment):
+                    if h_right_segment.intersect(segment, right=False):
                         right_seg_intersect = True
                     else:
                         h_right_segment.start.y = round(h_right_segment.start.y - 0.1, 1)
