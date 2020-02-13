@@ -140,10 +140,14 @@ def compare_maximum_sum(modified_parameters, original_parameters, residuals_coun
     print('ORIGINAL MAX SUMS : ', original_sums)
     print('PROCESS MAX SUMS : ', modified_sums)
 
+    # We initialize a tkinter root and withdraw it
+    root = Tk()
+    root.withdraw()
+
     for key in modified_sums.keys():
         if original_sums[key] != modified_sums[key]:
             response = messagebox.askokcancel(title='Warning', message='Sum of maximum loads for POINT TO : ' + str(key)
-                                                                       + 'is not matching between process and original'
+                                                                       + ' is not matching between process and original'
                                                                        ' grid')
             if not response:
                 print('\n', 'VALIDATION PROCESS STOPPED', '\n')

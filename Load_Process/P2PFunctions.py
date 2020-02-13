@@ -201,11 +201,12 @@ class Parameters:
         global sharing_points_from
 
         if self.POINT_FROM in sharing_points_from:
+            self.LOADMAX = max(self.LOADMIN, self.LOADMAX)  # This line will only have an impact when we satisfy max
             self.LOADMAX += residuals_counter.get(self.POINT_TO, 0)
 
     def add_residuals(self):
         """
-        Add residuals to the residuals counter
+        Add residuals to the residuals counter (used when we try to satisfy max and it's not possible)
         """
 
         global residuals_counter
@@ -229,6 +230,17 @@ class Parameters:
                 value_in_place = residuals_counter.setdefault(self.POINT_TO, residual)
                 if value_in_place != residual:
                     residuals_counter[self.POINT_TO] = residual
+
+    def remove_residuals(self, qty_to_remove):
+        """
+        Removes number of new loads done from residuals counter when we are satisfying minimums in the process
+
+        :param qty_to_remove: number of loads to remove from residuals counter
+        """
+        if self.POINT_FROM in sharing_points_from:
+
+            # We reduce the number of residuals by qty_to_remove (or set it to 0)
+            residuals_counter[self.POINT_TO] -= qty_to_remove
 
     def reset(self):
         """
@@ -560,12 +572,6 @@ def adjust_inventory(original_inventory):
         if current_obj.QUANTITY > 0:
             official_inventory.append(current_obj)
 
-        # if current_obj.QUANTITY != original_qty:
-            # print('POINT FROM :', current_obj.POINT, 'MATERIAL NUMBER :',
-                  # current_obj.MATERIAL_NUMBER, 'BEFORE :', original_qty)
-            # print('POINT FROM :', current_obj.POINT, 'MATERIAL NUMBER :',
-                  # current_obj.MATERIAL_NUMBER, 'AFTER :', current_obj.QUANTITY, '\n')
-
         original_inventory.pop(0)
 
     return official_inventory
@@ -792,7 +798,10 @@ def satisfy_max_or_min(Wishes, Inventory, Parameters, satisfy_min=True, print_lo
         if not satisfy_min:
             param.update_max()
 
-        if len(param.LoadBuilder) < (check_min*param.LOADMIN + (1-check_min)*param.LOADMAX) or leftover_distribution:
+        # We save the current number of loads done
+        nb_loads_done = len(param.LoadBuilder)
+
+        if nb_loads_done < (check_min*param.LOADMIN + (1-check_min)*param.LOADMAX) or leftover_distribution:
 
             # Initialization of empty list
             temporary_on_load = []  # List to remember the INVobj that will be sent to the LoadBuilder
@@ -848,7 +857,7 @@ def satisfy_max_or_min(Wishes, Inventory, Parameters, satisfy_min=True, print_lo
             if leftover_distribution:
                 max_load = 0
             else:
-                max_load = (check_min * param.LOADMIN + (1 - check_min) * param.LOADMAX)
+                max_load = (check_min * min(param.LOADMIN, residuals_counter.get(param.POINT_TO, param.LOADMIN)) + (1 - check_min) * param.LOADMAX)
 
             # We build loads:
             param.build_loads(load_builder_input, ranking, temporary_on_load, max_load, print_loads=print_loads, **kwargs)
@@ -856,8 +865,16 @@ def satisfy_max_or_min(Wishes, Inventory, Parameters, satisfy_min=True, print_lo
             # Store unallocated units in inv pool
             throw_back_to_pool(temporary_on_load)
 
+        # If we are satisfying max
         if not satisfy_min:
             param.add_residuals()
+
+        # Else we're satisfying min
+        else:
+            # If there's new load done we remove them from residuals counter
+            nb_new_loads = (len(param.LoadBuilder) - nb_loads_done)
+            if nb_new_loads > 0:
+                param.remove_residuals(nb_new_loads)
 
 
 def distribute_leftovers(Wishes, Inventory, Parameters):
