@@ -100,11 +100,12 @@ class HSegment(Segment):
         Returns true if the end of the segment touch the other hsegment
         """
         if right:
-            return round(self.top, 1) == round(other_hsegment.top, 1) and \
+            return round(self.top, 1) <= round(other_hsegment.top, 1) and \
                     round(other_hsegment.start.x, 1) <= round(self.end.x, 1) <= round(other_hsegment.end.x, 1)
         else:
-            return round(self.top, 1) == round(other_hsegment.top, 1) and \
+            return round(self.top, 1) <= round(other_hsegment.top, 1) and \
                     round(other_hsegment.start.x, 1) <= round(self.start.x, 1) <= round(other_hsegment.end.x, 1)
+
 
 class VSegment(Segment):
 
