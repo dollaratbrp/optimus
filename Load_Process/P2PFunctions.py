@@ -442,8 +442,10 @@ def get_wish_list(forecast=False):
                                         'OTD_2_PRIORITY_F_P2P', headers=wishlist_headers)
     if forecast:
         parameters_table = '[Business_Planning].[dbo].[OTD_1_P2P_F_FORECAST_PARAMETERS]'
+        period_status = '[PERIOD_STATUS] in (' + "'" + 'P2P' + "', '" + 'FCST' + "')"
     else:
         parameters_table = '[Business_Planning].[dbo].[OTD_1_P2P_F_PARAMETERS]'
+        period_status = '[PERIOD_STATUS] = ' + "'" + 'P2P' + "'"
 
     query = """SELECT  [SALES_DOCUMENT_NUMBER]
                       ,[SALES_ITEM_NUMBER]
@@ -463,12 +465,14 @@ def get_wish_list(forecast=False):
                       ,[OVERHANG]
                       ,[METAL_WOOD]
                   FROM [Business_Planning].[dbo].[OTD_1_P2P_F_PRIORITY_WITHOUT_INVENTORY]
-                  WHERE [POINT_FROM] <> [SHIPPING_POINT] AND Length <> 0 and Width <> 0 AND Height <> 0
+                  WHERE [POINT_FROM] <> [SHIPPING_POINT] 
+                  AND Length <> 0 and Width <> 0 AND Height <> 0 and """ + period_status + """
                   AND concat(POINT_FROM,SHIPPING_POINT) in 
                   (select distinct concat([POINT_FROM],[POINT_TO]) from """ + parameters_table + """
                   where IMPORT_DATE = (select max(IMPORT_DATE) from """ + parameters_table + """) and SKIP = 0)
                   order by Priority_Rank 
                 """
+
     data = wishlist_connection.GetSQLData(query)
     return [Wish(*line) for line in data]
 
