@@ -38,7 +38,7 @@ dayToday = weekdays(0)  # Date to display in report
 drybox_sanity_check = True
 printLoads = False  # Print created loads
 AutomaticRun = False  # set to True to automate code
-validation = True     # set to True to validate the results received after the process
+validation = False     # set to True to validate the results received after the process
 dest_filename = 'P2P_Summary_'+dayToday  # Name of excel file with today's date
 history_expiration_date = dayTodayComplete - timedelta(days=365)  # Expiration date set one year ago
 
