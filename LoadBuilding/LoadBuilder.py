@@ -774,6 +774,12 @@ class LoadBuilder:
 
         return data_frame
 
+    def number_of_units(self):
+        """
+        Returns the total number of units in the trailers done
+        """
+        return sum([trailer.nbr_of_units() for trailer in self.trailers_done])
+
     def __complete_packed_stacks(self):
 
         if len(self.trailers_done) != 0:
