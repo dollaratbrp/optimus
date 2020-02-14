@@ -37,6 +37,7 @@ dayTodayComplete = pd.datetime.now().replace(second=0, microsecond=0)  # date to
 dayToday = weekdays(0)  # Date to display in report
 drybox_sanity_check = True
 printLoads = False  # Print created loads
+MinWarning = False  # Add yellow filling as warning when minimum is not satisfied for a p2p
 AutomaticRun = False  # set to True to automate code
 validation = False     # set to True to validate the results received after the process
 dest_filename = 'P2P_Summary_'+dayToday  # Name of excel file with today's date
@@ -129,8 +130,9 @@ def p2p_full_process():
     # Summary
     summary_ws = wb.active
     summary_ws.title = "SUMMARY"
-    summary_columns = ['POINT_FROM', 'SHIPPING_POINT', 'NUMBER_OF_LOADS']
-    worksheet_formatting(summary_ws, summary_columns, [20, 20, 25])
+    summary_columns = ['POINT_FROM_NUMBER', 'POINT_FROM_NAME', 'SHIPPING_POINT_NUMBER',
+                       'SHIPPING_POINT_NAME', 'NUMBER_OF_LOADS', 'NUMBER_OF_VEHICLES']
+    worksheet_formatting(summary_ws, summary_columns, [30]*4 + [25, 25])
 
     # Approved loads
     approved_ws = wb.create_sheet("APPROVED")
@@ -223,12 +225,13 @@ def p2p_full_process():
             p2p_load_number = 0  # Number of each load (reset for each plant to plant)
 
             # We write a line in the summary worksheet
-            summary_ws.append([shipping_points_names[param.POINT_FROM],
-                               shipping_points_names[param.POINT_TO], len(param.LoadBuilder)])
+            summary_ws.append([param.POINT_FROM, shipping_points_names[param.POINT_FROM],
+                               param.POINT_TO, shipping_points_names[param.POINT_TO],
+                               len(param.LoadBuilder), param.get_nb_of_units()])
 
             # If the minimum is not fulfilled we warn the user with a different background color in the output
-            if len(param.LoadBuilder) < param.LOADMIN:
-                summary_ws.cell(row=line_index, column=3).fill = Warning_fill
+            if MinWarning and len(param.LoadBuilder) < param.LOADMIN:
+                summary_ws.cell(row=line_index, column=len(summary_columns)).fill = Warning_fill
 
             line_index += 1
 
@@ -354,3 +357,7 @@ def p2p_full_process():
 
     # We open excel workbook
     os.system('start "excel" "'+str(reference[0])+'"')
+
+
+if __name__ == '__main__':
+    p2p_full_process()
