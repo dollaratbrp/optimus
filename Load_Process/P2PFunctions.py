@@ -276,6 +276,12 @@ class Parameters:
         # Choose which wish to send in load based on selected crates and priority order
         link_load_to_wishes(result, temporary_on_load, self, **kwargs)
 
+    def get_nb_of_units(self):
+        """
+        Returns the number of units associated for the p2p
+        """
+        return self.LoadBuilder.number_of_units()
+
 
 class NestedSourcePoints:
     def __init__(self, point_source, point_include):
@@ -766,6 +772,10 @@ def perfect_match_loads_construction(Parameters, ApprovedWishes, print_loads=Fal
                     ranking[wish.SIZE_DIMENSIONS] += [wish.RANK]
                 else:
                     ranking[wish.SIZE_DIMENSIONS] = [wish.RANK]
+
+        if param.POINT_FROM == '4125' and param.POINT_TO == '4090':
+            print(loadbuilder_input)
+            print(ranking)
 
         param.build_loads(loadbuilder_input, ranking, temporary_on_load, param.LOADMAX, print_loads=print_loads, **kwargs)
         param.add_residuals()
