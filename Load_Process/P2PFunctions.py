@@ -201,7 +201,6 @@ class Parameters:
         global sharing_points_from
 
         if self.POINT_FROM in sharing_points_from:
-            self.LOADMAX = max(self.LOADMIN, self.LOADMAX)  # This line will only have an impact when we satisfy max
             self.LOADMAX += residuals_counter.get(self.POINT_TO, 0)
 
     def add_residuals(self):
@@ -238,6 +237,9 @@ class Parameters:
         :param qty_to_remove: number of loads to remove from residuals counter
         """
         if self.POINT_FROM in sharing_points_from:
+
+            # We update the load max attribute
+            self.LOADMAX += qty_to_remove
 
             # We reduce the number of residuals by qty_to_remove (or set it to 0)
             residuals_counter[self.POINT_TO] -= qty_to_remove
@@ -772,10 +774,6 @@ def perfect_match_loads_construction(Parameters, ApprovedWishes, print_loads=Fal
                     ranking[wish.SIZE_DIMENSIONS] += [wish.RANK]
                 else:
                     ranking[wish.SIZE_DIMENSIONS] = [wish.RANK]
-
-        if param.POINT_FROM == '4125' and param.POINT_TO == '4090':
-            print(loadbuilder_input)
-            print(ranking)
 
         param.build_loads(loadbuilder_input, ranking, temporary_on_load, param.LOADMAX, print_loads=print_loads, **kwargs)
         param.add_residuals()
