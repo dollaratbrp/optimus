@@ -30,7 +30,7 @@ class LoadBuilder:
     overhang_authorized = 51.5   # Maximum of overhang authorized for a trailer (in inches)
     max_trailer_length = 636  # Maximum load length possible
     plc_lb = 0.80  # Lowest percentage of trailer's length that must be covered (using validation length)
-    individual_width_tolerance = 70  # Smallest width tolerated for a lonely crate (without anything by his side)
+    individual_width_tolerance = 68  # Smallest width tolerated for a lonely crate (without anything by his side)
 
     def __init__(self, trailers_data):
         """
@@ -290,7 +290,7 @@ class LoadBuilder:
                 selected_trailer.pack(warehouse)
 
             else:
-                lower_bound -= decreasing_step
+                lower_bound = round(lower_bound - decreasing_step, 2)
 
         # We remove trailer that were not used during the loading process
         self.__remove_leftover_trailers()
@@ -359,7 +359,7 @@ class LoadBuilder:
 
         # We compute all possible configurations of loading (efficiently)
         if len(warehouse) != 0:
-            warehouse.sort_by_ranking_and_volume()
+            warehouse.sort_by_volume()
             all_configs = self.__create_all_configs(warehouse, trailer)
 
         else:
@@ -420,9 +420,7 @@ class LoadBuilder:
         else:
             warehouse = self.metal_warehouse
 
-        valid_length = bin.get_validation_length(self.max_trailer_length, self.individual_width_tolerance)
-
-        if valid_length / bin.height < lower_bound:
+        if not bin.valid_length(lower_bound, self.individual_width_tolerance):
             qualified = False
 
         elif trailer.category == 'DRYBOX' and self.validate_with_ref and\
@@ -875,4 +873,3 @@ def set_trailer_reference(ref):
     """
     LoadBuilder.trailer_reference = LoadObj.Trailer(cat='FLATBED_48', l=ref['LENGTH'][0], w=ref['WIDTH'][0],
                                                     h=ref['HEIGHT'][0], p=0, oh=ref['OVERHANG'][0])
-
