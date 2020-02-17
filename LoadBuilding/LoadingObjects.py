@@ -11,6 +11,7 @@ import numpy as np
 import matplotlib.pyplot as plt
 from matplotlib.path import Path
 import matplotlib.patches as patches
+from random import shuffle
 
 
 class Crate:
@@ -448,6 +449,13 @@ class Warehouse:
         """
 
         self.stacks_to_ship.sort(key=lambda s: (s.nb_of_mandatory, s.length/s.width), reverse=True)
+
+    def random_sort(self):
+        """
+        Sorts stacks randomly (keeping mandatory first)
+        """
+        self.stacks_to_ship = shuffle(self.stacks_to_ship)
+        self.stacks_to_ship.sort(key=lambda s: s.nb_of_mandatory)
 
     def save_unused_crates(self, unused_crates_list):
 
