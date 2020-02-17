@@ -801,7 +801,7 @@ def satisfy_max_or_min(Wishes, Inventory, Parameters, satisfy_min=True, print_lo
     check_min = int(satisfy_min)  # Will be 1 if we want to satisfy min and 0 instead
 
     # We update LoadBuilder class attribute plc_lb depending on the situation
-    LoadBuilder.plc_lb = 0.75 * check_min + (1 - check_min) * 0.80
+    LoadBuilder.plc_lb = 0.74 * check_min + (1 - check_min) * 0.80
 
     # For each parameters in Parameters list
     for param in Parameters:
