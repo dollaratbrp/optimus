@@ -133,6 +133,12 @@ class Stack:
         """
         self.__init__(crates=self.crates + [crate])
 
+    def area(self):
+        """
+        Returns area of the base of the stack
+        """
+        return self.length * self.width
+
 
 class Trailer:
 
@@ -413,7 +419,35 @@ class Warehouse:
         """
         Sorts stacks to ship by their average ranking, and their volume if their avg ranking is the same
         """
-        self.stacks_to_ship.sort(key=lambda s: (s.average_ranking, -1*s.volume))
+        self.stacks_to_ship.sort(key=lambda s: (s.nb_of_mandatory, s.average_ranking, -1*s.volume))
+
+    def sort_by_area(self):
+        """
+        Sorts stacks by their area (keeping mandatory first)
+        """
+
+        self.stacks_to_ship.sort(key=lambda s: (s.nb_of_mandatory, s.area()), reverse=True)
+
+    def sort_by_width(self):
+        """
+        Sorts stacks by their width (keeping mandatory first)
+        """
+
+        self.stacks_to_ship.sort(key=lambda s: (s.nb_of_mandatory, s.width), reverse=True)
+
+    def sort_by_length(self):
+        """
+        Sorts stacks by their length (keeping mandatory first)
+        """
+
+        self.stacks_to_ship.sort(key=lambda s: (s.nb_of_mandatory, s.length), reverse=True)
+
+    def sort_by_ratio(self):
+        """
+        Sorts stacks by their ratio length on width (keeping mandatory first)
+        """
+
+        self.stacks_to_ship.sort(key=lambda s: (s.nb_of_mandatory, s.length/s.width), reverse=True)
 
     def save_unused_crates(self, unused_crates_list):
 
