@@ -420,7 +420,7 @@ class Warehouse:
         """
         Sorts stacks to ship by their average ranking, and their volume if their avg ranking is the same
         """
-        self.stacks_to_ship.sort(key=lambda s: (s.nb_of_mandatory, s.average_ranking, -1*s.volume))
+        self.stacks_to_ship.sort(key=lambda s: (-1*s.nb_of_mandatory, s.average_ranking, -1*s.volume))
 
     def sort_by_area(self):
         """
@@ -452,10 +452,9 @@ class Warehouse:
 
     def random_sort(self):
         """
-        Sorts stacks randomly (keeping mandatory first)
+        Sorts stacks randomly
         """
-        self.stacks_to_ship = shuffle(self.stacks_to_ship)
-        self.stacks_to_ship.sort(key=lambda s: s.nb_of_mandatory)
+        shuffle(self.stacks_to_ship)
 
     def save_unused_crates(self, unused_crates_list):
 
