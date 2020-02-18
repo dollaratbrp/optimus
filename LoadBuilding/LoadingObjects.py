@@ -343,6 +343,12 @@ class Trailer:
         """
         return np.mean([stack.average_ranking for stack in self.load])
 
+    def nb_of_mandatory(self):
+        """
+        Returns the number of mandatory crates in the trailer
+        """
+        return np.sum([stack.nb_of_mandatory for stack in self.load])
+
     def fit(self, stack, rotated=False):
 
         """
