@@ -145,8 +145,7 @@ def forecast():
             #                                 WishList Query
             ####################################################################################
 
-            # !!!!!!!!!!!!!!! MUST BE CHANGED !!!!!!!!!!!!!!!!!!!
-            wishes = get_wish_list(forecast=False)
+            wishes = get_wish_list(forecast=True)
 
         except:
             downloaded = False

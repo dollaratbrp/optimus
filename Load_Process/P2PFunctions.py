@@ -456,7 +456,7 @@ def get_wish_list(forecast=False):
                                         'OTD_2_PRIORITY_F_P2P', headers=wishlist_headers)
     if forecast:
         parameters_table = '[Business_Planning].[dbo].[OTD_1_P2P_F_FORECAST_PARAMETERS]'
-        period_status = '[PERIOD_STATUS] in (' + "'" + 'P2P' + "', '" + 'FCST' + "')"
+        period_status = '[PERIOD_STATUS] = ' + "'" + 'P2P' + "'"  # MUST BE CHANGED !!!!
     else:
         parameters_table = '[Business_Planning].[dbo].[OTD_1_P2P_F_PARAMETERS]'
         period_status = '[PERIOD_STATUS] = ' + "'" + 'P2P' + "'"
