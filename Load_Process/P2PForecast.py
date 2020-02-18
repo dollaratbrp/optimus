@@ -135,7 +135,7 @@ def forecast():
                                   ,[STATUS]
                               FROM [Business_Planning].[dbo].[OTD_1_P2P_F_INVENTORY]
                               where status = 'production PLAN'
-                              and AVAILABLE_DATE between convert(date,getdate()+2) and convert(date, getdate() + 9*7)
+                              and AVAILABLE_DATE between convert(date,getdate()+1) and convert(date, getdate() + 9*7)
                               order by AVAILABLE_DATE,SHIPPING_POINT,MATERIAL_NUMBER
                                     """
 
@@ -145,7 +145,7 @@ def forecast():
             #                                 WishList Query
             ####################################################################################
 
-            ## !!!!!!!!!!!!!!! MUST BE CHANGED !!!!!!!!!!!!!!!!!!!
+            # !!!!!!!!!!!!!!! MUST BE CHANGED !!!!!!!!!!!!!!!!!!!
             wishes = get_wish_list(forecast=False)
 
         except:
