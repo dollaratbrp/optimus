@@ -106,38 +106,26 @@ def forecast():
 
             dates = [single for sublist in inventory_connection.GetSQLData(date_query) for single in sublist]
 
-            ####################################################################################
-            #                                First Inv Query
-            ####################################################################################
-            inventory_query = """ select distinct SHIPPING_POINT
-                  ,[MATERIAL_NUMBER]
-                  ,sum(tempo.QUANTITY) as [QUANTITY]
-                  , [AVAILABLE_DATE]
-                  ,[STATUS]
-                  from(
-              SELECT  [SHIPPING_POINT]
-                  ,[MATERIAL_NUMBER]
-                  , [QUANTITY]
-                  ,convert(DATE,[AVAILABLE_DATE]) as [AVAILABLE_DATE]
-                  ,[STATUS]
-              FROM [Business_Planning].[dbo].[OTD_1_P2P_F_INVENTORY]
-              where status = 'INVENTORY'
-             UNION(
-              SELECT distinct [SHIPPING_POINT]
-                  ,[MATERIAL_NUMBER]
-                  ,0 as [QUANTITY]
-                  ,convert(date,getdate()) as [AVAILABLE_DATE]
-                  ,'INVENTORY' as [STATUS]
-              FROM [Business_Planning].[dbo].[OTD_1_P2P_F_INVENTORY]
-              )) as tempo
-             group by SHIPPING_POINT,[MATERIAL_NUMBER],  [AVAILABLE_DATE], [STATUS]
-             order by SHIPPING_POINT, MATERIAL_NUMBER
-                            """
-
-            inventory = [INVObj(*obj) for obj in inventory_connection.GetSQLData(inventory_query)]
+            # We add tomorrow if it's not in the dates
+            tomorrow = str(datetime.date.today() + datetime.timedelta(days=1))
+            if tomorrow != dates[0]:
+                dates.insert(0, tomorrow)
 
             ####################################################################################
-            #                                Prod & QA Query
+            #                             Included Shipping_point
+            ####################################################################################
+
+            global DATAInclude
+            get_nested_source_points(DATAInclude)
+
+            ####################################################################################
+            #                                Inventory and QA HOLD
+            ####################################################################################
+
+            inventory = get_inventory_and_qa()
+
+            ####################################################################################
+            #                                        Prod
             ####################################################################################
             # Filter based on if production is late, to make later
             prod_query = """ SELECT  [SHIPPING_POINT]
@@ -146,8 +134,8 @@ def forecast():
                                   ,convert(date,[AVAILABLE_DATE]) as AVAILABLE_DATE
                                   ,[STATUS]
                               FROM [Business_Planning].[dbo].[OTD_1_P2P_F_INVENTORY]
-                              where status in ('QA HOLD','production PLAN')
-                              and AVAILABLE_DATE between convert(date,getdate()) and convert(date, getdate() + 9*7)
+                              where status = 'production PLAN'
+                              and AVAILABLE_DATE between convert(date,getdate()+1) and convert(date, getdate() + 9*7)
                               order by AVAILABLE_DATE,SHIPPING_POINT,MATERIAL_NUMBER
                                     """
 
@@ -157,14 +145,8 @@ def forecast():
             #                                 WishList Query
             ####################################################################################
 
-            wishes = get_wish_list(forecast=True)
-
-            ####################################################################################
-            #                             Included Shipping_point
-            ####################################################################################
-
-            global DATAInclude
-            get_nested_source_points(DATAInclude)
+            # !!!!!!!!!!!!!!! MUST BE CHANGED !!!!!!!!!!!!!!!!!!!
+            wishes = get_wish_list(forecast=False)
 
         except:
             downloaded = False
@@ -234,43 +216,9 @@ def forecast():
     #                                                Main loop for everyday
     ####################################################################################################################
 
-    # We adjust original inventory
-    official_inventory = adjust_inventory(inventory)
-    inventory = official_inventory
-
     # We set INVObjs attribute Future to false to be able to use P2P normal process' functions
     for obj in inventory:
         obj.Future = False
-
-    # We add today's prod and QA to inventory, but we don't create load for today (we make them for tomorrow or later)
-    prod_used = []
-    for i, item in enumerate(production):
-        found = False
-        if item.DATE > weekdays(0):  # Ordered by date, so no need to continue
-            break
-
-        # if item can be considered as inventory
-        elif item.DATE == weekdays(0) and item.QUANTITY > 0 and item.STATUS == 'QA HOLD':
-
-            # We save is index to remove it later
-            prod_used.append(i)
-
-            for inv in inventory:
-                if inv.POINT == item.POINT and inv.MATERIAL_NUMBER == item.MATERIAL_NUMBER:
-                    found = True
-                    inv.QUANTITY += item.QUANTITY
-                    item.QUANTITY = 0
-                    break  # we found the good inv
-
-            # We add the object if it wasn't already existing in the inventory
-            if not found:
-                item.Future = False
-                inventory.append(item)
-
-    # We remove prod used
-    remove_indexes_from_list(production, prod_used)
-
-    # Inventory is now updated.
 
     # We initialize a list of data that will be used to create the pivot table with pandas and a column counter
     summary_data = []
@@ -288,7 +236,7 @@ def forecast():
         reset_residuals_counter()
 
         # we add today's prod and QA to inventory
-        prod_used.clear()
+        prod_used = []
         for i, item in enumerate(production):
             found = False
             if item.DATE > date:  # Ordered by date, so no need to continue
@@ -342,7 +290,7 @@ def forecast():
         #                                       Satisfy maximums
         ################################################################################################################
 
-        satisfy_max_or_min(wishes, inventory, p2ps_list, print_loads=printLoads,
+        satisfy_max_or_min(wishes, inventory, p2ps_list, print_loads=printLoads, satisfy_min=False,
                            assignment_function=save_wish_assignment, inventory_available_date=date)
 
         ################################################################################################################

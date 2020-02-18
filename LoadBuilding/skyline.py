@@ -309,45 +309,22 @@ class SkylineBl(Skyline):
     def _rect_fitness(self, rect, left_index, right_index):
         return rect.top
 
-    def get_validation_length(self, starting_height, width_of_segment):
+    def valid_length(self, lower_bound, width_of_segment):
         """
         Computes a validation length of the load
 
-        :param starting_height: starting point from which we start decreasing
+        :param lower_bound: percentage of length that must be covered
         :param width_of_segment: segment width used for validation
         :return: length (float)
         """
-        # We initialize horizontal segments starting from the top side of trailer
-        # (one from left side and the other from the right side)
-        h_left_segment = HSegment(P(0, starting_height), width_of_segment)
-        h_right_segment = HSegment(P(self.width - width_of_segment, starting_height), width_of_segment)
+        length_to_satisfy = lower_bound * self.height
+        valid_skyline_length = 0
 
-        # We initialize variables memorizing if our segments met other horizontal segments
-        left_seg_intersect = False
-        right_seg_intersect = False
+        for horizontal_segment in self._skyline:
+            if horizontal_segment.top >= length_to_satisfy:
+                valid_skyline_length += horizontal_segment.length
 
-        # We slowly decrease segment height until our right edge intersect an other
-        while not (left_seg_intersect and right_seg_intersect) and h_left_segment.top > 0 and h_right_segment.top > 0:
-            for segment in self._skyline:
-
-                # We check if left segment intersect with the skyline segment
-                if not left_seg_intersect:
-                    if h_left_segment.intersect(segment, right=True):
-                        left_seg_intersect = True
-                    else:
-                        h_left_segment.start.y = round(h_left_segment.start.y - 0.1, 1)
-                        h_left_segment.end.y = round(h_left_segment.end.y - 0.1, 1)
-
-                if not right_seg_intersect:
-                    if h_right_segment.intersect(segment, right=False):
-                        right_seg_intersect = True
-                    else:
-                        h_right_segment.start.y = round(h_right_segment.start.y - 0.1, 1)
-                        h_right_segment.end.y = round(h_right_segment.end.y - 0.1, 1)
-
-        self.validation_length = min(h_left_segment.top, h_right_segment.top)
-
-        return self.validation_length
+        return valid_skyline_length >= width_of_segment
 
 
 class SkylineBlWm(SkylineBl, SkylineWMixin):
