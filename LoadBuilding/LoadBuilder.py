@@ -26,7 +26,7 @@ class LoadBuilder:
     validate_with_ref = False
     trailer_reference = None
     patching_activated = False
-    score_multiplication_base = 1.02  # used to boost the score of a load when there's mandatory crates
+    score_multiplication_base = 1.20  # used to boost the score of a load when there's mandatory crates
     overhang_authorized = 51.5   # Maximum of overhang authorized for a trailer (in inches)
     max_trailer_length = 636  # Maximum load length possible
     plc_lb = 0.80  # Lowest percentage of trailer's length that must be covered (using validation length)
@@ -678,10 +678,10 @@ class LoadBuilder:
     def __select_top_n(self, n):
 
         """
-        Selects the n best trailers in terms of units in the load
+        Selects the n best trailers in terms of number of mandatory crates and score
         """
         # We sort trailer in decreasing order by their score
-        self.trailers.sort(key=lambda t: t.score, reverse=True)
+        self.trailers.sort(key=lambda t: (t.nb_of_mandatory(), t.score), reverse=True)
 
         # We initialize an index at the end of the list containing trailers
         i = len(self.trailers) - 1
@@ -751,7 +751,7 @@ class LoadBuilder:
         i = 0
 
         # We sort trailer with their average ranking
-        self.trailers_done.sort(key=lambda t: t.average_ranking())
+        self.trailers_done.sort(key=lambda t: (t.nb_of_mandatory(), t.average_ranking()))
 
         # We add a line in the dataframe for every trailer used
         for trailer in self.trailers_done:
