@@ -270,7 +270,13 @@ class Parameters:
         self.update_load_builder_trailers_data()
 
         # Create loads
+        print('LAST TOTAL :', self.get_nb_of_units())
+        print('LAST TOTAL OF LOADS :', len(self.LoadBuilder))
+        print(input_dataframe)
         result = self.LoadBuilder.build(input_dataframe, max_load, ranking=ranking, plot_load_done=print_loads)
+        print('NEW TOTAL :', self.get_nb_of_units())
+        print('NEW TOTAL OF LOADS :', len(self.LoadBuilder))
+        print('RESULTS :', result, '\n')
 
         # We update the number of common flatbed 53
         self.update_flatbed_53()
