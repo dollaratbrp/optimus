@@ -678,10 +678,10 @@ class LoadBuilder:
     def __select_top_n(self, n):
 
         """
-        Selects the n best trailers in terms of units in the load
+        Selects the n best trailers in terms of number of mandatory crates and score
         """
         # We sort trailer in decreasing order by their score
-        self.trailers.sort(key=lambda t: t.score, reverse=True)
+        self.trailers.sort(key=lambda t: (t.nb_of_mandatory(), t.score), reverse=True)
 
         # We initialize an index at the end of the list containing trailers
         i = len(self.trailers) - 1
