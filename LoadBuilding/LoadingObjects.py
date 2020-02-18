@@ -337,6 +337,12 @@ class Trailer:
 
         return units
 
+    def average_ranking(self):
+        """
+        Returns the average ranking of the stacks in the trailer
+        """
+        return np.mean([stack.average_ranking for stack in self.load])
+
     def fit(self, stack, rotated=False):
 
         """
