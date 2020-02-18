@@ -26,7 +26,7 @@ class LoadBuilder:
     validate_with_ref = False
     trailer_reference = None
     patching_activated = False
-    score_multiplication_base = 1.02  # used to boost the score of a load when there's mandatory crates
+    score_multiplication_base = 1.20  # used to boost the score of a load when there's mandatory crates
     overhang_authorized = 51.5   # Maximum of overhang authorized for a trailer (in inches)
     max_trailer_length = 636  # Maximum load length possible
     plc_lb = 0.80  # Lowest percentage of trailer's length that must be covered (using validation length)
