@@ -40,9 +40,10 @@ printLoads = False  # Print created loads
 MinWarning = False  # Add yellow filling as warning when minimum is not satisfied for a p2p
 AutomaticRun = False  # set to True to automate code
 validation = False     # set to True to validate the results received after the process
-first_folder = saveFolder+'P2P_Summary_'+dayToday+'\\'
-dest_folder = first_folder+time_now_string()+'\\'
-dest_filename = 'P2P_Summary_'  # Name of excel file with today's date
+result_time_stamp = time_now_string()
+general_folder = saveFolder+'P2P_Summary_'+dayToday+'\\'
+result_folder = general_folder+result_time_stamp+'\\'
+result_file = 'P2P_Summary_'  # Name of excel file with today's date
 history_expiration_date = dayTodayComplete - timedelta(days=365)  # Expiration date set one year ago
 
 
@@ -106,7 +107,7 @@ def p2p_full_process():
     # If SQL Queries failed
     if not downloaded:
         try:
-            send_email(emails_list, dest_filename, 'SQL QUERIES FAILED')
+            send_email(emails_list, result_file, 'SQL QUERIES FAILED')
         except:
             pass
         sys.exit()
@@ -201,18 +202,9 @@ def p2p_full_process():
     #                                           Writing of the results
     ####################################################################################################################
 
-    # Creation of results folder
-    if not os.path.exists(first_folder):
-        os.mkdir(first_folder)
-        print("Directory ", first_folder, " Created ")
-    else:
-        print("Directory ", first_folder, " already exists")
-
-    if not os.path.exists(dest_folder):
-        os.mkdir(dest_folder)
-        print("Directory ", dest_folder, " Created ")
-    else:
-        print("Directory ", dest_folder, " already exists")
+    # Creation of results folders
+    create_directory(general_folder)
+    create_directory(result_folder)
 
     # We display loads create in each p2p for our own purpose and save load pictures in the results folder
     print('\n\nResults')
@@ -225,7 +217,7 @@ def p2p_full_process():
         z = 0
         for trailer in param.LoadBuilder.trailers_done:
             z += 1
-            trailer.plot_load(saving_path=dest_folder+'_'+param.POINT_FROM+'_'+param.POINT_TO+'_'+str(z))
+            trailer.plot_load(saving_path=result_folder+'_'+param.POINT_FROM+'_'+param.POINT_TO+'_'+str(z))
 
     # Initialization of a list to keep all data needed for the "APPROVED" ws and summary version ouptput for SAP
     approved_ws_data, sap_input_data = [], []
@@ -364,10 +356,10 @@ def p2p_full_process():
     create_excel_table(sap_input_ws, "SAP_input", sap_input_columns)
 
     # We save the workbook and the reference
-    reference = [savexlsxFile(wb, dest_folder, dest_filename, Time=True)]
+    reference = [savexlsxFile(wb, result_folder, result_file+result_time_stamp, Time=False)]
 
     # We send the emails
-    send_email(emails_list, dest_filename+dayToday, '', reference)
+    send_email(emails_list, result_file+dayToday, '', reference)
 
     # We validate the process' results if the user wants to
     if validation:
