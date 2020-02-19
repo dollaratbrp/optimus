@@ -481,7 +481,7 @@ class Warehouse:
 
         self.stacks_to_ship.clear()
 
-    def merge_for_trailer(self, trailer):
+    def merge_for_trailer(self, trailer, width_tolerance):
 
         """
         Places and pre-rotates stacks in the best way possible for the loading, according to the trailer dimensions
@@ -492,7 +492,6 @@ class Warehouse:
                    and number of stacks that cannot fit in the trailer.
 
         """
-
         # We save the length of the longest element in the warehouse
         unique_tuples = set((stack.width, stack.length) for stack in self.stacks_to_ship)
         longest_item_length = max(max(dimensions) for dimensions in unique_tuples)
@@ -517,9 +516,6 @@ class Warehouse:
             # If the current stack can fit in the trailer
             if trailer.fit(self[i]) or trailer.fit(self[i], rotated=True):
 
-                # We add the stack at index i in the new version of warehouse
-                new.add_stack(self[i])
-
                 # We initialize an index j and a boolean specifying if the merge operation was successful or not
                 j, merged = i+1, False
 
@@ -529,6 +525,7 @@ class Warehouse:
                     # and current stack's width
                     if self[j].width <= trailer.width - self[i].width:
 
+                        new.add_stack(self[i])  # We add the stack at index i in the new version of warehouse
                         load_length += max(self[i].length, self[j].length)  # We update load_length
                         new.add_stack(self.stacks_to_ship.pop(j))  # We add the stack in the new warehouse
                         config += [False, False]  # We specify that both of them were not rotated
@@ -540,12 +537,18 @@ class Warehouse:
                 if not merged:
 
                     # We compute if the current stack should be rotated or not
-                    if self[i].better_rotated(trailer):
+                    if self[i].better_rotated(trailer) and self[i].length >= width_tolerance:
+                        new.add_stack(self[i])  # We add the stack at index i in the new version of warehouse
                         config += [True]
                         load_length += self[i].width
-                    else:
+
+                    elif self[i].width >= width_tolerance:
+                        new.add_stack(self[i])  # We add the stack at index i in the new version of warehouse
                         config += [False]
                         load_length += self[i].length
+
+                    else:
+                        leftover.append(i)
             else:
                 leftover.append(i)
 
