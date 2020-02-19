@@ -40,7 +40,7 @@ printLoads = False  # Print created loads
 MinWarning = False  # Add yellow filling as warning when minimum is not satisfied for a p2p
 AutomaticRun = False  # set to True to automate code
 validation = True     # set to True to validate the results received after the process
-dest_folder = saveFolder+'P2P_Summary_'+dayToday+'\\'
+dest_folder = saveFolder+'P2P_Summary_'+dayToday+'\\'+time_now_string()+'\\'
 dest_filename = 'P2P_Summary_'  # Name of excel file with today's date
 history_expiration_date = dayTodayComplete - timedelta(days=365)  # Expiration date set one year ago
 
@@ -200,14 +200,26 @@ def p2p_full_process():
     #                                           Writing of the results
     ####################################################################################################################
 
-    # We display loads create in each p2p for our own purpose
+    # Creation of results folder
+    if not os.path.exists(dest_folder):
+        os.mkdir(dest_folder)
+        print("Directory ", dest_folder, " Created ")
+    else:
+        print("Directory ", dest_folder, " already exists")
+
+    # We display loads create in each p2p for our own purpose and save load pictures in the results folder
     print('\n\nResults')
     for param in p2ps_list:
         print('\n\n')
         print(param.POINT_FROM, ' _ ', param.POINT_TO)
         print(len(param.LoadBuilder))
         print(param.LoadBuilder.trailers_done)
-        print(param.LoadBuilder.get_loading_summary())
+        print(param.LoadBuilder.get_loading_summary())  # Trailer are now sorted correctly
+        z = 0
+        for trailer in param.LoadBuilder.trailers_done:
+            print(trailer.average_ranking())
+            z += 1
+            trailer.plot_load(saving_path=dest_folder+'_'+param.POINT_FROM+'_'+param.POINT_TO+'_'+str(z))
 
     # Initialization of a list to keep all data needed for the "APPROVED" ws and summary version ouptput for SAP
     approved_ws_data, sap_input_data = [], []
@@ -344,13 +356,6 @@ def p2p_full_process():
     create_excel_table(unbooked_ws, "Unbooked", unbooked_columns)
     create_excel_table(unused_ws, "Booked_unused", unused_columns)
     create_excel_table(sap_input_ws, "SAP_input", sap_input_columns)
-
-    # Create target Directory if don't exist
-    if not os.path.exists(dest_folder):
-        os.mkdir(dest_folder)
-        print("Directory ", dest_folder, " Created ")
-    else:
-        print("Directory ", dest_folder, " already exists")
 
     # We save the workbook and the reference
     reference = [savexlsxFile(wb, dest_folder, dest_filename, Time=True)]
