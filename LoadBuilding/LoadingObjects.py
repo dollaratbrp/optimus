@@ -202,7 +202,18 @@ class Trailer:
                 (rect.left, rect.bottom),  # Ignored
             ]
 
+            # We save the path
             path = Path(vertices, codes)
+
+            # We add text indicating dimensions of rectangles
+            x_center_coordinate = (rect.left+rect.right)/2
+            if x_center_coordinate <= self.packer[0].width/2:
+                x_center_coordinate -= 250
+            else:
+                x_center_coordinate += 250
+
+            plt.text(x=x_center_coordinate, y=(rect.bottom+rect.top)/2,
+                     s='{}x{}'.format(rect.height, rect.width))
 
             if self.crate_type == 'W':
                 patch = patches.PathPatch(path, facecolor="brown", lw=2)
