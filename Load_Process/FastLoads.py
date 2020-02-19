@@ -392,6 +392,7 @@ class FastLoadsBox(VerticalScrolledFrame):
             SELECT 
             M1.MATERIAL_NUMBER,
             M1.SIZE_DIMENSIONS,
+            'CRATE' AS CRATE_TYPE,
             CEILING(MAX(M2.LENGTH)) AS LENGTH,
             CEILING(MAX(M2.WIDTH)) AS WIDTH,
             CEILING(MAX(M2.HEIGHT)) AS HEIGHT
@@ -451,8 +452,6 @@ class FastLoadsBox(VerticalScrolledFrame):
         LEFT JOIN """ + subquery + """ on c.Material_number = CRATE_SIZE.Material_Number
         LEFT JOIN [dbo].[OTD_1_P2P_F_PARAMETERS_CRATE_SKID] as SKID
         on a.Size_Dimensions = SKID.[CRATE_SIZE_SKID] """ + end_of_query
-
-        print(sql_query)
 
         # Retrieve the data
         data = sql_connect.GetSQLData(sql_query)

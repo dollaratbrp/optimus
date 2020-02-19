@@ -208,9 +208,9 @@ class Trailer:
             # We add text indicating dimensions of rectangles
             x_center_coordinate = (rect.left+rect.right)/2
             if x_center_coordinate <= self.packer[0].width/2:
-                x_center_coordinate -= 250
+                x_center_coordinate = -150
             else:
-                x_center_coordinate += 250
+                x_center_coordinate = self.packer[0].width + 50
 
             plt.text(x=x_center_coordinate, y=(rect.bottom+rect.top)/2,
                      s='{}x{}'.format(rect.height, rect.width))
