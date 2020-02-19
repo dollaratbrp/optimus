@@ -41,21 +41,6 @@ def main():
     for trailer in lb1.trailers_done:
         print([stack.models for stack in trailer.load])
 
-    models_data.loc[0, 'QTY'] = 1
-
-    print('\n', models_data, '\n')
-
-    lb1.patching_activated = True
-    res = lb1.build(models_data, 0)
-
-    for trailer in lb1.trailers_done:
-        trailer.plot_load()
-        print([stack.models for stack in trailer.load])
-
-    # We look at the loading summaries
-    lb1_summary = lb1.get_loading_summary()
-    print('\n', lb1_summary)
-
 
 if __name__ == "__main__":
     main()
