@@ -182,9 +182,11 @@ class Trailer:
         self.score = 0
         self.packer = None
 
-    def plot_load(self):
+    def plot_load(self, saving_path=None):
         """
         Plots the loading configuration of the trailer
+
+        :param saving_path: indicates the path where we should save the load picture
         :return: plot
         """
         fig, ax = plt.subplots()
@@ -219,7 +221,11 @@ class Trailer:
         if self.oh != 0:
             line = plt.axhline(self.length, color='black', ls='--')
 
-        plt.show()
+        if saving_path is None:
+            plt.show()
+        else:
+            plt.savefig(saving_path)
+
         plt.close()
 
     def area(self):
