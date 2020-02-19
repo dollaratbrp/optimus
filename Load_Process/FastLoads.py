@@ -392,6 +392,7 @@ class FastLoadsBox(VerticalScrolledFrame):
             SELECT 
             M1.MATERIAL_NUMBER,
             M1.SIZE_DIMENSIONS,
+            'CRATE' AS CRATE_TYPE,
             CEILING(MAX(M2.LENGTH)) AS LENGTH,
             CEILING(MAX(M2.WIDTH)) AS WIDTH,
             CEILING(MAX(M2.HEIGHT)) AS HEIGHT
