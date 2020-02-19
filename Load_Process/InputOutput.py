@@ -10,6 +10,7 @@ By : Nicolas Raymond
 
 """
 
+import os
 import openpyxl
 import smtplib
 from openpyxl.styles import PatternFill
@@ -41,11 +42,9 @@ def savexlsxFile(wb, path, filename, Time=False, extension='.xlsx'):
     """
     
     if Time is True:
-        tN = pd.datetime.now()
-        tempSave = '_'+str(tN.year)+'.'+str(tN.month)+'.'+str(tN.day)+'__'+str(tN.hour) + \
-                   '.'+str(tN.minute)+'.'+str(tN.second)
+        time_string = time_now_string()
     else:
-        tempSave = ''
+        time_string = ''
     ErrorMessage = ''
     
     saved = False
@@ -53,13 +52,13 @@ def savexlsxFile(wb, path, filename, Time=False, extension='.xlsx'):
     while not saved:
         try:
             saved = True
-            wb.save(path+filename+nameExtension+tempSave+extension)
+            wb.save(path+filename+nameExtension+time_string+extension)
         except:
             msg = "Someone already has the file "+filename+nameExtension+extension+" open"
             ErrorMessage += msg
             saved = False
             nameExtension += " Copy"
-    return path+filename+nameExtension+tempSave+extension
+    return path+filename+nameExtension+time_string+extension
 
 
 def send_email(recipient, subject, text, listfile=[], CC=[]):
@@ -107,10 +106,13 @@ def send_email(recipient, subject, text, listfile=[], CC=[]):
 
 
 def time_now_string():
-    tN = pd.datetime.now()
-    tempSave = '_' + str(tN.year) + '.' + str(tN.month) + '.' + str(tN.day) + '__' + str(tN.hour) + \
-               '.' + str(tN.minute) + '.' + str(tN.second)
-    return tempSave
+    """
+    Returns time extension for file
+    """
+    time_now = pd.datetime.now()
+    time_string = '_' + str(time_now.year) + '.' + str(time_now.month) + '.' + str(time_now.day) + '__' +\
+                  str(time_now.hour) + '.' + str(time_now.minute) + '.' + str(time_now.second)
+    return time_string
 
 
 def timeSinceLastCall(functionName="", ToPrint=True):
@@ -185,6 +187,19 @@ def xlsxToTxtFile(readPath, filexlsx, writePath, txtfileName):
         txt_file.close()
     except:
         ErrorMessage += "Error in xlsxToTxtFile function"
+
+
+def create_directory(directory):
+    """
+    Creates a directory if it doesn't already exists
+    :param directory: directory to create
+    """
+    # Creation of results folder
+    if not os.path.exists(directory):
+        os.mkdir(directory)
+        print("Directory ", directory, " Created ")
+    else:
+        print("Directory ", directory, " already exists")
 
 
 def worksheet_formatting(ws, column_titles, column_widths, filling=None):
