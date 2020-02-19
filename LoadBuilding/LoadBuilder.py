@@ -237,7 +237,7 @@ class LoadBuilder:
             # We initialize a variable that will contain the name of the last category that didn't satisfied lb
             last_category = ''
 
-            # We initialize a list of potential trailers
+            # We initialize a list of tuple with potential trailers and sort functions associated to them
             potential_trailers = []
 
             # For all trailer that hasn't been used yet
@@ -249,12 +249,15 @@ class LoadBuilder:
                     # and "packer" loading strategies that were tried.
                     packers = []
 
+                    # We initialize a list that will contain sort function associated to the packers
+                    sort_functions = []
+
                     # We try to fill the trailer the best way as possible considering best configurations between
                     # wooden warehouse and metal warehouse
                     for crate_type, warehouse in [('W', self.warehouse), ('M', self.metal_warehouse)]:
 
                         # We update the packers tuple list
-                        self.__test_all_config(packers, crate_type, warehouse, t)
+                        self.__test_all_config(sort_functions, packers, crate_type, warehouse, t)
 
                     # We save the index of the best loading configuration that respected the constraint of plc_lb
                     best_packer_index, score = self.__select_best_packer(t, packers, lower_bound)
@@ -262,9 +265,10 @@ class LoadBuilder:
                     # If an index is found (at least one load satisfies the constraint for this category of trailer)
                     if best_packer_index is not None:
 
-                        # We save the specified packer and the crate_type concerned
+                        # We save the specified packer, the crate_type and the sort function concerned
                         best_packer = packers[best_packer_index][1]
                         crate_type = packers[best_packer_index][0]
+                        sort_funct = sort_functions[best_packer_index]
 
                         # We save the crate type, the score and the packer associated to the trailer
                         t.packer = best_packer
@@ -272,14 +276,14 @@ class LoadBuilder:
                         t.crate_type = crate_type
 
                         # We add this potential trailer to the list
-                        potential_trailers.append(t)
+                        potential_trailers.append((t, sort_funct))
 
                     last_category = t.category
 
             # If we found trailers that were respecting the constraint of plc
             if len(potential_trailers) != 0:
 
-                selected_trailer = self.__select_best_trailer(potential_trailers)
+                selected_trailer, sort_function_associated = self.__select_best_trailer(potential_trailers)
 
                 # We select the warehouse that will be used to pack the trailer
                 if selected_trailer.crate_type == 'W':
@@ -287,6 +291,10 @@ class LoadBuilder:
                 else:
                     warehouse = self.metal_warehouse
 
+                # We sort stack according to the function that was used to sort them to create the load
+                sort_function_associated(warehouse)
+
+                # We pack the trailer
                 selected_trailer.pack(warehouse)
 
             else:
@@ -308,12 +316,12 @@ class LoadBuilder:
         :return: best trailer
         """
         # We sort trailer by the area of their surface
-        potential_trailers.sort(key=lambda t: t.score, reverse=True)
+        potential_trailers.sort(key=lambda t: t[0].score, reverse=True)
 
         for i in range(1, len(potential_trailers)):
-            potential_trailers[i].reset()
+            potential_trailers[i][0].reset()
 
-        return potential_trailers[0]
+        return potential_trailers[0][0], potential_trailers[0][1]
 
     def __select_best_packer(self, trailer, packers_list, lower_bound):
 
@@ -346,11 +354,12 @@ class LoadBuilder:
 
         return best_packer_index, best_score
 
-    def __test_all_config(self, packers, crate_type, warehouse, trailer):
+    def __test_all_config(self, sort_functions_list, packers, crate_type, warehouse, trailer):
 
         """
         Tests efficiently different load configurations possible for the trailer and selected warehouse
 
+        :param sort_functions_list: list containing all sort functions associated to each packer
         :param packers: list of tuples with crate types and packers object
         :param crate_type: One type among 'W' and 'M'
         :param warehouse: object of class Warehouse from which we'll pull the stacks
@@ -358,7 +367,7 @@ class LoadBuilder:
         """
         # We set a list of different sorting functions to try
         sort_functions = [sort_by_ranking_and_volume, sort_by_area, sort_by_width, sort_by_length,
-                          sort_by_ratio, random_sort, random_sort, random_sort]
+                          sort_by_ratio]
 
         # We compute all possible configurations of loading (efficiently)
         for sort_function in sort_functions:
@@ -401,6 +410,9 @@ class LoadBuilder:
 
                     # We save the loading configuration (the packer)
                     packers.append((crate_type, packer))
+
+                    # We save the sort function associated to the packer
+                    sort_functions_list.append(sort_function)
 
     def __validate_packing(self, trailer, crate_type, packer, lower_bound):
 
@@ -510,7 +522,7 @@ class LoadBuilder:
         """
 
         # We initialize a numpy array of configurations (only one configuration for now)
-        configs, nb_oversize = warehouse.merge_for_trailer(trailer)
+        configs, nb_oversize = warehouse.merge_for_trailer(trailer, self.individual_width_tolerance)
         configs = np.array([configs])
 
         # We compute an upper bound for the maximal number of rectangles that can fit in our trailer
@@ -594,6 +606,9 @@ class LoadBuilder:
         # Initialization of an empty list that will contain tuples of crate_type and packer
         packers = []
 
+        # Initialization of an empty list to contain sort functions tested
+        sort_functions = []
+
         # Construction of a copy of the warehouse
         w = dc(warehouse)
 
@@ -605,7 +620,7 @@ class LoadBuilder:
         w.remove_stacks(unused_indexes)
 
         # We test all configurations possible
-        self.__test_all_config(packers, crate_type, w, t)
+        self.__test_all_config(sort_functions, packers, crate_type, w, t)
 
         # We compute the plc_lb to satisfy based on original_length and select the best packer with our function
         lowerbound = round((self.plc_lb*original_length)/t.length, 4)

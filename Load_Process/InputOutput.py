@@ -27,7 +27,7 @@ from string import ascii_uppercase
 timeReference = datetime.datetime.now()
 
 
-def savexlsxFile(wb, path, filename, Time =False, extension='.xlsx'):
+def savexlsxFile(wb, path, filename, Time=False, extension='.xlsx'):
 
     """
     Saves xlsx files
@@ -104,6 +104,13 @@ def send_email(recipient, subject, text, listfile=[], CC=[]):
         smtpObj.close()
     except:
         print("Sending email failed")
+
+
+def time_now_string():
+    tN = pd.datetime.now()
+    tempSave = '_' + str(tN.year) + '.' + str(tN.month) + '.' + str(tN.day) + '__' + str(tN.hour) + \
+               '.' + str(tN.minute) + '.' + str(tN.second)
+    return tempSave
 
 
 def timeSinceLastCall(functionName="", ToPrint=True):
