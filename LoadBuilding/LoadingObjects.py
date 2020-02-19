@@ -208,7 +208,7 @@ class Trailer:
             # We add text indicating dimensions of rectangles
             x_center_coordinate = (rect.left+rect.right)/2
             if x_center_coordinate <= self.packer[0].width/2:
-                x_center_coordinate = -150
+                x_center_coordinate = -175
             else:
                 x_center_coordinate = self.packer[0].width + 50
 
