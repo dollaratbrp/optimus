@@ -39,7 +39,8 @@ drybox_sanity_check = True
 printLoads = False  # Print created loads
 MinWarning = False  # Add yellow filling as warning when minimum is not satisfied for a p2p
 AutomaticRun = False  # set to True to automate code
-validation = False     # set to True to validate the results received after the process
+validation = True     # set to True to validate the results received after the process
+dest_folder = saveFolder+'P2P_Summary_'+dayToday+'\\'
 dest_filename = 'P2P_Summary_'  # Name of excel file with today's date
 history_expiration_date = dayTodayComplete - timedelta(days=365)  # Expiration date set one year ago
 
@@ -344,16 +345,22 @@ def p2p_full_process():
     create_excel_table(unused_ws, "Booked_unused", unused_columns)
     create_excel_table(sap_input_ws, "SAP_input", sap_input_columns)
 
+    # Create target Directory if don't exist
+    if not os.path.exists(dest_folder):
+        os.mkdir(dest_folder)
+        print("Directory ", dest_folder, " Created ")
+    else:
+        print("Directory ", dest_folder, " already exists")
+
     # We save the workbook and the reference
-    reference = [savexlsxFile(wb, saveFolder, dest_filename, Time=True)]
+    reference = [savexlsxFile(wb, dest_folder, dest_filename, Time=True)]
 
     # We send the emails
-    send_email(emails_list, dest_filename, '', reference)
+    send_email(emails_list, dest_filename+dayToday, '', reference)
 
     # We validate the process' results if the user wants to
     if validation:
-        workbook_path = saveFolder + dest_filename + '.xlsx'
-        validate_process(workbook_path, p2ps_list, residuals_counter)
+        validate_process(reference[0], p2ps_list, residuals_counter)
 
     # We open excel workbook
     os.system('start "excel" "'+str(reference[0])+'"')
