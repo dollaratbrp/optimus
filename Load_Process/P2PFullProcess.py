@@ -40,7 +40,7 @@ printLoads = False  # Print created loads
 MinWarning = False  # Add yellow filling as warning when minimum is not satisfied for a p2p
 AutomaticRun = False  # set to True to automate code
 validation = False     # set to True to validate the results received after the process
-dest_filename = 'P2P_Summary_'+dayToday  # Name of excel file with today's date
+dest_filename = 'P2P_Summary_'  # Name of excel file with today's date
 history_expiration_date = dayTodayComplete - timedelta(days=365)  # Expiration date set one year ago
 
 
@@ -345,7 +345,7 @@ def p2p_full_process():
     create_excel_table(sap_input_ws, "SAP_input", sap_input_columns)
 
     # We save the workbook and the reference
-    reference = [savexlsxFile(wb, saveFolder, dest_filename)]
+    reference = [savexlsxFile(wb, saveFolder, dest_filename, Time=True)]
 
     # We send the emails
     send_email(emails_list, dest_filename, '', reference)
