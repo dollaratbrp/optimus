@@ -13,6 +13,7 @@ By : Nicolas Raymond
 from LoadBuilder import LoadBuilder, set_trailer_reference
 from InputOutput import *
 DATAInclude = []
+log_file = None
 sharing_points_from = ['4100', '4125']
 shared_flatbed_53 = {'QTY': 2, 'POINT_FROM': sharing_points_from}  # Used to keep track of flat53 available
 residuals_counter = {}  # Use to keep track of the residuals of min and max among p2p with same POINT TO
@@ -270,13 +271,13 @@ class Parameters:
         self.update_load_builder_trailers_data()
 
         # Create loads
-        print('LAST TOTAL :', self.get_nb_of_units())
-        print('LAST TOTAL OF LOADS :', len(self.LoadBuilder))
-        print(input_dataframe)
+        # print('LAST TOTAL :', self.get_nb_of_units())
+        # print('LAST TOTAL OF LOADS :', len(self.LoadBuilder))
+        # print(input_dataframe)
         result = self.LoadBuilder.build(input_dataframe, max_load, ranking=ranking, plot_load_done=print_loads)
-        print('NEW TOTAL :', self.get_nb_of_units())
-        print('NEW TOTAL OF LOADS :', len(self.LoadBuilder))
-        print('RESULTS :', result, '\n')
+        # print('NEW TOTAL :', self.get_nb_of_units())
+        # print('NEW TOTAL OF LOADS :', len(self.LoadBuilder))
+        # print('RESULTS :', result, '\n')
 
         # We update the number of common flatbed 53
         self.update_flatbed_53()
@@ -948,10 +949,17 @@ def link_load_to_wishes(loadbuilder_output, available_wishes, p2p, **kwargs):
     # If we got both parameters we looked for, it means we're linking load to wishes in the forecast process
     forecast_process = save_wish_assignment is not None and inventory_availability_date is not None
 
+    log_file.writelines(['{} wishes assigned : '.format(str(len(loadbuilder_output))), '\n'])
+    i = 0  # wish index in log file
     for model, crate_type in loadbuilder_output:
+        i += 1
         found = False
         for wish in available_wishes:
             if wish.SIZE_DIMENSIONS == model and wish.QUANTITY > 0 and crate_type == wish.CRATE_TYPE:
+                log_file.writelines(['WISH {} -> '.format(str(i)), ' FROM : ', str(wish.POINT_FROM),
+                                     ' TO : ', str(wish.SHIPPING_POINT),
+                                     ' MATERIAL_NUMBER : ', str(wish.MATERIAL_NUMBER),
+                                     ' RANK : ', str(wish.RANK), '\n'])
                 wish.QUANTITY = 0
                 found = True
                 p2p.AssignedWish.append(wish)
@@ -1084,3 +1092,14 @@ def remove_indexes_from_list(list_to_modify, indexes_list):
     indexes_list.sort(reverse=True)
     for i in indexes_list:
         list_to_modify.pop(i)
+
+
+def create_log_file(path):
+    """
+    Creates log file to store activites done during the processes
+    :param path: path where the file will be stored
+    """
+    global log_file
+    log_file = open(path+'log.txt', 'a')
+
+
