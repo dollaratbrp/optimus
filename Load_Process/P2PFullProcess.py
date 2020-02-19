@@ -122,6 +122,13 @@ def p2p_full_process():
 
     timeSinceLastCall('', False)
 
+    # Creation of results folders
+    create_directory(general_folder)
+    create_directory(result_folder)
+
+    # Creation of log file
+    create_log_file(result_folder)
+
     ####################################################################################################################
     #                                                 Excel Workbook declaration
     ####################################################################################################################
@@ -201,10 +208,6 @@ def p2p_full_process():
     ####################################################################################################################
     #                                           Writing of the results
     ####################################################################################################################
-
-    # Creation of results folders
-    create_directory(general_folder)
-    create_directory(result_folder)
 
     # We display loads create in each p2p for our own purpose and save load pictures in the results folder
     print('\n\nResults')
