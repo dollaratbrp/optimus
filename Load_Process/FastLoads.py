@@ -453,8 +453,6 @@ class FastLoadsBox(VerticalScrolledFrame):
         LEFT JOIN [dbo].[OTD_1_P2P_F_PARAMETERS_CRATE_SKID] as SKID
         on a.Size_Dimensions = SKID.[CRATE_SIZE_SKID] """ + end_of_query
 
-        print(sql_query)
-
         # Retrieve the data
         data = sql_connect.GetSQLData(sql_query)
 
