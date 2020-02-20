@@ -327,6 +327,18 @@ class NestedSourcePoints:
         self.source = point_source
         self.include = point_include
 
+class FakeLogFile:
+    """
+    Fake log file that does not execute any task when calling write and write lines on it
+    Avoid presence of large number of "if" in the P2P functions
+    """
+    def __init__(self):
+        pass
+    def write(self, string):
+        pass
+    def writelines(self, list_of_strings):
+        pass
+
 
 def clean_p2p_history(expiration_date):
     """
@@ -1141,13 +1153,29 @@ def remove_indexes_from_list(list_to_modify, indexes_list):
         list_to_modify.pop(i)
 
 
-def create_log_file(path):
+def create_log_file(path, log_save=True):
     """
-    Creates log file to store activites done during the processes
+    Creates log file to store activities done during the processes
     :param path: path where the file will be stored
+    :param log_save: bool indicating if we create a fake log file that doesn't save anything
     """
     global log_file
-    log_file = open(path+'log.txt', 'a')
+    if log_save:
+        log_file = open(path+'log.txt', 'a')
+    else:
+        log_file = FakeLogFile()
+
+
+def write_departure_date(departure_date):
+    """
+    Writes the departure date in the log file (used in forecast)
+    :param departure_date: date to write
+    :return:
+    """
+    global log_file
+
+    # We write the departure date in the log file
+    log_file.writelines(['\n\n\n', 'DEPARTURE DATE : ', str(departure_date), '\n\n\n'])
 
 
 def add_separator_line(symbol='#'):
