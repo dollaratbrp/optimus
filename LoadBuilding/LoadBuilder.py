@@ -22,7 +22,6 @@ class LoadBuilder:
     """
     Object that deals with loadings construction from one plant to another
     """
-
     validate_with_ref = False
     trailer_reference = None
     patching_activated = False
@@ -347,7 +346,7 @@ class LoadBuilder:
 
         return best_packer_index, best_score
 
-    def __test_all_config(self, packers, crate_type, warehouse, trailer):
+    def __test_all_config(self, packers, crate_type, warehouse, trailer, lower_bound, sort_choice=0):
 
         """
         Tests efficiently different load configurations possible for the trailer and selected warehouse
@@ -356,11 +355,26 @@ class LoadBuilder:
         :param crate_type: One type among 'W' and 'M'
         :param warehouse: object of class Warehouse from which we'll pull the stacks
         :param trailer: object of class Trailer
+        :param lower_bound: actual lower bound of coverage that must be satisfied
+        :param sort_choice: index indicating the sort option to take from sort_options list
         """
+        # We define our sort options
+        sort_options = [(sort_by_area, True), (sort_by_length, True), (sort_by_width, True), (sort_by_ratio, True),
+                        (sort_by_area, False), (sort_by_length, False), (sort_by_width, False), (sort_by_ratio, False)]
+
+        # We save sort option chosen
+        sort_function = sort_options[sort_choice][0]
+        ranking_effectiveness = sort_options[sort_choice][1]
+
+        # We save actual packers list length
+        nb_configs_already_found = len(packers)
+
+        # We save the number of actual stacks available in the warehouse
+        nb_stacks = len(warehouse)
 
         # We compute all possible configurations of loading (efficiently)
-        if len(warehouse) != 0:
-            warehouse.sort_by_ranking_and_volume()
+        if nb_stacks != 0 and sum([stack.length for stack in warehouse.stacks_to_ship]) >= self.plc_lb*trailer.length:
+            sort_function(warehouse, ranking_effective=ranking_effectiveness)
             all_configs = self.__create_all_configs(warehouse, trailer)
         else:
             all_configs = []
@@ -395,8 +409,19 @@ class LoadBuilder:
                 # We complete the packing (look if some unconsidered rectangles could enter at the end)
                 self.__complete_packing(warehouse, trailer, packer, len(config))
 
-                # We save the loading configuration (the packer)
-                packers.append((crate_type, packer))
+                # We check if packing respect plc lower bound and how many items it contains
+                qualified, score = self.__validate_packing(trailer, crate_type, packer, lower_bound)
+
+                # We save the loading configuration (the packer) if the loading is qualified
+                if qualified:
+                    packers.append((crate_type, packer))
+
+            # We check if some loading configurations were found
+            new_configuration_found = len(packers) - nb_configs_already_found
+
+            # If nothing was found we retry the same steps with a new sort function
+            if new_configuration_found == 0:
+                self.__test_all_config(packers, crate_type, warehouse, trailer, lower_bound, sort_choice=sort_choice+1)
 
     def __validate_packing(self, trailer, crate_type, packer, lower_bound):
 
@@ -878,50 +903,37 @@ def set_trailer_reference(ref):
                                                     h=ref['HEIGHT'][0], p=0, oh=ref['OVERHANG'][0])
 
 
-def sort_by_volume(warehouse):
+def sort_by_volume(warehouse, ranking_effective=False):
     """
-    Sorts stacks to ship by their volumes
+    Sorts stacks to ship by their volumes (and their ranking if True)
     """
-    warehouse.sort_by_volume()
+    warehouse.sort_by_volume(ranking_effective=ranking_effective)
 
 
-def sort_by_ranking_and_volume(warehouse):
+def sort_by_area(warehouse, ranking_effective=False):
     """
-    Sorts stacks to ship by their average ranking, and their volume if their avg ranking is the same
+    Sorts stacks by their area (and their ranking if True)
     """
-    warehouse.sort_by_ranking_and_volume()
+    warehouse.sort_by_area(ranking_effective=ranking_effective)
 
 
-def sort_by_area(warehouse):
+def sort_by_width(warehouse, ranking_effective=False):
     """
-    Sorts stacks by their area (keeping mandatory first)
+    Sorts stacks by their width (and their ranking if True)
     """
-    warehouse.sort_by_area()
+    warehouse.sort_by_width(ranking_effective=ranking_effective)
 
 
-def sort_by_width(warehouse):
+def sort_by_length(warehouse, ranking_effective=False):
     """
-    Sorts stacks by their width (keeping mandatory first)
+    Sorts stacks by their length (and their ranking if True)
     """
-    warehouse.sort_by_width()
+    warehouse.sort_by_length(ranking_effective=ranking_effective)
 
 
-def sort_by_length(warehouse):
+def sort_by_ratio(warehouse, ranking_effective=False):
     """
-    Sorts stacks by their length (keeping mandatory first)
+    Sorts stacks by their ratio length on width (and their ranking if True)
     """
-    warehouse.sort_by_length()
+    warehouse.sort_by_ratio(ranking_effective=ranking_effective)
 
-
-def sort_by_ratio(warehouse):
-    """
-    Sorts stacks by their ratio length on width (keeping mandatory first)
-    """
-    warehouse.sort_by_ratio()
-
-
-def random_sort(warehouse):
-    """
-    Sorts stacks randomly (keeping mandatory first)
-    """
-    warehouse.random_sort()
