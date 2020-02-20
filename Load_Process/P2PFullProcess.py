@@ -37,13 +37,14 @@ dayTodayComplete = pd.datetime.now().replace(second=0, microsecond=0)  # date to
 dayToday = weekdays(0)  # Date to display in report
 drybox_sanity_check = True
 printLoads = False  # Print created loads
+save_log_file = True  # Save log file of process results
 MinWarning = False  # Add yellow filling as warning when minimum is not satisfied for a p2p
 AutomaticRun = False  # set to True to automate code
 validation = False     # set to True to validate the results received after the process
 result_time_stamp = time_now_string()
 general_folder = saveFolder+'P2P_Summary_'+dayToday+'\\'
 result_folder = general_folder+result_time_stamp+'\\'
-result_file = 'P2P_Summary_'  # Name of excel file with today's date
+result_file = 'P2P_Summary_'+result_time_stamp  # Name of excel file with today's date
 history_expiration_date = dayTodayComplete - timedelta(days=365)  # Expiration date set one year ago
 
 
@@ -127,7 +128,7 @@ def p2p_full_process():
     create_directory(result_folder)
 
     # Creation of log file
-    create_log_file(result_folder)
+    create_log_file(result_folder, save_log_file)
 
     ####################################################################################################################
     #                                                 Excel Workbook declaration
@@ -359,10 +360,10 @@ def p2p_full_process():
     create_excel_table(sap_input_ws, "SAP_input", sap_input_columns)
 
     # We save the workbook and the reference
-    reference = [savexlsxFile(wb, result_folder, result_file+result_time_stamp, Time=False)]
+    reference = [savexlsxFile(wb, result_folder, result_file, Time=False)]
 
     # We send the emails
-    send_email(emails_list, result_file+dayToday, '', reference)
+    send_email(emails_list, result_file, '', reference)
 
     # We validate the process' results if the user wants to
     if validation:
