@@ -438,50 +438,65 @@ class Warehouse:
         for i in indexes:
             self.stacks_to_ship.pop(i)
 
-    def sort_by_volume(self, ranking_effective=False):
+    def sort_by_volume(self, ranking_effective=False, decreasing_volume=True):
         """
         Sorts stacks to ship by their volume (and their ranking if True)
         """
         if ranking_effective:
-            self.stacks_to_ship.sort(key=lambda s: (-1 * s.volume, s.average_ranking))
+            if decreasing_volume:
+                self.stacks_to_ship.sort(key=lambda s: (-1 * s.volume, s.average_ranking))
+            else:
+                self.stacks_to_ship.sort(key=lambda s: (s.volume, s.average_ranking))
         else:
-            self.stacks_to_ship.sort(key=lambda s: s.volume, reverse=True)
+            self.stacks_to_ship.sort(key=lambda s: s.volume, reverse=decreasing_volume)
 
-    def sort_by_area(self, ranking_effective=False):
+    def sort_by_area(self, ranking_effective=False, decreasing_area=True):
         """
         Sorts stacks by their area (and their ranking if True)
         """
         if ranking_effective:
-            self.stacks_to_ship.sort(key=lambda s: (-1 * s.area(), s.average_ranking))
+            if decreasing_area:
+                self.stacks_to_ship.sort(key=lambda s: (-1 * s.area(), s.average_ranking))
+            else:
+                self.stacks_to_ship.sort(key=lambda s: (s.area(), s.average_ranking))
         else:
-            self.stacks_to_ship.sort(key=lambda s: s.area(), reverse=True)
+            self.stacks_to_ship.sort(key=lambda s: s.area(), reverse=decreasing_area)
 
-    def sort_by_width(self, ranking_effective=False):
+    def sort_by_width(self, ranking_effective=False, decreasing_width=True):
         """
         Sorts stacks by their width (and their ranking if True)
         """
         if ranking_effective:
-            self.stacks_to_ship.sort(key=lambda s: (-1 * s.width, s.average_ranking))
+            if decreasing_width:
+                self.stacks_to_ship.sort(key=lambda s: (-1 * s.width, s.average_ranking))
+            else:
+                self.stacks_to_ship.sort(key=lambda s: (s.width, s.average_ranking))
         else:
-            self.stacks_to_ship.sort(key=lambda s: s.width, reverse=True)
+            self.stacks_to_ship.sort(key=lambda s: s.width, reverse=decreasing_width)
 
-    def sort_by_length(self, ranking_effective=False):
+    def sort_by_length(self, ranking_effective=False, decreasing_length=True):
         """
         Sorts stacks by their length (and their ranking if True)
         """
         if ranking_effective:
-            self.stacks_to_ship.sort(key=lambda s: (-1 * s.length, s.average_ranking))
+            if decreasing_length:
+                self.stacks_to_ship.sort(key=lambda s: (-1 * s.length, s.average_ranking))
+            else:
+                self.stacks_to_ship.sort(key=lambda s: (s.length, s.average_ranking))
         else:
-            self.stacks_to_ship.sort(key=lambda s: s.length, reverse=True)
+            self.stacks_to_ship.sort(key=lambda s: s.length, reverse=decreasing_length)
 
-    def sort_by_ratio(self, ranking_effective=False):
+    def sort_by_ratio(self, ranking_effective=False, decreasing_ratio=True):
         """
         Sorts stacks by their ratio length on width (and their ranking if True)
         """
         if ranking_effective:
-            self.stacks_to_ship.sort(key=lambda s: (-1 * (s.length/s.width), s.average_ranking))
+            if decreasing_ratio:
+                self.stacks_to_ship.sort(key=lambda s: (-1 * (s.length/s.width), s.average_ranking))
+            else:
+                self.stacks_to_ship.sort(key=lambda s: ((s.length / s.width), s.average_ranking))
         else:
-            self.stacks_to_ship.sort(key=lambda s: s.length/s.width, reverse=True)
+            self.stacks_to_ship.sort(key=lambda s: s.length/s.width, reverse=decreasing_ratio)
 
     def save_unused_crates(self, unused_crates_list):
 

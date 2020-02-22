@@ -36,6 +36,15 @@ class LoadBuilder:
 
         :param trailers_data: Pandas data frame containing details on trailers available
         """
+        # We define our sort options for the loading part
+        self.sort_options = [(sort_by_area, True, True), (sort_by_area, True, False),
+                             (sort_by_length, True, True), (sort_by_length, True, False),
+                             (sort_by_width, True, True), (sort_by_width, True, False),
+                             (sort_by_ratio, True, True), (sort_by_ratio, True, False),
+                             (sort_by_area, False, True), (sort_by_area, False, False),
+                             (sort_by_length, False, True), (sort_by_length, False, False),
+                             (sort_by_width, False, True), (sort_by_width, False, False),
+                             (sort_by_ratio, False, True), (sort_by_ratio, False, False)]
 
         self.trailers_data = trailers_data
         self.model_names = []
@@ -891,37 +900,37 @@ def set_trailer_reference(ref):
                                                     h=ref['HEIGHT'][0], p=0, oh=ref['OVERHANG'][0])
 
 
-def sort_by_volume(warehouse, ranking_effective=False):
+def sort_by_volume(warehouse, ranking_effective=False, decreasing_volume=True):
     """
     Sorts stacks to ship by their volumes (and their ranking if True)
     """
-    warehouse.sort_by_volume(ranking_effective=ranking_effective)
+    warehouse.sort_by_volume(ranking_effective=ranking_effective, decreasing_volume=decreasing_volume)
 
 
-def sort_by_area(warehouse, ranking_effective=False):
+def sort_by_area(warehouse, ranking_effective=False, decreasing_area=True):
     """
     Sorts stacks by their area (and their ranking if True)
     """
-    warehouse.sort_by_area(ranking_effective=ranking_effective)
+    warehouse.sort_by_area(ranking_effective=ranking_effective, decreasing_area=decreasing_area)
 
 
-def sort_by_width(warehouse, ranking_effective=False):
+def sort_by_width(warehouse, ranking_effective=False, decreasing_width=True):
     """
     Sorts stacks by their width (and their ranking if True)
     """
-    warehouse.sort_by_width(ranking_effective=ranking_effective)
+    warehouse.sort_by_width(ranking_effective=ranking_effective, decreasing_width=decreasing_width)
 
 
-def sort_by_length(warehouse, ranking_effective=False):
+def sort_by_length(warehouse, ranking_effective=False, decreasing_length=True):
     """
     Sorts stacks by their length (and their ranking if True)
     """
-    warehouse.sort_by_length(ranking_effective=ranking_effective)
+    warehouse.sort_by_length(ranking_effective=ranking_effective, decreasing_length=decreasing_length)
 
 
-def sort_by_ratio(warehouse, ranking_effective=False):
+def sort_by_ratio(warehouse, ranking_effective=False, decreasing_ratio=True):
     """
     Sorts stacks by their ratio length on width (and their ranking if True)
     """
-    warehouse.sort_by_ratio(ranking_effective=ranking_effective)
+    warehouse.sort_by_ratio(ranking_effective=ranking_effective, decreasing_ratio=decreasing_ratio)
 
