@@ -856,7 +856,8 @@ class LoadBuilder:
         self.__prepare_warehouse()
 
         # We try to fill empty spaces in loads that we're already done with the new inputs
-        self.__fill_trailers_empty_spaces()
+        if self.patching_activated:
+            self.__fill_trailers_empty_spaces()
 
         # We execute the loading of the trailers
         self.__trailer_packing()
