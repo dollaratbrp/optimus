@@ -350,15 +350,12 @@ class LoadBuilder:
         :param lower_bound: actual lower bound of coverage that must be satisfied
         :param sort_choice: index indicating the sort option to take from sort_options list
         """
-        # We define our sort options
-        sort_options = [(sort_by_area, True), (sort_by_length, True), (sort_by_width, True), (sort_by_ratio, True),
-                        (sort_by_area, False), (sort_by_length, False), (sort_by_width, False), (sort_by_ratio, False)]
 
-        if sort_choice < len(sort_options):
+        if sort_choice < len(self.sort_options):
 
             # We save sort option chosen
-            sort_function = sort_options[sort_choice][0]
-            ranking_effectiveness = sort_options[sort_choice][1]
+            sort_function = self.sort_options[sort_choice][0]
+            ranking_effectiveness = self.sort_options[sort_choice][1]
 
             # We save actual packers list length
             nb_configs_already_found = len(packers)
