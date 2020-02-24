@@ -29,7 +29,7 @@ class LoadBuilder:
     overhang_authorized = 51.5   # Maximum of overhang authorized for a trailer (in inches)
     max_trailer_length = 636  # Maximum load length possible
     plc_lb = 0.80  # Lowest percentage of trailer's length that must be covered (using validation length)
-    individual_width_tolerance = 55  # Smallest width tolerated for a lonely crate (without anything by his side)
+    individual_width_tolerance = 68  # Smallest width tolerated for a lonely crate (without anything by his side)
 
     def __init__(self, trailers_data):
         """
@@ -386,11 +386,11 @@ class LoadBuilder:
 
                         # If the rectangle is rotated
                         if config[i]:
-                            packer.add_rect(warehouse[i].length, warehouse[i].width, rid=i,
+                            packer.add_rect(warehouse[i].length, warehouse[i].width, rid=id(warehouse[i]),
                                             overhang=warehouse[i].overhang)
 
                         else:
-                            packer.add_rect(warehouse[i].width, warehouse[i].length, rid=i,
+                            packer.add_rect(warehouse[i].width, warehouse[i].length, rid=id(warehouse[i]),
                                             overhang=warehouse[i].overhang)
 
                     # We add other dummy bins to store rectangles that do not enter in our trailer (1st bin)
@@ -448,7 +448,8 @@ class LoadBuilder:
             qualified = False
         else:
             used_area = bin.used_area()
-            mandatory_crates += sum([warehouse[rect.rid].nb_of_mandatory for rect in bin])
+            ids_used = [rect.rid for rect in bin]
+            mandatory_crates += sum([stack.nb_of_mandatory for stack in warehouse if id(stack) in ids_used])
             score_boost = self.score_multiplication_base**mandatory_crates
             score = used_area*score_boost
 
@@ -596,7 +597,7 @@ class LoadBuilder:
 
         return configs
 
-    def __sanity_check(self, crate_type, warehouse, warehouse_used_indexes):
+    def __sanity_check(self, crate_type, warehouse, warehouse_used_ids):
 
         # Initialization of the reference trailer
         t = dc(LoadBuilder.trailer_reference)
@@ -609,6 +610,12 @@ class LoadBuilder:
 
         # Initialization of an empty list that will contain tuples of crate_type and packer
         packers = []
+
+        # We get all index used in the actual warehouse
+        warehouse_used_indexes = []
+        for index, stack in enumerate(warehouse.stacks_to_ship):
+            if id(stack) in warehouse_used_ids:
+                warehouse_used_indexes.append(index)
 
         # Construction of a copy of the warehouse
         w = dc(warehouse)
@@ -654,7 +661,8 @@ class LoadBuilder:
 
             # We add rectangles unconsidered in the first phase of packing
             for i in range(start_index, len(warehouse)):
-                new_packer.add_rect(warehouse[i].width, warehouse[i].length, rid=i, overhang=warehouse[i].overhang)
+                new_packer.add_rect(warehouse[i].width, warehouse[i].length, rid=id(warehouse[i]),
+                                    overhang=warehouse[i].overhang)
 
             # We add a large number of dummy bins
             for j in range(len(warehouse) - start_index + 1):

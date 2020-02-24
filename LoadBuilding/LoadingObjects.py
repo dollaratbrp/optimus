@@ -283,11 +283,12 @@ class Trailer:
             index = -nb_rect_to_pack
 
         # We load the trailer chosen and marked it as "packed"
-        for stack in packer[index:]:
+        for rect in packer[index:]:
 
             # We concretely assign the stack to the trailer and note his location index
-            self.add_stack(warehouse[stack.rid])
-            stacks_used.append(stack.rid)
+            stack, index_of_stack = warehouse.get_stack_by_id(rect.rid)
+            self.add_stack(stack)
+            stacks_used.append(index_of_stack)
 
         # We marked the trailer as "packed"
         self.packed = True
@@ -437,6 +438,16 @@ class Warehouse:
 
         for i in indexes:
             self.stacks_to_ship.pop(i)
+
+    def get_stack_by_id(self, identifier):
+        """
+        Returns the stack associated to the id and his position index
+        :param identifier: id of the stack wanted
+        :return: stack and id
+        """
+        for index, stack in enumerate(self.stacks_to_ship):
+            if id(stack) == identifier:
+                return stack, index
 
     def sort_by_volume(self, ranking_effective=False, decreasing_volume=True):
         """
