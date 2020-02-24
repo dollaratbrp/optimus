@@ -356,6 +356,7 @@ class LoadBuilder:
             # We save sort option chosen
             sort_function = self.sort_options[sort_choice][0]
             ranking_effectiveness = self.sort_options[sort_choice][1]
+            decreasing_sort = self.sort_options[sort_choice][2]
 
             # We save actual packers list length
             nb_configs_already_found = len(packers)
@@ -367,7 +368,7 @@ class LoadBuilder:
             if nb_stacks != 0 and \
                     sum([stack.length for stack in warehouse.stacks_to_ship]) >= self.plc_lb*trailer.length:
 
-                sort_function(warehouse, ranking_effective=ranking_effectiveness)
+                sort_function(warehouse, ranking_effectiveness, decreasing_sort)
                 all_configs = self.__create_all_configs(warehouse, trailer)
             else:
                 all_configs = []
@@ -901,33 +902,43 @@ def sort_by_volume(warehouse, ranking_effective=False, decreasing_volume=True):
     """
     Sorts stacks to ship by their volumes (and their ranking if True)
     """
+    # print('SORT BY VOLUME', ' - RANKING = ', ranking_effective, 'DECREASING = ', decreasing_volume)
     warehouse.sort_by_volume(ranking_effective=ranking_effective, decreasing_volume=decreasing_volume)
+    # print([(stack.average_ranking, stack.length, stack.width) for stack in warehouse.stacks_to_ship], '\n')
 
 
 def sort_by_area(warehouse, ranking_effective=False, decreasing_area=True):
     """
     Sorts stacks by their area (and their ranking if True)
     """
+    # print('SORT BY AREA', ' - RANKING = ', ranking_effective, 'DECREASING = ', decreasing_area)
     warehouse.sort_by_area(ranking_effective=ranking_effective, decreasing_area=decreasing_area)
+    # print([(stack.average_ranking, stack.length, stack.width) for stack in warehouse.stacks_to_ship], '\n')
 
 
 def sort_by_width(warehouse, ranking_effective=False, decreasing_width=True):
     """
     Sorts stacks by their width (and their ranking if True)
     """
+    # print('SORT BY WIDTH', ' - RANKING = ', ranking_effective, 'DECREASING = ', decreasing_width)
     warehouse.sort_by_width(ranking_effective=ranking_effective, decreasing_width=decreasing_width)
+    # print([(stack.average_ranking, stack.length, stack.width) for stack in warehouse.stacks_to_ship], '\n')
 
 
 def sort_by_length(warehouse, ranking_effective=False, decreasing_length=True):
     """
     Sorts stacks by their length (and their ranking if True)
     """
+    # print('SORT BY LENGTH', ' - RANKING = ', ranking_effective, 'DECREASING = ', decreasing_length)
     warehouse.sort_by_length(ranking_effective=ranking_effective, decreasing_length=decreasing_length)
+    # print([(stack.average_ranking, stack.length, stack.width) for stack in warehouse.stacks_to_ship], '\n')
 
 
 def sort_by_ratio(warehouse, ranking_effective=False, decreasing_ratio=True):
     """
     Sorts stacks by their ratio length on width (and their ranking if True)
     """
+    # print('SORT BY RATIO', ' - RANKING = ', ranking_effective, 'DECREASING = ', decreasing_ratio)
     warehouse.sort_by_ratio(ranking_effective=ranking_effective, decreasing_ratio=decreasing_ratio)
+    # print([(stack.average_ranking, stack.length, stack.width) for stack in warehouse.stacks_to_ship], '\n')
 
