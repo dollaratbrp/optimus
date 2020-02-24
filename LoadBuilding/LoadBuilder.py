@@ -29,7 +29,7 @@ class LoadBuilder:
     overhang_authorized = 51.5   # Maximum of overhang authorized for a trailer (in inches)
     max_trailer_length = 636  # Maximum load length possible
     plc_lb = 0.80  # Lowest percentage of trailer's length that must be covered (using validation length)
-    individual_width_tolerance = 68  # Smallest width tolerated for a lonely crate (without anything by his side)
+    individual_width_tolerance = 55  # Smallest width tolerated for a lonely crate (without anything by his side)
 
     def __init__(self, trailers_data):
         """
