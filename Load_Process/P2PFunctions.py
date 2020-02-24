@@ -38,7 +38,7 @@ class Wish:
         self.MATERIAL_NUMBER = mat_num
         self.SIZE_DIMENSIONS = size
         self.LENGTH = length
-        self.WIDTH = width
+        self.WIDTH = (1 - (self.SIZE_DIMENSIONS == 'SP2'))*width + (self.SIZE_DIMENSIONS == 'SP2')*self.LENGTH
         self.HEIGHT = height
         self.STACKABILITY = stackability
         self.QUANTITY = qty
