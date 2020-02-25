@@ -27,7 +27,7 @@ class Wish:
     """
 
     def __init__(self, sdn, sin, stn, point_from, shipping_point, div, mat_num, size, length, width, height,
-                 stackability, qty, rank, mandatory, overhang, crate_type, is_adhoc=0):
+                 stackability, qty, rank, mandatory, overhang, crate_type, valid_from, is_adhoc=0):
 
         self.SALES_DOCUMENT_NUMBER = sdn
         self.SALES_ITEM_NUMBER = sin
@@ -47,6 +47,7 @@ class Wish:
         self.OVERHANG = overhang
         self.IsAdhoc = is_adhoc
         self.CRATE_TYPE = crate_type
+        self.VALID_FROM_DATE = valid_from
 
         # To keep track of inv origins
         self.INV_ITEMS = []
@@ -327,6 +328,7 @@ class NestedSourcePoints:
         self.source = point_source
         self.include = point_include
 
+
 class FakeLogFile:
     """
     Fake log file that does not execute any task when calling write and write lines on it
@@ -334,8 +336,10 @@ class FakeLogFile:
     """
     def __init__(self):
         pass
+
     def write(self, string):
         pass
+
     def writelines(self, list_of_strings):
         pass
 
@@ -499,7 +503,7 @@ def get_wish_list(forecast=False):
                                         'OTD_2_PRIORITY_F_P2P', headers=wishlist_headers)
     if forecast:
         parameters_table = '[Business_Planning].[dbo].[OTD_1_P2P_F_FORECAST_PARAMETERS]'
-        period_status = '[PERIOD_STATUS] = ' + "'" + 'P2P' + "'"  # MUST BE CHANGED !!!!
+        period_status = "[PERIOD_STATUS] in ('" + 'P2P' + "','"+'FCST' + "')"  # MUST BE CHANGED !!!!
     else:
         parameters_table = '[Business_Planning].[dbo].[OTD_1_P2P_F_PARAMETERS]'
         period_status = '[PERIOD_STATUS] = ' + "'" + 'P2P' + "'"
@@ -521,6 +525,7 @@ def get_wish_list(forecast=False):
                       ,[X_IF_MANDATORY]
                       ,[OVERHANG]
                       ,[METAL_WOOD]
+                      ,[valid_from_date]
                   FROM [Business_Planning].[dbo].[OTD_1_P2P_F_PRIORITY_WITHOUT_INVENTORY]
                   WHERE [POINT_FROM] <> [SHIPPING_POINT] 
                   AND Length <> 0 and Width <> 0 AND Height <> 0 and """ + period_status + """
@@ -530,6 +535,7 @@ def get_wish_list(forecast=False):
                   order by Priority_Rank 
                 """
 
+    print(query)
     data = wishlist_connection.GetSQLData(query)
     return [Wish(*line) for line in data]
 
