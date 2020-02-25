@@ -12,7 +12,9 @@ By : Nicolas Raymond
 
 from LoadBuilder import LoadBuilder, set_trailer_reference
 from InputOutput import *
+from numpy import savetxt
 DATAInclude = []
+log_file = None
 sharing_points_from = ['4100', '4125']
 shared_flatbed_53 = {'QTY': 2, 'POINT_FROM': sharing_points_from}  # Used to keep track of flat53 available
 residuals_counter = {}  # Use to keep track of the residuals of min and max among p2p with same POINT TO
@@ -36,7 +38,7 @@ class Wish:
         self.MATERIAL_NUMBER = mat_num
         self.SIZE_DIMENSIONS = size
         self.LENGTH = length
-        self.WIDTH = width
+        self.WIDTH = (1 - (self.SIZE_DIMENSIONS == 'SP2'))*width + (self.SIZE_DIMENSIONS == 'SP2')*self.LENGTH
         self.HEIGHT = height
         self.STACKABILITY = stackability
         self.QUANTITY = qty
@@ -76,6 +78,17 @@ class Wish:
         """
         return [1, self.SIZE_DIMENSIONS, self.LENGTH, self.WIDTH, self.HEIGHT, 1,
                 self.CRATE_TYPE, self.STACKABILITY, int(self.MANDATORY), self.OVERHANG]
+
+    def get_log_details(self):
+        """
+        Returns a list with all strings needed for log file
+        :return:
+        """
+        return ['WISH -> ', ' FROM : ', str(self.POINT_FROM),
+                '| TO : ', str(self.SHIPPING_POINT),
+                '| MATERIAL_NUMBER : ', str(self.MATERIAL_NUMBER),
+                '| SIZE CODE : ', str(self.SIZE_DIMENSIONS),
+                '| RANK : ', str(self.RANK), '\n']
 
 
 class INVObj:
@@ -269,20 +282,38 @@ class Parameters:
         # We update the trailers data frame of the LoadBuilder associated to the p2p
         self.update_load_builder_trailers_data()
 
-        # Create loads
-        print('LAST TOTAL :', self.get_nb_of_units())
-        print('LAST TOTAL OF LOADS :', len(self.LoadBuilder))
-        print(input_dataframe)
+        # We add wishes sent and other info to log file
+        add_separator_line('-')
+        log_file.writelines(['\n\n\n', 'P2P : {} to {}'.format(str(self.POINT_FROM), str(self.POINT_TO)), '\n'])
+        log_file.writelines(['CURRENT MIN : ', str(self.LOADMIN), '| CURRENT MAX : ', str(self.LOADMAX), '\n\n'])
+        log_file.writelines(['*** {} wishes available for loads *** '. format(str(len(temporary_on_load))), '\n'])
+        for wish in temporary_on_load:
+            log_file.writelines(wish.get_log_details())
+
+        log_file.writelines(['\n\n', '*** LOADBUILDER INPUT DATAFRAME *** ', '\n\n'])
+        # log_file.writelines([column+' ' for column in input_dataframe.columns])
+        # log_file.write('\n')
+        for index, row in input_dataframe.iterrows():
+            log_file.write('    ')
+            log_file.writelines([str(value)+' ' for value in row])
+            log_file.write('\n')
+
+        last_number_of_loads = len(self.LoadBuilder)
+
+        # We build loads
         result = self.LoadBuilder.build(input_dataframe, max_load, ranking=ranking, plot_load_done=print_loads)
-        print('NEW TOTAL :', self.get_nb_of_units())
-        print('NEW TOTAL OF LOADS :', len(self.LoadBuilder))
-        print('RESULTS :', result, '\n')
+
+        # We write the number of loads done
+        log_file.writelines(['\n\n', 'NUMBER OF LOADS DONE : {}'.format(str(len(self.LoadBuilder) - last_number_of_loads))])
 
         # We update the number of common flatbed 53
         self.update_flatbed_53()
 
         # Choose which wish to send in load based on selected crates and priority order
         link_load_to_wishes(result, temporary_on_load, self, **kwargs)
+
+        # We add a separator line to log file
+        add_separator_line('-')
 
     def get_nb_of_units(self):
         """
@@ -354,6 +385,18 @@ class NestedSourcePoints:
     def __init__(self, point_source, point_include):
         self.source = point_source
         self.include = point_include
+
+class FakeLogFile:
+    """
+    Fake log file that does not execute any task when calling write and write lines on it
+    Avoid presence of large number of "if" in the P2P functions
+    """
+    def __init__(self):
+        pass
+    def write(self, string):
+        pass
+    def writelines(self, list_of_strings):
+        pass
 
 
 def clean_p2p_history(expiration_date):
@@ -736,6 +779,10 @@ def find_perfect_match(Wishes, Inventory, Parameters):
     :param Parameters: List of Parameters
     :return: List of whishes approved
     """
+    # We indicate in the log file in which part of the process we are
+    add_separator_line()
+    log_file.writelines(['\n\n\n', 'PERFECT MATCH', '\n\n\n'])
+
     # We initialize a list that will contain all wish approved
     ApprovedWish = []
 
@@ -798,6 +845,11 @@ def find_perfect_match(Wishes, Inventory, Parameters):
         else:
             ApprovedWish.append(wish)
 
+    # We write approved wishes in log file
+    log_file.writelines(['*** {} PERFECT MATCH FOUND *** '.format(str(len(ApprovedWish))), '\n'])
+    for wish in ApprovedWish:
+        log_file.writelines(wish.get_log_details())
+
     return ApprovedWish
 
 
@@ -809,6 +861,10 @@ def perfect_match_loads_construction(Parameters, ApprovedWishes, print_loads=Fal
     :param ApprovedWishes: List of wishes approved
     :param print_loads: bool indicating if we must plot loads done
     """
+
+    # We write the current step we're doing in the log file
+    add_separator_line()
+    log_file.writelines(['\n\n\n', 'PERFECT MATCH LOADS CONSTRUCTION', '\n\n\n'])
 
     for param in Parameters:  # for all P2P in parameters
 
@@ -861,6 +917,15 @@ def satisfy_max_or_min(Wishes, Inventory, Parameters, satisfy_min=True, print_lo
 
     # We look if we're distributing leftovers or processing to normal stack packing
     leftover_distribution = kwargs.get('leftovers', False)
+
+    # We write the current step we're doing in the log file
+    add_separator_line()
+    if leftover_distribution:
+        log_file.writelines(['\n\n\n', 'LEFTOVER DISTRIBUTION', '\n\n\n'])
+    elif satisfy_min:
+        log_file.writelines(['\n\n\n', 'SATISFY MINIMUMS', '\n\n\n'])
+    else:
+        log_file.writelines(['\n\n\n', 'SATISFY MAXIMUMS', '\n\n\n'])
 
     # We save a "trigger" integer value indicating if we want to satisfy min or max
     check_min = int(satisfy_min)  # Will be 1 if we want to satisfy min and 0 instead
@@ -1007,10 +1072,12 @@ def link_load_to_wishes(loadbuilder_output, available_wishes, p2p, **kwargs):
     # If we got both parameters we looked for, it means we're linking load to wishes in the forecast process
     forecast_process = save_wish_assignment is not None and inventory_availability_date is not None
 
+    log_file.writelines(['\n\n\n', '*** {} wishes assigned *** '.format(str(len(loadbuilder_output))), '\n'])
     for model, crate_type in loadbuilder_output:
         found = False
         for wish in available_wishes:
             if wish.SIZE_DIMENSIONS == model and wish.QUANTITY > 0 and crate_type == wish.CRATE_TYPE:
+                log_file.writelines(wish.get_log_details())
                 wish.QUANTITY = 0
                 found = True
                 p2p.AssignedWish.append(wish)
@@ -1143,3 +1210,38 @@ def remove_indexes_from_list(list_to_modify, indexes_list):
     indexes_list.sort(reverse=True)
     for i in indexes_list:
         list_to_modify.pop(i)
+
+
+def create_log_file(path, log_save=True):
+    """
+    Creates log file to store activities done during the processes
+    :param path: path where the file will be stored
+    :param log_save: bool indicating if we create a fake log file that doesn't save anything
+    """
+    global log_file
+    if log_save:
+        log_file = open(path+'log.txt', 'a')
+    else:
+        log_file = FakeLogFile()
+
+
+def write_departure_date(departure_date):
+    """
+    Writes the departure date in the log file (used in forecast)
+    :param departure_date: date to write
+    :return:
+    """
+    global log_file
+
+    # We write the departure date in the log file
+    log_file.writelines(['\n\n\n', 'DEPARTURE DATE : ', str(departure_date), '\n\n\n'])
+
+
+def add_separator_line(symbol='#'):
+    """
+    Add a line of '#' symbols in the log file
+    """
+    global log_file
+    log_file.writelines(['\n\n'] + [symbol]*80)
+
+

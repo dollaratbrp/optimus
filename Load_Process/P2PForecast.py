@@ -26,8 +26,6 @@ import numpy as np
 
 # Path where the forecast results are saved
 saveFolder = 'S:\Shared\Business_Planning\Personal\Raymond\P2P\\'
-
-drybox_sanity_check = True
 AutomaticRun = False  # set to True to automate code
 
 
@@ -52,8 +50,12 @@ def forecast():
     dayTodayComplete = pd.datetime.now().replace(second=0, microsecond=0)
     dayToday = weekdays(0)
     printLoads = False
-
-    dest_filename = 'P2P_Forecast_'+dayToday  # Email subject with today's date
+    drybox_sanity_check = True
+    save_log_file = False
+    result_time_stamp = time_now_string()
+    general_folder = saveFolder + 'P2P_Forecast_' + dayToday + '\\'
+    result_folder = general_folder + result_time_stamp + '\\'
+    result_file = 'P2P_Forecast_'+result_time_stamp  # Name of excel file with today's date
 
     # -----------------------------------------------------------------------------------------------------------------#
     # -----------------------------------------------------------------------------------------------------------------#
@@ -155,10 +157,17 @@ def forecast():
     if not downloaded:
         try:
             print('failed')
-            send_email(emails_list, dest_filename, 'SQL QUERIES FAILED')
+            send_email(emails_list, result_file, 'SQL QUERIES FAILED')
         except:
             pass
         sys.exit()
+
+    # Creation of results folders
+    create_directory(general_folder)
+    create_directory(result_folder)
+
+    # Creation of log file
+    create_log_file(result_folder, save_log_file)
 
     ####################################################################################################################
     #                                     SQL tables declaration and cleaning
@@ -228,7 +237,10 @@ def forecast():
 
     # START OF THE LOOP ################################################################################################
 
-    for date in dates:
+    for date in dates[0:2]:
+
+        # We write the departure date in the log file
+        write_departure_date(date)
 
         # We reset the number of shared flatbed_53 and the residuals counter
         reset_flatbed_53()
@@ -338,7 +350,7 @@ def forecast():
     # We format the summary worksheet and save the workbook and the reference
     fake_columns = [''] * column_counter
     worksheet_formatting(summary_ws, fake_columns, [20] * len(fake_columns))
-    reference = [savexlsxFile(wb, saveFolder, dest_filename)]
+    reference = [savexlsxFile(wb, result_folder, result_file)]
     wb.close()
 
     # We create the pivot table and write it in the already saved xlsx file
@@ -353,5 +365,5 @@ def forecast():
     writer.save()
 
     # We send the emails
-    send_email(emails_list, dest_filename, 'P2P Forecast is now updated.\n'+GeneralErrors, reference)
+    send_email(emails_list, result_file, 'P2P Forecast is now updated.\n'+GeneralErrors, reference)
 
