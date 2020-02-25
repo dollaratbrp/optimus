@@ -214,10 +214,6 @@ def p2p_full_process():
         print(len(param.LoadBuilder))
         print(param.LoadBuilder.trailers_done)
         print(param.LoadBuilder.get_loading_summary())  # Trailer are now sorted correctly
-        z = 0
-        for trailer in param.LoadBuilder.trailers_done:
-            z += 1
-            trailer.plot_load(saving_path=result_folder+'_'+param.POINT_FROM+'_'+param.POINT_TO+'_'+str(z))
 
     # Initialization of a list to keep all data needed for the "APPROVED" ws and summary version ouptput for SAP
     approved_ws_data, sap_input_data = [], []
@@ -233,73 +229,24 @@ def p2p_full_process():
         # For the p2p that match with the order
         for param in [p2p for p2p in p2ps_list if (p2p.POINT_FROM == order[0] and p2p.POINT_TO == order[1])]:
 
-            p2p_load_number = 0  # Number of each load (reset for each plant to plant)
-
-            # We write a line in the summary worksheet
-            summary_ws.append([param.POINT_FROM, shipping_points_names[param.POINT_FROM],
-                               param.POINT_TO, shipping_points_names[param.POINT_TO],
-                               len(param.LoadBuilder), param.get_nb_of_units()])
-
-            # If the minimum is not fulfilled we warn the user with a different background color in the output
-            if MinWarning and len(param.LoadBuilder) < param.LOADMIN:
-                summary_ws.cell(row=line_index, column=len(summary_columns)).fill = Warning_fill
-
-            line_index += 1
-
-            # We retrieve the loading summary to have the data needed to write "APPROVED" worksheet
-            loads = param.LoadBuilder.get_loading_summary()
-
             # If some loads were created
             if len(param.LoadBuilder) > 0:
 
-                # For every different kind of load built (each are represent by a different line in the df)
-                for line in range(len(loads)):
+                # We write a line in the summary worksheet
+                summary_ws.append([param.POINT_FROM, shipping_points_names[param.POINT_FROM],
+                                   param.POINT_TO, shipping_points_names[param.POINT_TO],
+                                   len(param.LoadBuilder), param.get_nb_of_units()])
 
-                    # For every load of this kind
-                    for i in range(int(loads["QTY"][line])):
+                # If the minimum is not fulfilled we warn the user with a different background color in the output
+                if MinWarning and len(param.LoadBuilder) < param.LOADMIN:
+                    summary_ws.cell(row=line_index, column=len(summary_columns)).fill = Warning_fill
 
-                        # We update load numbers
-                        p2p_load_number += 1
+                # We update line index
+                line_index += 1
 
-                        # For every different size_code on this load
-                        for column in [col for col in loads.columns[4::] if loads[col][line] != '']:
-
-                            # For every unit of this crate on the load
-                            for QUANTITY in range(int(loads[column][line])):
-
-                                # We associate a wish unit to this crate, then we save it
-                                for wish in param.AssignedWish:
-
-                                    # If the p2p wish is not fulfilled yet
-                                    if not wish.Finished and wish.SIZE_DIMENSIONS == column:
-
-                                        # We change the status of the wish
-                                        wish.Finished = True
-
-                                        # We create the line of values to send to sql
-                                        sql_line = [(param.POINT_FROM, param.POINT_TO, p2p_load_number,
-                                                     wish.MATERIAL_NUMBER, wish.ORIGINAL_QUANTITY,
-                                                     column, wish.SALES_DOCUMENT_NUMBER,
-                                                     wish.SALES_ITEM_NUMBER,
-                                                     wish.SOLD_TO_NUMBER, dayTodayComplete)]
-
-                                        # We send a line of values to the "APPROVED" worksheet
-                                        approved_ws_data.append([param.POINT_FROM, param.POINT_TO, p2p_load_number,
-                                                                loads['TRAILER'][line], loads['LOAD LENGTH'][line],
-                                                                wish.MATERIAL_NUMBER, wish.ORIGINAL_QUANTITY, column])
-
-                                        # We append a line of data for the "SAP INPUT" worksheet to the list concerned
-                                        sap_input_data.append([param.POINT_FROM, param.POINT_TO,
-                                                               wish.MATERIAL_NUMBER, wish.ORIGINAL_QUANTITY])
-
-                                        # We send the sql line to the table concerned
-                                        connection.sendToSQL(sql_line)
-
-                                        # We use a break statement to avoid looking further in the list of wishes
-                                        break
-
-            # We use a break statement ensure that we're not looking further in p2ps list for nothing
-            break
+                # We save p2p results to sql and in some lists for excel output
+                param.save_full_process_results(connection, approved_ws_data, sap_input_data,
+                                                dayTodayComplete, result_folder)
 
     # We compute booked unused
     possible_plant_to = compute_booked_unused(wishlist, inventory, p2ps_list)
