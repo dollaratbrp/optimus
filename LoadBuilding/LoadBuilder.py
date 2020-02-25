@@ -746,9 +746,6 @@ class LoadBuilder:
         # We initialize an index
         i = 0
 
-        # We sort trailer with their average ranking
-        self.trailers_done.sort(key=lambda t: (t.nb_of_mandatory(), t.average_ranking()))
-
         # We add a line in the dataframe for every trailer used
         for trailer in self.trailers_done:
 
