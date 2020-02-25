@@ -27,7 +27,7 @@ class Wish:
     """
 
     def __init__(self, sdn, sin, stn, point_from, shipping_point, div, mat_num, size, length, width, height,
-                 stackability, qty, rank, mandatory, overhang, crate_type, valid_from, is_adhoc=0):
+                 stackability, qty, rank, mandatory, overhang, crate_type, valid_from, period_status, is_adhoc=0):
 
         self.SALES_DOCUMENT_NUMBER = sdn
         self.SALES_ITEM_NUMBER = sin
@@ -48,6 +48,7 @@ class Wish:
         self.IsAdhoc = is_adhoc
         self.CRATE_TYPE = crate_type
         self.VALID_FROM_DATE = valid_from
+        self.PERIOD_STATUS = period_status
 
         # To keep track of inv origins
         self.INV_ITEMS = []
@@ -526,6 +527,7 @@ def get_wish_list(forecast=False):
                       ,[OVERHANG]
                       ,[METAL_WOOD]
                       ,[valid_from_date]
+                      ,[PERIOD_STATUS]
                   FROM [Business_Planning].[dbo].[OTD_1_P2P_F_PRIORITY_WITHOUT_INVENTORY]
                   WHERE [POINT_FROM] <> [SHIPPING_POINT] 
                   AND Length <> 0 and Width <> 0 AND Height <> 0 and """ + period_status + """
@@ -535,7 +537,6 @@ def get_wish_list(forecast=False):
                   order by Priority_Rank 
                 """
 
-    print(query)
     data = wishlist_connection.GetSQLData(query)
     return [Wish(*line) for line in data]
 
