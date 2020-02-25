@@ -240,9 +240,11 @@ def forecast():
     for date in dates:
 
         # We shrink the wishlist to a 15 weekdays range
-        filtered_wishes = [wish for wish in wishes if wish.VALID_FROM_DATE <= weekdays(15, officialDay=date, return_as_date=True)]
+        filtered_wishes = [wish for wish in wishes if
+                           wish.VALID_FROM_DATE <= weekdays(15, officialDay=date, return_as_date=True)
+                           or wish.PERIOD_STATUS == 'P2P']
 
-        # print('\n', 'ORIGINAL WISHLIST LENGTH : ', len(wishes))
+        # print('\n','ORIGINAL WISHLIST LENGTH : ', len(wishes))
         # print('FILTERED WISHLIST LENGTH : ', len(filtered_wishes))
         # print('DEPARTURE DATE :', date)
         # print('15 DAYS FROM DEPARTURE :', weekdays(15, officialDay=date))
