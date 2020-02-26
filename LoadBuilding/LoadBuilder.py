@@ -112,10 +112,16 @@ class LoadBuilder:
                 # be convert as 0. This way, no individual crate of SP2 will be build if there's less than 2 SP2 left
                 nbr_individual_crates = int((qty - (items_per_stack * nbr_stacks)) / nbr_per_crate)
 
+                # We compute length and width
+                if rotation:
+                    length = max(models_data['LENGTH'][i], models_data['WIDTH'][i])
+                    width = min(models_data['WIDTH'][i], models_data['LENGTH'][i])
+                else:
+                    length = models_data['LENGTH'][i]
+                    width = models_data['WIDTH'][i]
+
                 crates_component = [[models_data['MODEL'][i]] * nbr_per_crate,
-                                    max(models_data['LENGTH'][i], models_data['WIDTH'][i]),
-                                    min(models_data['WIDTH'][i], models_data['LENGTH'][i]),
-                                    models_data['HEIGHT'][i],
+                                    length, width, models_data['HEIGHT'][i],
                                     stack_limit, overhang, rotation]
 
                 # We select the good type of storage of the stacks and crates that will be build
