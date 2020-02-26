@@ -89,7 +89,7 @@ class Wish:
         :return: list
         """
         return [1, self.SIZE_DIMENSIONS, self.LENGTH, self.WIDTH, self.HEIGHT, 1,
-                self.CRATE_TYPE, self.STACKABILITY, int(self.MANDATORY), self.OVERHANG]
+                self.CRATE_TYPE, self.STACKABILITY, int(self.MANDATORY), self.OVERHANG, self.ROTATION]
 
     def get_log_details(self):
         """
@@ -1005,11 +1005,11 @@ def loadbuilder_input_dataframe(data):
     # Creation of the data frame
     input_frame = pd.DataFrame(data=data, columns=['QTY', 'MODEL', 'LENGTH', 'WIDTH',
                                                    'HEIGHT', 'NBR_PER_CRATE', 'CRATE_TYPE',
-                                                   'STACK_LIMIT', 'NB_OF_X', 'OVERHANG'])
+                                                   'STACK_LIMIT', 'NB_OF_X', 'OVERHANG', 'ROTATION'])
 
     # Group by to sum quantity
     input_frame = input_frame.groupby(['MODEL', 'LENGTH', 'WIDTH', 'HEIGHT',
-                                       'NBR_PER_CRATE', 'CRATE_TYPE', 'STACK_LIMIT', 'OVERHANG']).sum()
+                                       'NBR_PER_CRATE', 'CRATE_TYPE', 'STACK_LIMIT', 'OVERHANG', 'ROTATION']).sum()
 
     # Reformatting of the new object as a standard data frame
     input_frame = input_frame.reset_index()
