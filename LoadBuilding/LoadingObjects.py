@@ -21,7 +21,7 @@ class Crate:
 
     """
 
-    def __init__(self, m_n, l, w, h, s_l, oh, mandatory, ranking, c_type):
+    def __init__(self, m_n, l, w, h, s_l, oh, mandatory, ranking, c_type, rot=True):
 
         """
 
@@ -34,6 +34,7 @@ class Crate:
         :param mandatory: boolean that indicates if the crate is marked as "MANDATORY"
         :param ranking: integer representing the ranking of the crate
         :param c_type: one crate type type among 'W' or 'M'
+        :param rot: bool indicating if the crate can rotate when put it on a load
         """
 
         self.model_names = m_n
@@ -45,6 +46,7 @@ class Crate:
         self.mandatory = mandatory
         self.ranking = ranking
         self.type = c_type
+        self.rotation = rot
 
     def __repr__(self):
         return self.model_names
@@ -93,6 +95,7 @@ class Stack:
         self.nb_of_mandatory = sum([crate.mandatory for crate in crates])
         self.average_ranking = np.mean([crate.ranking for crate in crates])
         self.completed = (crates[0].stack_limit == len(crates))
+        self.rotation = crates[0].rotation  # We look if the bottom crate can rotate
 
     def nbr_of_models(self):
 
