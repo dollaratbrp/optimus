@@ -237,7 +237,18 @@ def forecast():
 
     # START OF THE LOOP ################################################################################################
 
-    for date in dates[0:2]:
+    for date in dates:
+
+        # We shrink the wishlist to a 10 weekdays range
+        filtered_wishes = [wish for wish in wishes if
+                           wish.VALID_FROM_DATE <= weekdays(10, officialDay=date, return_as_date=True)
+                           or wish.PERIOD_STATUS == 'P2P']
+
+        # print('\n','ORIGINAL WISHLIST LENGTH : ', len(wishes))
+        # print('FILTERED WISHLIST LENGTH : ', len(filtered_wishes))
+        # print('DEPARTURE DATE :', date)
+        # print('15 DAYS FROM DEPARTURE :', weekdays(15, officialDay=date))
+        # print('\n')
 
         # We write the departure date in the log file
         write_departure_date(date)
@@ -283,7 +294,7 @@ def forecast():
             param.reset()
 
         # Isolate perfect match
-        approved_wishes = find_perfect_match(wishes, inventory, p2ps_list)
+        approved_wishes = find_perfect_match(filtered_wishes, inventory, p2ps_list)
 
         # First loads creation
         perfect_match_loads_construction(p2ps_list, approved_wishes, print_loads=printLoads,
@@ -294,21 +305,21 @@ def forecast():
         ################################################################################################################
 
         # Try to Make the minimum number of loads for each P2P
-        satisfy_max_or_min(wishes, inventory, p2ps_list, print_loads=printLoads,
+        satisfy_max_or_min(filtered_wishes, inventory, p2ps_list, print_loads=printLoads,
                            assignment_function=save_wish_assignment, inventory_available_date=date)
 
         ################################################################################################################
         #                                       Satisfy maximums
         ################################################################################################################
 
-        satisfy_max_or_min(wishes, inventory, p2ps_list, print_loads=printLoads, satisfy_min=False,
+        satisfy_max_or_min(filtered_wishes, inventory, p2ps_list, print_loads=printLoads, satisfy_min=False,
                            assignment_function=save_wish_assignment, inventory_available_date=date)
 
         ################################################################################################################
         #                                     Leftover distribution
         ################################################################################################################
 
-        satisfy_max_or_min(wishes, inventory, p2ps_list, print_loads=printLoads, leftovers=True,
+        satisfy_max_or_min(filtered_wishes, inventory, p2ps_list, print_loads=printLoads, leftovers=True,
                            assignment_function=save_wish_assignment, inventory_available_date=date)
 
         ################################################################################################################

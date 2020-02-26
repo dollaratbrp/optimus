@@ -129,13 +129,14 @@ def timeSinceLastCall(functionName="", ToPrint=True):
     timeReference = datetime.datetime.now()
 
 
-def weekdays(dayAfter, startDay=0, officialDay=''):
+def weekdays(dayAfter, startDay=0, officialDay='', return_as_date=False):
     """
     Returns the date in (dayAfter) week days from today's date
 
     :param dayAfter: Number of days from today
     :param startDay: First day to start from now (0 for today, -1 for yesterday, 1 for tomorrow,...)
     :param officialDay: date to consider as today in format '%Y-%m-%d'
+    :param return_as_date: bool indicating if we return date in date format
     """
 
     if officialDay == '':
@@ -158,7 +159,13 @@ def weekdays(dayAfter, startDay=0, officialDay=''):
         deltmonth = '0'
     if date2.day < 10:
         delday = '0'
-    return str(date2.year)+'-'+deltmonth+str(date2.month)+'-'+delday+str(date2.day)
+
+    date_to_return = str(date2.year)+'-'+deltmonth+str(date2.month)+'-'+delday+str(date2.day)
+
+    if return_as_date:
+        return datetime.datetime.strptime(date_to_return, '%Y-%m-%d')
+    else:
+        return str(date2.year)+'-'+deltmonth+str(date2.month)+'-'+delday+str(date2.day)
 
 
 def xlsxToTxtFile(readPath, filexlsx, writePath, txtfileName):
