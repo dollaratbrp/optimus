@@ -88,8 +88,9 @@ class LoadBuilder:
                 # We save the number of models per crate
                 nbr_per_crate = models_data['NBR_PER_CRATE'][i]
 
-                # We save the overhang permission indicator
-                overhang = bool(models_data['OVERHANG'][i])
+                # We save the overhang and rotation permission indicator
+                overhang = models_data['OVERHANG'][i]
+                rotation = models_data['ROTATION'][i]
 
                 # We compute the number of models per stack
                 items_per_stack = stack_limit * nbr_per_crate
@@ -115,7 +116,7 @@ class LoadBuilder:
                                     max(models_data['LENGTH'][i], models_data['WIDTH'][i]),
                                     min(models_data['WIDTH'][i], models_data['LENGTH'][i]),
                                     models_data['HEIGHT'][i],
-                                    stack_limit, overhang]
+                                    stack_limit, overhang, rotation]
 
                 # We select the good type of storage of the stacks and crates that will be build
                 if crate_type == 'W':
