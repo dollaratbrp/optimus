@@ -333,6 +333,65 @@ class Parameters:
         """
         return self.LoadBuilder.number_of_units()
 
+    def save_full_process_results(self, history_sql_connection, approved_ws_data, sap_input_ws_data, process_date,
+                                  saving_path):
+        """
+        Saves this plant to plant results in three different output format and save pictures of loads done
+        1 - Directly in sql history table
+        2 - In a list that will be grouped later and used for the APPROVED Worksheet
+        3 - In another list that will be used for SAP INPUT worksheet
+
+        :param history_sql_connection: SQLconnection to the history table
+        :param approved_ws_data: list that will contain APPROVED worksheet output
+        :param sap_input_ws_data: list that will contain SAP INPUT worksheet output
+        :param process_date: date when the process was executed
+        :param saving_path: path where we'll save the loads pictures
+        """
+        # We sort trailers with their nb of mandatory and average ranking
+        self.LoadBuilder.trailers_done.sort(key=lambda t: (t.nb_of_mandatory(), t.average_ranking()))
+
+        # We init a counter for loads done in this p2p
+        load_number = 0
+
+        for trailer in self.LoadBuilder.trailers_done:  # For all loads
+
+            # We update the load number and save picture associated to the current trailer
+            load_number += 1
+            trailer.plot_load(saving_path=saving_path + '_' + self.POINT_FROM + '_' + self.POINT_TO + '_' +
+                              str(load_number))
+
+            for stack in trailer.load:                  # For all stacks in the current load
+                for size_dimension in stack.models:     # For all items (size dimension) in the current stack
+
+                    for wish in [w for w in self.AssignedWish if not w.Finished]:
+
+                        if wish.SIZE_DIMENSIONS == size_dimension:
+
+                            # We change the status of the wish
+                            wish.Finished = True
+
+                            # We create the line of values to send to sql
+                            sql_line = [(self.POINT_FROM, self.POINT_TO, load_number,
+                                         wish.MATERIAL_NUMBER, wish.ORIGINAL_QUANTITY,
+                                         size_dimension, wish.SALES_DOCUMENT_NUMBER,
+                                         wish.SALES_ITEM_NUMBER,
+                                         wish.SOLD_TO_NUMBER, process_date)]
+
+                            # We send a line of values to the "APPROVED" worksheet
+                            approved_ws_data.append([self.POINT_FROM, self.POINT_TO, load_number,
+                                                     trailer.category, round(trailer.length_used/12, 1),
+                                                     wish.MATERIAL_NUMBER, wish.ORIGINAL_QUANTITY, size_dimension])
+
+                            # We append a line of data for the "SAP INPUT" worksheet to the list concerned
+                            sap_input_ws_data.append([self.POINT_FROM, self.POINT_TO,
+                                                      wish.MATERIAL_NUMBER, wish.ORIGINAL_QUANTITY])
+
+                            # We send the sql line to the table concerned
+                            history_sql_connection.sendToSQL(sql_line)
+
+                            # We break our research
+                            break
+
 
 class NestedSourcePoints:
     def __init__(self, point_source, point_include):
