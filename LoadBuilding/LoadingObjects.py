@@ -112,14 +112,15 @@ class Stack:
         :param trailer: Object of class trailer
         :return: boolean specifying if it is better (True) or not (False)
         """
+        if self.rotation:
 
-        # We calculate the area of the space that is going to be wasted if the stack is rotated
-        lost_space_if_flipped = (trailer.width - self.length) * self.width
+            # We calculate the area of the space that is going to be wasted if the stack is rotated
+            lost_space_if_flipped = (trailer.width - self.length) * self.width
 
-        # If the area is positive and smaller than the actual wasted space without rotation
-        if (lost_space_if_flipped >= 0) and (lost_space_if_flipped < ((trailer.width - self.width) * self.length)):
+            # If the area is positive and smaller than the actual wasted space without rotation
+            if (lost_space_if_flipped >= 0) and (lost_space_if_flipped < ((trailer.width - self.width) * self.length)):
 
-            return True
+                return True
 
         return False
 
