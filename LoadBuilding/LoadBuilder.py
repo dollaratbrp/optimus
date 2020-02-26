@@ -62,7 +62,7 @@ class LoadBuilder:
         Initializes a warehouse according to the models available in model data
 
         :param: models_data : pandas dataframe with the following columns
-        [QTY | MODEL | LENGTH | WIDTH | HEIGHT | NUMBER_PER_CRATE | CRATE_TYPE | STACK_LIMIT | OVERHANG ]
+        [QTY | MODEL | LENGTH | WIDTH | HEIGHT | NUMBER_PER_CRATE | CRATE_TYPE | STACK_LIMIT | OVERHANG / ROTATION ]
 
         :param ranking: dictionary with size code as keys and lists of integers as value
         """
