@@ -21,7 +21,7 @@ class Crate:
 
     """
 
-    def __init__(self, m_n, l, w, h, s_l, oh, mandatory, ranking, c_type, rot=True):
+    def __init__(self, m_n, l, w, h, s_l, oh, rot, mandatory, ranking, c_type):
 
         """
 
