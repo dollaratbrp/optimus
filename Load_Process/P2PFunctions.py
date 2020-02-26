@@ -43,7 +43,7 @@ class Wish:
         self.QUANTITY = qty
         self.RANK = rank
         self.MANDATORY = (mandatory == 'X')
-        self.OVERHANG = overhang
+        self.OVERHANG = (overhang == 1)
         self.IsAdhoc = is_adhoc
         self.CRATE_TYPE = crate_type
         self.VALID_FROM_DATE = valid_from
