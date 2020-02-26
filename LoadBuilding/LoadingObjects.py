@@ -318,7 +318,7 @@ class Trailer:
         """
         Returns the quantities of every models in the trailer
 
-        :return: Counter object
+        :return: list of size_codes
         """
 
         # Initialization of an empty list that will contain all model names in the trailer
