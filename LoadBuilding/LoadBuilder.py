@@ -669,7 +669,7 @@ class LoadBuilder:
             # We add rectangles unconsidered in the first phase of packing
             for i in range(start_index, len(warehouse)):
                 new_packer.add_rect(warehouse[i].width, warehouse[i].length, rid=id(warehouse[i]),
-                                    overhang=warehouse[i].overhang)
+                                    overhang=warehouse[i].overhang, rect_rotation=warehouse[i].rotation)
 
             # We add a large number of dummy bins
             for j in range(len(warehouse) - start_index + 1):
