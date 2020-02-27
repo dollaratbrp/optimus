@@ -303,8 +303,6 @@ class Parameters:
             log_file.writelines(wish.get_log_details())
 
         log_file.writelines(['\n\n', '*** LOADBUILDER INPUT DATAFRAME *** ', '\n\n'])
-        # log_file.writelines([column+' ' for column in input_dataframe.columns])
-        # log_file.write('\n')
         for index, row in input_dataframe.iterrows():
             log_file.write('    ')
             log_file.writelines([str(value)+' ' for value in row])
@@ -331,7 +329,8 @@ class Parameters:
         """
         Returns the number of units associated for the p2p
         """
-        return self.LoadBuilder.number_of_units()
+
+        return sum([wish.ORIGINAL_QUANTITY for wish in self.AssignedWish])
 
     def save_full_process_results(self, history_sql_connection, approved_ws_data, sap_input_ws_data, process_date,
                                   saving_path):
