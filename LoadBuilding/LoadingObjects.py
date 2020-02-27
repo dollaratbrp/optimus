@@ -21,7 +21,7 @@ class Crate:
 
     """
 
-    def __init__(self, m_n, l, w, h, s_l, oh, mandatory, ranking, c_type):
+    def __init__(self, m_n, l, w, h, s_l, oh, rot, mandatory, ranking, c_type):
 
         """
 
@@ -34,6 +34,7 @@ class Crate:
         :param mandatory: boolean that indicates if the crate is marked as "MANDATORY"
         :param ranking: integer representing the ranking of the crate
         :param c_type: one crate type type among 'W' or 'M'
+        :param rot: bool indicating if the crate can rotate when put it on a load
         """
 
         self.model_names = m_n
@@ -45,6 +46,7 @@ class Crate:
         self.mandatory = mandatory
         self.ranking = ranking
         self.type = c_type
+        self.rotation = rot
 
     def __repr__(self):
         return self.model_names
@@ -93,6 +95,7 @@ class Stack:
         self.nb_of_mandatory = sum([crate.mandatory for crate in crates])
         self.average_ranking = np.mean([crate.ranking for crate in crates])
         self.completed = (crates[0].stack_limit == len(crates))
+        self.rotation = crates[0].rotation  # We look if the bottom crate can rotate
 
     def nbr_of_models(self):
 
@@ -109,14 +112,15 @@ class Stack:
         :param trailer: Object of class trailer
         :return: boolean specifying if it is better (True) or not (False)
         """
+        if self.rotation:
 
-        # We calculate the area of the space that is going to be wasted if the stack is rotated
-        lost_space_if_flipped = (trailer.width - self.length) * self.width
+            # We calculate the area of the space that is going to be wasted if the stack is rotated
+            lost_space_if_flipped = (trailer.width - self.length) * self.width
 
-        # If the area is positive and smaller than the actual wasted space without rotation
-        if (lost_space_if_flipped >= 0) and (lost_space_if_flipped < ((trailer.width - self.width) * self.length)):
+            # If the area is positive and smaller than the actual wasted space without rotation
+            if (lost_space_if_flipped >= 0) and (lost_space_if_flipped < ((trailer.width - self.width) * self.length)):
 
-            return True
+                return True
 
         return False
 
@@ -314,7 +318,7 @@ class Trailer:
         """
         Returns the quantities of every models in the trailer
 
-        :return: Counter object
+        :return: list of size_codes
         """
 
         # Initialization of an empty list that will contain all model names in the trailer

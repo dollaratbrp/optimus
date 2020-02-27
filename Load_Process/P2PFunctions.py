@@ -28,7 +28,7 @@ class Wish:
 
     def __init__(self, sdn, sin, stn, point_from, shipping_point, div, mat_num, size, length, width, height,
                  stackability, qty, rank, mandatory, overhang, crate_type, valid_from, period_status, credit_status,
-                 is_adhoc=0):
+                 rotation, is_adhoc=0):
 
         self.SALES_DOCUMENT_NUMBER = sdn
         self.SALES_ITEM_NUMBER = sin
@@ -38,19 +38,28 @@ class Wish:
         self.DIVISION = div
         self.MATERIAL_NUMBER = mat_num
         self.SIZE_DIMENSIONS = size
-        self.LENGTH = length
-        self.WIDTH = (1 - (self.SIZE_DIMENSIONS == 'SP2'))*width + (self.SIZE_DIMENSIONS == 'SP2')*self.LENGTH
         self.HEIGHT = height
         self.STACKABILITY = stackability
         self.QUANTITY = qty
         self.RANK = rank
         self.MANDATORY = (mandatory == 'X')
-        self.OVERHANG = overhang
+        self.OVERHANG = (overhang == 1)
         self.IsAdhoc = is_adhoc
         self.CRATE_TYPE = crate_type
         self.VALID_FROM_DATE = valid_from
         self.PERIOD_STATUS = period_status
         self.CREDIT_STATUS = credit_status
+
+        # We initialize length, width and rotation according to ROTATION column from the query
+        if rotation == 'W':
+            self.LENGTH = width
+            self.WIDTH = length
+            self.ROTATION = False
+
+        else:
+            self.LENGTH = length
+            self.WIDTH = width
+            self.ROTATION = (rotation == 'A')
 
         # To keep track of inv origins
         self.INV_ITEMS = []
@@ -81,7 +90,7 @@ class Wish:
         :return: list
         """
         return [1, self.SIZE_DIMENSIONS, self.LENGTH, self.WIDTH, self.HEIGHT, 1,
-                self.CRATE_TYPE, self.STACKABILITY, int(self.MANDATORY), self.OVERHANG]
+                self.CRATE_TYPE, self.STACKABILITY, int(self.MANDATORY), self.OVERHANG, self.ROTATION]
 
     def get_log_details(self):
         """
@@ -151,7 +160,7 @@ class Parameters:
     """
     Represents a line of parameters from the ParameterBox GUI
     """
-    def __init__(self, point_from, point_to, loadmin, loadmax, drybox, flatbed, transit, priority, days_to):
+    def __init__(self, point_from, point_to, loadmin, loadmax, drybox, flatbed, priority, transit,  days_to):
 
         global shared_flatbed_53
         self.POINT_FROM = point_from
@@ -298,8 +307,6 @@ class Parameters:
         # We write number of loads already done and the input dataframe in the log file
         log_file.writelines(['\n\n', 'NUMBER OF LOADS ALREADY DONE : {}'.format(str(len(self.LoadBuilder))), '\n\n'])
         log_file.writelines(['\n\n', '*** LOADBUILDER INPUT DATAFRAME *** ', '\n\n'])
-        # log_file.writelines([column+' ' for column in input_dataframe.columns])
-        # log_file.write('\n')
         for index, row in input_dataframe.iterrows():
             log_file.write('    ')
             log_file.writelines([str(value)+' ' for value in row])
@@ -326,7 +333,8 @@ class Parameters:
         """
         Returns the number of units associated for the p2p
         """
-        return self.LoadBuilder.number_of_units()
+
+        return sum([wish.ORIGINAL_QUANTITY for wish in self.AssignedWish])
 
     def save_full_process_results(self, history_sql_connection, approved_ws_data, sap_input_ws_data, process_date,
                                   saving_path):
@@ -502,38 +510,49 @@ def shipping_point_names():
     return shipping_points
 
 
-def get_parameter_grid(forecast=False):
+def get_parameter_grid(forecast=False, parameter_box_output=False):
     """
     Recuperates the ParameterBox data from SQL
 
     :return: list of Parameters and the established SQL connection
     """
-    headers = 'POINT_FROM,POINT_TO,LOAD_MIN,LOAD_MAX,DRYBOX,FLATBED,TRANSIT,PRIORITY_ORDER,SKIP'
 
     if forecast:
         table = 'OTD_1_P2P_F_FORECAST_PARAMETERS'
     else:
         table = 'OTD_1_P2P_F_PARAMETERS'
 
+    if parameter_box_output:
+        headers = "point_FROM,point_TO,LOAD_MIN,LOAD_MAX,DRYBOX,FLATBED,PRIORITY_ORDER,TRANSIT,DAYS_TO,SKIP,IMPORT_DATE"
+        order = """[POINT_TO] ,[POINT_FROM]"""
+        skip_column = ",[SKIP]"
+        skip_filter = ""
+    else:
+        headers = 'POINT_FROM,POINT_TO,LOAD_MIN,LOAD_MAX,DRYBOX,FLATBED,TRANSIT,PRIORITY_ORDER,SKIP'
+        order = "PRIORITY_ORDER"
+        skip_column = ""
+        skip_filter = "and SKIP = 0"
+
     connection = SQLConnection('CAVLSQLPD2\pbi2', 'Business_Planning', table, headers=headers)
 
-    query = """ SELECT  [POINT_FROM]
+    query = """ SELECT [POINT_FROM]
                       ,[POINT_TO]
                       ,[LOAD_MIN]
                       ,[LOAD_MAX]
                       ,[DRYBOX]
                       ,[FLATBED]
-                      ,[TRANSIT]
                       ,[PRIORITY_ORDER]
+                      ,[TRANSIT] """ + skip_column + """
                       ,DAYS_TO
                   FROM """ + table + """ 
-                  where IMPORT_DATE = (select max(IMPORT_DATE) from """ + table + """ )
-                  and SKIP = 0
-                  order by PRIORITY_ORDER
-                """
+                  where IMPORT_DATE = (select max(IMPORT_DATE) from """ + table + """ ) """ + skip_filter + """
+                  order by """ + order
     # GET SQL DATA
     data = connection.GetSQLData(query)
-    return [Parameters(*line) for line in data], connection
+    if parameter_box_output:
+        return [line for line in data], connection
+    else:
+        return [Parameters(*line) for line in data], connection
 
 
 def reset_flatbed_53():
@@ -568,7 +587,7 @@ def get_wish_list(forecast=False):
                                         'OTD_2_PRIORITY_F_P2P', headers=wishlist_headers)
     if forecast:
         parameters_table = '[Business_Planning].[dbo].[OTD_1_P2P_F_FORECAST_PARAMETERS]'
-        period_status = "[PERIOD_STATUS] in ('" + 'P2P' + "','"+'FCST' + "')"  # MUST BE CHANGED !!!!
+        period_status = "[PERIOD_STATUS] in ('" + 'P2P' + "','"+'FCST' + "')"
     else:
         parameters_table = '[Business_Planning].[dbo].[OTD_1_P2P_F_PARAMETERS]'
         period_status = '[PERIOD_STATUS] = ' + "'" + 'P2P' + "'"
@@ -593,6 +612,8 @@ def get_wish_list(forecast=False):
                       ,[valid_from_date]
                       ,[PERIOD_STATUS]
                       ,[CREDIT_STATUS]
+                      ,[ROTATION]
+
                   FROM [Business_Planning].[dbo].[OTD_1_P2P_F_PRIORITY_WITHOUT_INVENTORY]
                   WHERE [POINT_FROM] <> [SHIPPING_POINT] 
                   AND Length <> 0 and Width <> 0 AND Height <> 0 and """ + period_status + """
@@ -1065,11 +1086,11 @@ def loadbuilder_input_dataframe(data):
     # Creation of the data frame
     input_frame = pd.DataFrame(data=data, columns=['QTY', 'MODEL', 'LENGTH', 'WIDTH',
                                                    'HEIGHT', 'NBR_PER_CRATE', 'CRATE_TYPE',
-                                                   'STACK_LIMIT', 'NB_OF_X', 'OVERHANG'])
+                                                   'STACK_LIMIT', 'NB_OF_X', 'OVERHANG', 'ROTATION'])
 
     # Group by to sum quantity
     input_frame = input_frame.groupby(['MODEL', 'LENGTH', 'WIDTH', 'HEIGHT',
-                                       'NBR_PER_CRATE', 'CRATE_TYPE', 'STACK_LIMIT', 'OVERHANG']).sum()
+                                       'NBR_PER_CRATE', 'CRATE_TYPE', 'STACK_LIMIT', 'OVERHANG', 'ROTATION']).sum()
 
     # Reformatting of the new object as a standard data frame
     input_frame = input_frame.reset_index()
