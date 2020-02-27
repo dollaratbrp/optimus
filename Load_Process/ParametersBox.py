@@ -17,7 +17,7 @@ from P2PFunctions import get_parameter_grid
 import pandas as pd
 
 
-largeurColonne = 12
+column_width = 8
 Project = ['']
 
 # If the user wants to execute the main program or not,
@@ -41,60 +41,44 @@ def IsInt(value):
 
 
 # Each line inside the box
-class ligne:
-    pointFrom = []
-    pointTo = []
-    loadMin = []
-    loadMax = []
-    priority = []
-    transit = []
-    skip = []
-    delete = []
-    drybox = []
-    flatbed = []
-    parent = ''
-    lineToSKip = ''
-    root = ''
-    index = 0
-    columnLength = 0
-    side = ''
+class Line:
 
-    def __init__(self, parent, root, side, PF='', PT='', LMIN=0, LMAX=0, DRYBOX=None, FLATBED=None,
-                 PTY=0, TRANS=0, SKIP=0, days=-1, largeurColonne=12):
-        if SKIP == 1:
-            IsToSkip = True
+    def __init__(self, parent, root, side, point_from='', point_to='', lmin=0, lmax=0, drybox=None, flatbed=None,
+                 priority=0, transit=0, skip=0, days=-1, col_width=12):
+        if skip == 1:
+            to_skip = True
         else:
-            IsToSkip = False
-        if LMAX is None:
-            LMAX = ''
-        if DRYBOX is None:
-            DRYBOX = ''
-        if FLATBED is None:
-            FLATBED = ''
+            to_skip = False
+        if lmax is None:
+            lmax = ''
+        if drybox is None:
+            drybox = ''
+        if flatbed is None:
+            flatbed = ''
 
         self.lineToSKip = BooleanVar()  # IntVar()
-        self.lineToSKip.set(IsToSkip)
+        self.lineToSKip.set(to_skip)
         self.root = root
         self.parent = parent
         self.index = len(parent.lignes)
-        self.columnLength = largeurColonne
+        self.columnLength = col_width
         self.side = side
 
-        self.pointFrom = self.entryObj(PF)
-        self.pointTo = self.entryObj(PT)
-        self.loadMin = self.entryObj(LMIN)
-        self.loadMax = self.entryObj(LMAX)
-        self.drybox = self.entryObj(DRYBOX)
-        self.flatbed = self.entryObj(FLATBED)
-        self.priority = self.entryObj(PTY)
-        self.transit = self.entryObj(TRANS)
+        # Entries
+        self.pointFrom = self.entryObj(point_from)
+        self.pointTo = self.entryObj(point_to)
+        self.loadMin = self.entryObj(lmin)
+        self.loadMax = self.entryObj(lmax)
+        self.drybox = self.entryObj(drybox)
+        self.flatbed = self.entryObj(flatbed)
+        self.priority = self.entryObj(priority)
+        self.transit = self.entryObj(transit)
         self.days = self.entryObj(days)
 
-        self.skip = Button(root, text='X', width=largeurColonne, command=self.skipAction)
-        # Checkbutton(root, text="", variable=self.lineToSKip)
+        self.skip = Button(root, text='X', width=col_width, command=self.skipAction)
         self.skip.pack(side=side)  # , expand=YES, fill=BOTH)
 
-        self.delete = Button(root, text='Delete', width=largeurColonne, command=self.deleteAll)
+        self.delete = Button(root, text='Delete', width=col_width, command=self.deleteAll)
         self.delete.pack(side=side)  # , expand=YES, fill=BOTH)
 
         self.changeColor()
@@ -124,7 +108,7 @@ class ligne:
             self.root.pack_forget()
             self.days.pack_forget()
 
-            self.parent.ForgetToDelete(self.index)
+            self.parent.delete_line(self.index)
         else:
             self.changeColor()
 
@@ -155,7 +139,7 @@ class ligne:
 
 class VerticalScrolledFrame(tk.Frame):
 
-    def __init__(self, parent, *args, **kw):
+    def __init__(self, parent, height=650, *args, **kw):
         """
         Creates a tkinter frame on which we can scroll vertically
         :param parent: tkinter root
@@ -165,7 +149,7 @@ class VerticalScrolledFrame(tk.Frame):
         # Creation of a canvas object and a vertical scrollbar to scroll in it
         self.vscrollbar = tk.Scrollbar(self, orient=tk.VERTICAL)
         self.vscrollbar.pack(fill=tk.Y, side=tk.RIGHT, expand=tk.FALSE)
-        self.canvas = tk.Canvas(self, bd=0, highlightthickness=0, height=650, yscrollcommand=self.vscrollbar.set)
+        self.canvas = tk.Canvas(self, bd=0, highlightthickness=0, height=height, yscrollcommand=self.vscrollbar.set)
         self.canvas.pack(side=tk.LEFT, fill=tk.BOTH, expand=tk.TRUE)
         self.vscrollbar.config(command=self.canvas.yview)
 
@@ -212,117 +196,131 @@ class Box(Frame):
 
     lignes = []
 
-    def __init__(self, largeurColonne):
+    def __init__(self, col_width):
+
         Frame.__init__(self)
+
         global Project
 
-        headers = ['Point from', 'Point to', 'Load min', 'Load max', 'DRYBOX', 'FLATBED', 'Priority Order', 'Transit',
-                   'DAYS_TO', 'Skip', '']  # Only for the box, not sql
+        # We memorize column titles
+        headers = ['From', 'To', 'Min', 'Max', 'Drybox', 'Flatbed', 'Priority', 'Transit',
+                   'Days_to', 'Skip', '']
 
+        # We get parameter box data
         if Project[0] == 'P2P':
-            ValuesParams, self.SQL = get_parameter_grid(parameter_box_output=True)
+            parameters_values, self.SQL = get_parameter_grid(parameter_box_output=True)
         else:
-            ValuesParams, self.SQL = get_parameter_grid(forecast=True, parameter_box_output=True)
-        print(ValuesParams)
+            parameters_values, self.SQL = get_parameter_grid(forecast=True, parameter_box_output=True)
 
+        # We set some GUI details
         self.option_add('*Font', 'Verdana 12 bold')
-        self.pack(expand=YES, fill=BOTH)
+        self.pack(expand=True)
         self.master.title('Parameters Box')
-        # self.master.geometry("400x450")
 
-        # Section pour les headers
+        # We set header labels
         option = ["raised", "sunken",  "solid"]  # choices for header's layout
-        keyF = frame(self, TOP)
-        for i, titre in enumerate(headers[0:-1]):
-            tk.Label(keyF, text=titre, width=largeurColonne, bg='#ABA3A3', anchor='w',
-                     borderwidth=2, relief=option[0], pady=10).pack(side=LEFT)
-            # , expand=YES, fill=BOTH)#Label(keyF, text=titre, width=15).pack(side=LEFT)
-        tk.Label(keyF, text=headers[-1], width=largeurColonne).pack(side=LEFT)
+        self.header_frame = frame(self, TOP)
+        self.header_label = []
+        i = 0
+        for titre in headers[0:-1]:
+            self.header_label.append(tk.Label(self.header_frame, text=titre, width=col_width,
+                                              bg='#ABA3A3', anchor='center', borderwidth=2, relief=option[0], pady=10))
+            self.header_label[i].grid(row=0, column=i)
+            i += 1
 
-        # Define scrollbar
-        keyF = frame(self, TOP)
-        scframe = VerticalScrolledFrame(keyF)
-        scframe.pack()
+        self.header_label.append(tk.Label(self.header_frame, text=headers[-1], width=col_width))
+        self.header_label[-1].grid(row=0, column=i)
 
-        self.verticalBar = scframe.interior
+        # We define our vertical scrolled frame that will contain parameters value
+        self.parameters_frame = VerticalScrolledFrame(frame(self, TOP), height=400)
+        self.parameters_frame.pack()
+        self.verticalBar = self.parameters_frame.interior
+        for values in parameters_values:
+            temp_frame = frame(self.verticalBar, TOP)
+            self.lignes.append(Line(self, temp_frame, LEFT, *values, col_width))
 
-        for values in ValuesParams:
-            keyF = frame(self.verticalBar, TOP)
-            self.lignes.append(ligne(self, keyF, LEFT, *values, largeurColonne))
-
-        keyF = frame(self, BOTTOM)
-        tk.Button(keyF, text='Add New', command=lambda largeurColonne=largeurColonne: self.AddNew(largeurColonne),
+        # We set GUI buttons
+        self.buttons_frame = frame(self, BOTTOM)
+        tk.Button(self.buttons_frame, text='Add New', command=lambda col_w=col_width: self.add_new_line(col_w),
                   borderwidth=2, bg='#ABA3A3', relief=option[0], pady=10).pack(side=LEFT, expand=YES, fill=BOTH)
-        tk.Button(keyF, text='Modify Email list', command=change_emails_list, borderwidth=2, bg='#ABA3A3', relief=option[0],
-                  pady=10).pack(side=LEFT, expand=YES, fill=BOTH)
-        tk.Button(keyF, text='Execute', command=self.quit, borderwidth=2, bg='#ABA3A3', relief=option[0],
-                  pady=10).pack(side=LEFT, expand=YES, fill=BOTH)
 
-    def ForgetToDelete(self, index):
+        tk.Button(self.buttons_frame, text='Modify Email list', command=change_emails_list,
+                  borderwidth=2, bg='#ABA3A3', relief=option[0], pady=10).pack(side=LEFT, expand=YES, fill=BOTH)
+
+        tk.Button(self.buttons_frame, text='Save Parameters', command=self.save_parameters,
+                  borderwidth=2, bg='#ABA3A3', relief=option[0], pady=10).pack(side=LEFT, expand=YES, fill=BOTH)
+
+        tk.Button(self.buttons_frame, text='Execute', command=self.quit,
+                  borderwidth=2, bg='#ABA3A3', relief=option[0], pady=10).pack(side=LEFT, expand=YES, fill=BOTH)
+
+    def delete_line(self, index):
+
         """To delete a line of values"""
+
         self.lignes[index] = ''
 
-    def quit(self):
-        """Delete all from SQL and send new data if there is no mistakes"""
-        WarningColor = 'yellow'
+    def save_parameters(self):
+
+        """Save all parameters in the GUI"""
+
+        # We init some useful variables
+        warning_color = 'yellow'
         errors = False
-        DATA_TO_SEND = []
-        priorityOrder =[]
+        data_to_send = []
+
+        # We valid each line
         for ligne in self.lignes:
 
             if ligne != '':
                 ligne.changeColor()  # reset color to default color
-                if ligne.priority.get() in priorityOrder:
-                    ligne.priority.config(bg=WarningColor)
-                    errors = True
-                else:
-                    priorityOrder.append(ligne.priority.get())
 
                 if not IsInt(ligne.pointFrom.get()):
-                    ligne.pointFrom.config(bg=WarningColor)
+                    ligne.pointFrom.config(bg=warning_color)
                     errors = True
 
                 if not IsInt(ligne.pointTo.get()):
-                    ligne.pointTo.config(bg=WarningColor)
+                    ligne.pointTo.config(bg=warning_color)
                     errors = True
 
                 if not IsInt(ligne.loadMin.get()):
-                    ligne.loadMin.config(bg=WarningColor)
+                    ligne.loadMin.config(bg=warning_color)
                     errors = True
 
                 if not (IsInt(ligne.loadMax.get()) or ligne.loadMax.get() == ''):
-                    ligne.loadMax.config(bg=WarningColor)
+                    ligne.loadMax.config(bg=warning_color)
                     errors = True
 
                 if not (IsInt(ligne.drybox.get()) or ligne.drybox.get() == ''):
-                    ligne.drybox.config(bg=WarningColor)
+                    ligne.drybox.config(bg=warning_color)
                     errors = True
 
                 if not (IsInt(ligne.flatbed.get()) or ligne.flatbed.get() == ''):
-                    ligne.flatbed.config(bg=WarningColor)
+                    ligne.flatbed.config(bg=warning_color)
                     errors = True
 
                 if IsInt(ligne.loadMin.get()) and IsInt(ligne.loadMax.get()):
                     if int(ligne.loadMin.get()) > int(ligne.loadMax.get()):
-                        ligne.loadMin.config(bg=WarningColor)
-                        ligne.loadMax.config(bg=WarningColor)
+                        ligne.loadMin.config(bg=warning_color)
+                        ligne.loadMax.config(bg=warning_color)
                         errors = True
 
                 if not IsInt(ligne.priority.get()):
-                    ligne.priority.config(bg=WarningColor)
+                    ligne.priority.config(bg=warning_color)
                     errors = True
 
                 if not IsInt(ligne.transit.get()):
-                    ligne.transit.config(bg=WarningColor)
+                    ligne.transit.config(bg=warning_color)
                     errors = True
 
-                DATA_TO_SEND.append(
-                        [ligne.pointFrom.get(), ligne.pointTo.get(), ligne.loadMin.get(), ligne.loadMax.get(),
-                         ligne.drybox.get(), ligne.flatbed.get(), ligne.priority.get(), ligne.transit.get(),
-                         ligne.days.get(), ligne.lineToSKip.get()])
+                data_to_send.append(
+                    [ligne.pointFrom.get(), ligne.pointTo.get(), ligne.loadMin.get(), ligne.loadMax.get(),
+                     ligne.drybox.get(), ligne.flatbed.get(), ligne.priority.get(), ligne.transit.get(),
+                     ligne.days.get(), ligne.lineToSKip.get()])
 
         if not errors:
-            timeOfExport = pd.datetime.now()
+
+            export_time = pd.datetime.now()
+
             # delete in SQL, only keep the last 3 modifications in history
             if Project[0] == 'P2P':
                 self.SQL.deleteFromSQL("IMPORT_DATE not in (SELECT  DISTINCT top(3) IMPORT_DATE FROM"
@@ -333,8 +331,8 @@ class Box(Frame):
                     " FROM [Business_Planning].[dbo].[OTD_1_P2P_F_FORECAST_PARAMETERS] ORDER BY IMPORT_DATE desc) ")
 
             # send data to SQL
-            for DATALine in DATA_TO_SEND:
-                for obj in range(2, len(DATALine)-1):
+            for DATALine in data_to_send:
+                for obj in range(2, len(DATALine) - 1):
                     if DATALine[obj] == '':
                         DATALine[obj] = None
                     else:
@@ -345,21 +343,31 @@ class Box(Frame):
                 else:
                     DATALine[-1] = 0
 
-                DATALine.append(timeOfExport)
-                self.SQL.sendToSQL([(DATALine)])
-
-            global ToExecute
-            ToExecute = [True]
-
-            self.master.destroy()
+                DATALine.append(export_time)
+                self.SQL.sendToSQL([DATALine])
         else:
             messagebox.showerror('Invalid DATA', 'There are some invalid inputs in the table')
 
-    def AddNew(self, largeurColonne):
+        return errors
+
+    def quit(self):
+
+        """Delete all from SQL and send new data if there is no mistakes"""
+
+        errors = self.save_parameters()
+
+        if not errors:
+            global ToExecute
+            ToExecute = [True]
+            self.master.destroy()
+
+    def add_new_line(self, col_width):
+
         """To add a new line of values"""
-        keyF = frame(self.verticalBar, TOP)
+
         global Project
-        self.lignes.append(ligne(self, keyF, LEFT, '0000', '0000', 0, 0, '', '', 0, 0, False, 0, largeurColonne))
+        self.lignes.append(Line(self, frame(self.verticalBar, TOP), LEFT, '0000', '0000', 0, 0, '', '', 0, 0,
+                                False, 0, col_width))
 
 
 def change_emails_list():
@@ -508,7 +516,7 @@ def MissingP2PBox(MissingP2P):
 def OpenParameters(project_name='P2P'):
 
     set_project_name(project_name)
-    Box(largeurColonne).mainloop()
+    Box(column_width).mainloop()
     return ToExecute[0]
 
 
