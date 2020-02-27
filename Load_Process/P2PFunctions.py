@@ -27,7 +27,8 @@ class Wish:
     """
 
     def __init__(self, sdn, sin, stn, point_from, shipping_point, div, mat_num, size, length, width, height,
-                 stackability, qty, rank, mandatory, overhang, crate_type, valid_from, period_status, is_adhoc=0):
+                 stackability, qty, rank, mandatory, overhang, crate_type, valid_from, period_status,
+                 rotation, is_adhoc=0):
 
         self.SALES_DOCUMENT_NUMBER = sdn
         self.SALES_ITEM_NUMBER = sin
@@ -37,18 +38,27 @@ class Wish:
         self.DIVISION = div
         self.MATERIAL_NUMBER = mat_num
         self.SIZE_DIMENSIONS = size
-        self.LENGTH = length
-        self.WIDTH = (1 - (self.SIZE_DIMENSIONS == 'SP2'))*width + (self.SIZE_DIMENSIONS == 'SP2')*self.LENGTH
         self.HEIGHT = height
         self.STACKABILITY = stackability
         self.QUANTITY = qty
         self.RANK = rank
         self.MANDATORY = (mandatory == 'X')
-        self.OVERHANG = overhang
+        self.OVERHANG = (overhang == 1)
         self.IsAdhoc = is_adhoc
         self.CRATE_TYPE = crate_type
         self.VALID_FROM_DATE = valid_from
         self.PERIOD_STATUS = period_status
+
+        # We initialize length, width and rotation according to ROTATION column from the query
+        if rotation == 'W':
+            self.LENGTH = width
+            self.WIDTH = length
+            self.ROTATION = False
+
+        else:
+            self.LENGTH = length
+            self.WIDTH = width
+            self.ROTATION = (rotation == 'A')
 
         # To keep track of inv origins
         self.INV_ITEMS = []
@@ -79,7 +89,7 @@ class Wish:
         :return: list
         """
         return [1, self.SIZE_DIMENSIONS, self.LENGTH, self.WIDTH, self.HEIGHT, 1,
-                self.CRATE_TYPE, self.STACKABILITY, int(self.MANDATORY), self.OVERHANG]
+                self.CRATE_TYPE, self.STACKABILITY, int(self.MANDATORY), self.OVERHANG, self.ROTATION]
 
     def get_log_details(self):
         """
@@ -293,8 +303,6 @@ class Parameters:
             log_file.writelines(wish.get_log_details())
 
         log_file.writelines(['\n\n', '*** LOADBUILDER INPUT DATAFRAME *** ', '\n\n'])
-        # log_file.writelines([column+' ' for column in input_dataframe.columns])
-        # log_file.write('\n')
         for index, row in input_dataframe.iterrows():
             log_file.write('    ')
             log_file.writelines([str(value)+' ' for value in row])
@@ -321,7 +329,8 @@ class Parameters:
         """
         Returns the number of units associated for the p2p
         """
-        return self.LoadBuilder.number_of_units()
+
+        return sum([wish.ORIGINAL_QUANTITY for wish in self.AssignedWish])
 
     def save_full_process_results(self, history_sql_connection, approved_ws_data, sap_input_ws_data, process_date,
                                   saving_path):
@@ -574,7 +583,7 @@ def get_wish_list(forecast=False):
                                         'OTD_2_PRIORITY_F_P2P', headers=wishlist_headers)
     if forecast:
         parameters_table = '[Business_Planning].[dbo].[OTD_1_P2P_F_FORECAST_PARAMETERS]'
-        period_status = "[PERIOD_STATUS] in ('" + 'P2P' + "','"+'FCST' + "')"  # MUST BE CHANGED !!!!
+        period_status = "[PERIOD_STATUS] in ('" + 'P2P' + "','"+'FCST' + "')"
     else:
         parameters_table = '[Business_Planning].[dbo].[OTD_1_P2P_F_PARAMETERS]'
         period_status = '[PERIOD_STATUS] = ' + "'" + 'P2P' + "'"
@@ -598,6 +607,7 @@ def get_wish_list(forecast=False):
                       ,[METAL_WOOD]
                       ,[valid_from_date]
                       ,[PERIOD_STATUS]
+                      ,[ROTATION]
                   FROM [Business_Planning].[dbo].[OTD_1_P2P_F_PRIORITY_WITHOUT_INVENTORY]
                   WHERE [POINT_FROM] <> [SHIPPING_POINT] 
                   AND Length <> 0 and Width <> 0 AND Height <> 0 and """ + period_status + """
@@ -1064,11 +1074,11 @@ def loadbuilder_input_dataframe(data):
     # Creation of the data frame
     input_frame = pd.DataFrame(data=data, columns=['QTY', 'MODEL', 'LENGTH', 'WIDTH',
                                                    'HEIGHT', 'NBR_PER_CRATE', 'CRATE_TYPE',
-                                                   'STACK_LIMIT', 'NB_OF_X', 'OVERHANG'])
+                                                   'STACK_LIMIT', 'NB_OF_X', 'OVERHANG', 'ROTATION'])
 
     # Group by to sum quantity
     input_frame = input_frame.groupby(['MODEL', 'LENGTH', 'WIDTH', 'HEIGHT',
-                                       'NBR_PER_CRATE', 'CRATE_TYPE', 'STACK_LIMIT', 'OVERHANG']).sum()
+                                       'NBR_PER_CRATE', 'CRATE_TYPE', 'STACK_LIMIT', 'OVERHANG', 'ROTATION']).sum()
 
     # Reformatting of the new object as a standard data frame
     input_frame = input_frame.reset_index()

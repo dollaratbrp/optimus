@@ -62,7 +62,7 @@ class LoadBuilder:
         Initializes a warehouse according to the models available in model data
 
         :param: models_data : pandas dataframe with the following columns
-        [QTY | MODEL | LENGTH | WIDTH | HEIGHT | NUMBER_PER_CRATE | CRATE_TYPE | STACK_LIMIT | OVERHANG ]
+        [QTY | MODEL | LENGTH | WIDTH | HEIGHT | NUMBER_PER_CRATE | CRATE_TYPE | STACK_LIMIT | OVERHANG / ROTATION ]
 
         :param ranking: dictionary with size code as keys and lists of integers as value
         """
@@ -88,8 +88,9 @@ class LoadBuilder:
                 # We save the number of models per crate
                 nbr_per_crate = models_data['NBR_PER_CRATE'][i]
 
-                # We save the overhang permission indicator
-                overhang = bool(models_data['OVERHANG'][i])
+                # We save the overhang and rotation permission indicator
+                overhang = models_data['OVERHANG'][i]
+                rotation = models_data['ROTATION'][i]
 
                 # We compute the number of models per stack
                 items_per_stack = stack_limit * nbr_per_crate
@@ -111,11 +112,17 @@ class LoadBuilder:
                 # be convert as 0. This way, no individual crate of SP2 will be build if there's less than 2 SP2 left
                 nbr_individual_crates = int((qty - (items_per_stack * nbr_stacks)) / nbr_per_crate)
 
+                # We compute length and width
+                if rotation:
+                    length = max(models_data['LENGTH'][i], models_data['WIDTH'][i])
+                    width = min(models_data['WIDTH'][i], models_data['LENGTH'][i])
+                else:
+                    length = models_data['LENGTH'][i]
+                    width = models_data['WIDTH'][i]
+
                 crates_component = [[models_data['MODEL'][i]] * nbr_per_crate,
-                                    max(models_data['LENGTH'][i], models_data['WIDTH'][i]),
-                                    min(models_data['WIDTH'][i], models_data['LENGTH'][i]),
-                                    models_data['HEIGHT'][i],
-                                    stack_limit, overhang]
+                                    length, width, models_data['HEIGHT'][i],
+                                    stack_limit, overhang, rotation]
 
                 # We select the good type of storage of the stacks and crates that will be build
                 if crate_type == 'W':
@@ -662,7 +669,7 @@ class LoadBuilder:
             # We add rectangles unconsidered in the first phase of packing
             for i in range(start_index, len(warehouse)):
                 new_packer.add_rect(warehouse[i].width, warehouse[i].length, rid=id(warehouse[i]),
-                                    overhang=warehouse[i].overhang)
+                                    overhang=warehouse[i].overhang, rect_rotation=warehouse[i].rotation)
 
             # We add a large number of dummy bins
             for j in range(len(warehouse) - start_index + 1):
