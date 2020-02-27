@@ -312,6 +312,10 @@ class Box(Frame):
                     ligne.transit.config(bg=warning_color)
                     errors = True
 
+                if not IsInt(ligne.days.get()):
+                    ligne.days.config(bg=warning_color)
+                    errors = True
+
                 data_to_send.append(
                     [ligne.pointFrom.get(), ligne.pointTo.get(), ligne.loadMin.get(), ligne.loadMax.get(),
                      ligne.drybox.get(), ligne.flatbed.get(), ligne.priority.get(), ligne.transit.get(),
