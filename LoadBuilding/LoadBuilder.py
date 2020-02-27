@@ -564,7 +564,8 @@ class LoadBuilder:
             new_configs = np.array([[]])
 
             # If it's possible to rotate the i-th item in the warehouse for this trailer
-            if trailer.fit(warehouse[i], rotated=True):
+            if warehouse[i].rotation and trailer.fit(warehouse[i], rotated=True):
+
                 # We add the rotated rectangle indicator (True) to all configs found until now
                 true_vec = [[True]] * len(configs)
                 new_configs = np.append(np.copy(configs), true_vec, axis=1)
