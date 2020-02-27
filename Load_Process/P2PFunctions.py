@@ -534,7 +534,6 @@ def get_parameter_grid(forecast=False, parameter_box_output=False):
                   FROM """ + table + """ 
                   where IMPORT_DATE = (select max(IMPORT_DATE) from """ + table + """ ) """ + skip_filter + """
                   order by """ + order
-    print(query)
     # GET SQL DATA
     data = connection.GetSQLData(query)
     if parameter_box_output:
