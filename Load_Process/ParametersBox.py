@@ -13,13 +13,16 @@ from InputOutput import *
 import tkinter as tk
 from tkinter import *
 from tkinter import (messagebox)
+from P2PFunctions import get_parameter_grid
 import pandas as pd
 
 
 largeurColonne = 12
 Project = ['']
-ToExecute = [False]  # If the user wants to execute the main program or not,
-                     # becomes True if user click on 'Execute' button
+
+# If the user wants to execute the main program or not,
+# becomes True if user click on 'Execute' button
+ToExecute = [False]
 
 
 # Define a frame
@@ -203,57 +206,24 @@ class VerticalScrolledFrame(tk.Frame):
             # update the canvas's width to fit the inner frame
             self.canvas.config(width=self.interior.winfo_reqwidth())
 
+
 # The main box
 class Box(Frame):
+
     lignes = []
-    verticalBar = ''
-    headers = ''
-    SQL = ''
 
     def __init__(self, largeurColonne):
         Frame.__init__(self)
         global Project
-        self.headers = 'point_FROM,point_TO,LOAD_MIN,LOAD_MAX,DRYBOX,FLATBED,' \
-                       'PRIORITY_ORDER,TRANSIT,DAYS_TO,SKIP,IMPORT_DATE'
+
         headers = ['Point from', 'Point to', 'Load min', 'Load max', 'DRYBOX', 'FLATBED', 'Priority Order', 'Transit',
                    'DAYS_TO', 'Skip', '']  # Only for the box, not sql
 
         if Project[0] == 'P2P':
-            self.SQL = SQLConnection('CAVLSQLPD2\pbi2', 'Business_Planning', 'OTD_1_P2P_F_PARAMETERS', self.headers)
-            # To set values
-            SQLquery = """SELECT distinct [POINT_FROM]
-                ,[POINT_TO]
-                ,[LOAD_MIN]
-                ,[LOAD_MAX]
-                ,[DRYBOX]
-                ,[FLATBED]
-                ,[PRIORITY_ORDER]
-                ,[TRANSIT]
-                ,[SKIP]
-                ,[DAYS_TO]
-            FROM [Business_Planning].[dbo].[OTD_1_P2P_F_PARAMETERS]
-            where IMPORT_DATE = (select max(IMPORT_DATE) from [Business_Planning].[dbo].[OTD_1_P2P_F_PARAMETERS])
-            order by [POINT_TO]
-                ,[POINT_FROM] """
+            ValuesParams, self.SQL = get_parameter_grid(parameter_box_output=True)
         else:
-            self.SQL = SQLConnection('CAVLSQLPD2\pbi2', 'Business_Planning',
-                                     'OTD_1_P2P_F_FORECAST_PARAMETERS', self.headers)
-            # To set values
-            SQLquery = """SELECT distinct [POINT_FROM]
-                ,[POINT_TO]
-                ,[LOAD_MIN]
-                ,[LOAD_MAX]
-                ,[DRYBOX]
-                ,[FLATBED]
-                ,[PRIORITY_ORDER]
-                ,[TRANSIT]
-                ,[SKIP]
-                ,[DAYS_TO]
-
-            FROM [Business_Planning].[dbo].[OTD_1_P2P_F_FORECAST_PARAMETERS]
-            where IMPORT_DATE = (select max(IMPORT_DATE) from [Business_Planning].[dbo].[OTD_1_P2P_F_FORECAST_PARAMETERS])
-            order by [POINT_TO]
-                ,[POINT_FROM] """
+            ValuesParams, self.SQL = get_parameter_grid(forecast=True, parameter_box_output=True)
+        print(ValuesParams)
 
         self.option_add('*Font', 'Verdana 12 bold')
         self.pack(expand=YES, fill=BOTH)
@@ -275,8 +245,6 @@ class Box(Frame):
         scframe.pack()
 
         self.verticalBar = scframe.interior
-
-        ValuesParams = [sublist for sublist in self.SQL.GetSQLData(SQLquery)]
 
         for values in ValuesParams:
             keyF = frame(self.verticalBar, TOP)
