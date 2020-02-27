@@ -158,7 +158,7 @@ class Parameters:
     """
     Represents a line of parameters from the ParameterBox GUI
     """
-    def __init__(self, point_from, point_to, loadmin, loadmax, drybox, flatbed, transit, priority, days_to):
+    def __init__(self, point_from, point_to, loadmin, loadmax, drybox, flatbed, priority, transit,  days_to):
 
         global shared_flatbed_53
         self.POINT_FROM = point_from
@@ -506,38 +506,49 @@ def shipping_point_names():
     return shipping_points
 
 
-def get_parameter_grid(forecast=False):
+def get_parameter_grid(forecast=False, parameter_box_output=False):
     """
     Recuperates the ParameterBox data from SQL
 
     :return: list of Parameters and the established SQL connection
     """
-    headers = 'POINT_FROM,POINT_TO,LOAD_MIN,LOAD_MAX,DRYBOX,FLATBED,TRANSIT,PRIORITY_ORDER,SKIP'
 
     if forecast:
         table = 'OTD_1_P2P_F_FORECAST_PARAMETERS'
     else:
         table = 'OTD_1_P2P_F_PARAMETERS'
 
+    if parameter_box_output:
+        headers = "point_FROM,point_TO,LOAD_MIN,LOAD_MAX,DRYBOX,FLATBED,PRIORITY_ORDER,TRANSIT,DAYS_TO,SKIP,IMPORT_DATE"
+        order = """[POINT_TO] ,[POINT_FROM]"""
+        skip_column = ",[SKIP]"
+        skip_filter = ""
+    else:
+        headers = 'POINT_FROM,POINT_TO,LOAD_MIN,LOAD_MAX,DRYBOX,FLATBED,TRANSIT,PRIORITY_ORDER,SKIP'
+        order = "PRIORITY_ORDER"
+        skip_column = ""
+        skip_filter = "and SKIP = 0"
+
     connection = SQLConnection('CAVLSQLPD2\pbi2', 'Business_Planning', table, headers=headers)
 
-    query = """ SELECT  [POINT_FROM]
+    query = """ SELECT [POINT_FROM]
                       ,[POINT_TO]
                       ,[LOAD_MIN]
                       ,[LOAD_MAX]
                       ,[DRYBOX]
                       ,[FLATBED]
-                      ,[TRANSIT]
                       ,[PRIORITY_ORDER]
+                      ,[TRANSIT] """ + skip_column + """
                       ,DAYS_TO
                   FROM """ + table + """ 
-                  where IMPORT_DATE = (select max(IMPORT_DATE) from """ + table + """ )
-                  and SKIP = 0
-                  order by PRIORITY_ORDER
-                """
+                  where IMPORT_DATE = (select max(IMPORT_DATE) from """ + table + """ ) """ + skip_filter + """
+                  order by """ + order
     # GET SQL DATA
     data = connection.GetSQLData(query)
-    return [Parameters(*line) for line in data], connection
+    if parameter_box_output:
+        return [line for line in data], connection
+    else:
+        return [Parameters(*line) for line in data], connection
 
 
 def reset_flatbed_53():
