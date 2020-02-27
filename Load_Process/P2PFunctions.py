@@ -296,7 +296,7 @@ class Parameters:
             log_file.writelines(wish.get_log_details())
 
         # We write number of loads already done and the input dataframe in the log file
-        log_file.writelines(['\n\n', 'NUMBER OF LOADS ALREADY DONE : {}'.format(str(len(self.LoadBuilder)))])
+        log_file.writelines(['\n\n', 'NUMBER OF LOADS ALREADY DONE : {}'.format(str(len(self.LoadBuilder))), '\n\n'])
         log_file.writelines(['\n\n', '*** LOADBUILDER INPUT DATAFRAME *** ', '\n\n'])
         # log_file.writelines([column+' ' for column in input_dataframe.columns])
         # log_file.write('\n')
