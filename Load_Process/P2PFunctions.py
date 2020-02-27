@@ -91,6 +91,7 @@ class Wish:
         return ['WISH -> ', ' FROM : ', str(self.POINT_FROM),
                 '| TO : ', str(self.SHIPPING_POINT),
                 '| MATERIAL_NUMBER : ', str(self.MATERIAL_NUMBER),
+                '| CREDIT STATUS : ', str(self.CREDIT_STATUS),
                 '| SIZE CODE : ', str(self.SIZE_DIMENSIONS),
                 '| RANK : ', str(self.RANK), '\n']
 
@@ -294,6 +295,8 @@ class Parameters:
         for wish in temporary_on_load:
             log_file.writelines(wish.get_log_details())
 
+        # We write number of loads already done and the input dataframe in the log file
+        log_file.writelines(['\n\n', 'NUMBER OF LOADS ALREADY DONE : {}'.format(str(len(self.LoadBuilder)))])
         log_file.writelines(['\n\n', '*** LOADBUILDER INPUT DATAFRAME *** ', '\n\n'])
         # log_file.writelines([column+' ' for column in input_dataframe.columns])
         # log_file.write('\n')
@@ -308,7 +311,7 @@ class Parameters:
         result = self.LoadBuilder.build(input_dataframe, max_load, ranking=ranking, plot_load_done=print_loads)
 
         # We write the number of loads done
-        log_file.writelines(['\n\n', 'NUMBER OF LOADS DONE : {}'.format(str(len(self.LoadBuilder) - last_number_of_loads))])
+        log_file.writelines(['\n\n', 'NUMBER OF NEW LOADS : {}'.format(str(len(self.LoadBuilder) - last_number_of_loads))])
 
         # We update the number of common flatbed 53
         self.update_flatbed_53()
@@ -917,7 +920,7 @@ def satisfy_max_or_min(Wishes, Inventory, Parameters, satisfy_min=True, print_lo
     """
     Attributes wishes wisely among p2p'S in Parameters list in order to satisfy their min or their max value
 
-    :param Wishes: List of wishes (list of WishlistObj)
+    :param Wishes: List of wishes (list of Wish)
     :param Inventory: List of INVobj
     :param Parameters: List of Parameters
     :param satisfy_min: (bool) if false -> we want to satisfy the max
@@ -943,6 +946,12 @@ def satisfy_max_or_min(Wishes, Inventory, Parameters, satisfy_min=True, print_lo
     # We update LoadBuilder class attribute plc_lb depending on the situation
     LoadBuilder.plc_lb = 0.74 * check_min + (1 - check_min) * 0.80
 
+    # We filter the wish list if we are satisfying max
+    if not satisfy_min and not leftover_distribution:
+        filtered_wishlist = [wish for wish in Wishes if wish.CREDIT_STATUS == 1]
+    else:
+        filtered_wishlist = Wishes
+
     # For each parameters in Parameters list
     for param in Parameters:
 
@@ -963,7 +972,7 @@ def satisfy_max_or_min(Wishes, Inventory, Parameters, satisfy_min=True, print_lo
             ranking = {}
 
             # We loop through our wishes list
-            for wish in Wishes:
+            for wish in filtered_wishlist:
 
                 # If the wish is not fulfilled and his POINT FROM and POINT TO are corresponding with the param (p2p)
                 if wish.QUANTITY > 0 and wish.POINT_FROM == param.POINT_FROM and wish.SHIPPING_POINT == param.POINT_TO:
