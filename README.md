@@ -31,3 +31,7 @@ Optimus algorithm proceeds executing the following steps:
 - #### Distribution of leftovers
 
   Using the inventory remaining from the whole process and considering **wishes** that are still unfulfilled, we try to fill space remaining in truck trailers that are already built and ready to go
+  
+## Usage
+Program can be run by clicking on `run_optimus.py` from the following path : S:\Shared\Business_Planning\Tool\Plant_to_plant\Optimus
+
