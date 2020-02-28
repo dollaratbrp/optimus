@@ -4,6 +4,7 @@ This file manages all activities linked to Optimus standalone mode
 Author : Nicolas Raymond
 """
 from tkinter import *
+from tkinter import messagebox
 import pandas as pd
 from openpyxl import load_workbook, Workbook
 from InputOutput import SQLConnection, savexlsxFile, send_email, group_by_all_except_qty
@@ -179,11 +180,21 @@ class FastLoadsBox(VerticalScrolledFrame):
             # Building of dataframes required for the loading
             # (df1) Use to build an object that keeps track of link between SKUs and size code
             # (df2) Dataframe needed by the load builder
-            complete_dataframe = self.get_complete_dataframe(skus_list, qty_list, str(self.crate_type.get()))
+            crate_type = str(self.crate_type.get())
+            complete_dataframe = self.get_complete_dataframe(skus_list, qty_list, crate_type)
             df1, df2 = self.split_dataframes(complete_dataframe)
 
             # Initialization of the tracker (size_code dictionaries with SKUsContainer as value)
-            self.tracker = self.tracker_initialization(df1)
+            self.tracker, stop_process = self.tracker_initialization(df1, skus_list)
+            if stop_process:
+                if crate_type == 'M':
+                    crate_type = 'metal'
+                else:
+                    crate_type = 'wood'
+                messagebox.showerror('SKU error', message='One or more SKU(s) could not be associated with '
+                                                          + crate_type + ' size code')
+
+                return
 
             # Initialization of our LoadBuilder
             self.LoadBuilder = LoadBuilder(trailers_data=self.trailers_data)
@@ -326,7 +337,7 @@ class FastLoadsBox(VerticalScrolledFrame):
             dataframe = pd.DataFrame(data=data, columns=columns_title)
 
             # We do a groupby to sum quantity column for the same SKU on the same load
-            dataframe = dataframe.groupby(by=[column for column in columns_title if column != 'QUANTITY']).sum().reset_index()
+            group_by_all_except_qty(dataframe, columns_title)
             dataframe = dataframe[columns_title]
 
             # We push every line of data in the appropriate worksheet
@@ -499,22 +510,26 @@ class FastLoadsBox(VerticalScrolledFrame):
         # Do a groupby on second dataframe
         second_df = group_by_all_except_qty(second_df, second_fd_columns)
 
-        print(first_df)
-        print(second_df)
-
         return first_df, second_df
 
     @staticmethod
-    def tracker_initialization(sku_dataframe):
+    def tracker_initialization(sku_dataframe, original_skus_list):
         """
         Initializes a dictionary of size_code (key) with SKUsContainer as value
         :param sku_dataframe: pandas dataframe containing [QTY | SKU |  MODEL (SIZE_CODE)]
-        :return: dictionary ("tracker")
+        :param original_skus_list: list of SKUs that had quantity > 0 in the GUI at the beginning
+        :return: dictionary ("tracker") and bool indicating if we should break the process
         """
-        # We count the number of unique model
+        # We count the number of unique model and unique SKUs
         models = set(sku_dataframe['MODEL'])
+        remaining_skus = set(sku_dataframe['SKU'])
 
-        # We intialize our tracker dict and put empty SKUsContainer in it
+        # We check is some skus were not found in the sql query
+        for sku in original_skus_list:
+            if sku not in remaining_skus:
+                return {}, True
+
+        # We initialize our tracker dict and put empty SKUsContainer in it
         tracker = {}
         for model in models:
             tracker[model] = SKUsContainer()
@@ -523,7 +538,7 @@ class FastLoadsBox(VerticalScrolledFrame):
         for i in sku_dataframe.index:
             tracker[sku_dataframe['MODEL'][i]].add_sku(sku_dataframe['SKU'][i], sku_dataframe['QTY'][i])
 
-        return tracker
+        return tracker, False
 
 
 class SKUsContainer:
