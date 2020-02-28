@@ -15,6 +15,7 @@ from InputOutput import *
 from numpy import savetxt
 DATAInclude = []
 log_file = None
+good_credit_for_max = False
 sharing_points_from = ['4100', '4125']
 shared_flatbed_53 = {'QTY': 2, 'POINT_FROM': sharing_points_from}  # Used to keep track of flat53 available
 residuals_counter = {}  # Use to keep track of the residuals of min and max among p2p with same POINT TO
@@ -948,6 +949,7 @@ def satisfy_max_or_min(Wishes, Inventory, Parameters, satisfy_min=True, print_lo
     :param print_loads: (bool) indicates if we plot each load or not
     """
     global residuals_counter
+    global good_credit_for_max
 
     # We look if we're distributing leftovers or processing to normal stack packing
     leftover_distribution = kwargs.get('leftovers', False)
@@ -968,7 +970,7 @@ def satisfy_max_or_min(Wishes, Inventory, Parameters, satisfy_min=True, print_lo
     LoadBuilder.plc_lb = 0.74 * check_min + (1 - check_min) * 0.80
 
     # We filter the wish list if we are satisfying max
-    if not satisfy_min and not leftover_distribution:
+    if good_credit_for_max and not satisfy_min and not leftover_distribution:
         filtered_wishlist = [wish for wish in Wishes if wish.CREDIT_STATUS == 1]
     else:
         filtered_wishlist = Wishes
@@ -1283,5 +1285,14 @@ def add_separator_line(symbol='#'):
     """
     global log_file
     log_file.writelines(['\n\n'] + [symbol]*80)
+
+
+def set_good_credit_for_max(good_credit_rule_activate):
+    """
+    Sets good_credit_for_max global variable value
+    :param good_credit_rule_activate: bool indicating if we must set it to True or False
+    """
+    global good_credit_for_max
+    good_credit_for_max = good_credit_rule_activate
 
 
