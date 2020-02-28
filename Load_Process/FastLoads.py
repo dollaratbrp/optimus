@@ -4,9 +4,10 @@ This file manages all activities linked to Optimus standalone mode
 Author : Nicolas Raymond
 """
 from tkinter import *
+from tkinter import messagebox
 import pandas as pd
 from openpyxl import load_workbook, Workbook
-from InputOutput import SQLConnection, savexlsxFile, send_email
+from InputOutput import SQLConnection, savexlsxFile, send_email, group_by_all_except_qty
 from P2PFunctions import get_trailers_data, get_emails_list
 from LoadBuilder import LoadBuilder, set_trailer_reference
 from random import randint
@@ -179,11 +180,21 @@ class FastLoadsBox(VerticalScrolledFrame):
             # Building of dataframes required for the loading
             # (df1) Use to build an object that keeps track of link between SKUs and size code
             # (df2) Dataframe needed by the load builder
-            complete_dataframe = self.get_complete_dataframe(skus_list, qty_list, str(self.crate_type.get()))
+            crate_type = str(self.crate_type.get())
+            complete_dataframe = self.get_complete_dataframe(skus_list, qty_list, crate_type)
             df1, df2 = self.split_dataframes(complete_dataframe)
 
             # Initialization of the tracker (size_code dictionaries with SKUsContainer as value)
-            self.tracker = self.tracker_initialization(df1)
+            self.tracker, stop_process = self.tracker_initialization(df1, skus_list)
+            if stop_process:
+                if crate_type == 'M':
+                    crate_type = 'metal'
+                else:
+                    crate_type = 'wood'
+                messagebox.showerror('SKU error', message='One or more SKU(s) could not be associated with '
+                                                          + crate_type + ' size code')
+
+                return
 
             # Initialization of our LoadBuilder
             self.LoadBuilder = LoadBuilder(trailers_data=self.trailers_data)
@@ -326,7 +337,7 @@ class FastLoadsBox(VerticalScrolledFrame):
             dataframe = pd.DataFrame(data=data, columns=columns_title)
 
             # We do a groupby to sum quantity column for the same SKU on the same load
-            dataframe = dataframe.groupby(by=[column for column in columns_title if column != 'QUANTITY']).sum().reset_index()
+            group_by_all_except_qty(dataframe, columns_title)
             dataframe = dataframe[columns_title]
 
             # We push every line of data in the appropriate worksheet
@@ -375,7 +386,7 @@ class FastLoadsBox(VerticalScrolledFrame):
         """
         # Initialization of column names for data that will be sent to LoadBuilder
         columns = ['QTY', 'SKU', 'MODEL', 'LENGTH', 'WIDTH', 'HEIGHT', 'NBR_PER_CRATE',
-                   'CRATE_TYPE', 'STACK_LIMIT', 'OVERHANG']
+                   'CRATE_TYPE', 'STACK_LIMIT', 'OVERHANG', 'ROTATION']
 
         # Connection to SQL database that contains data needed
         sql_connect = SQLConnection('CAVLSQLPD2\pbi2', 'Business_Planning', 'OTD_0_MD_D_MATERIAL')
@@ -448,6 +459,7 @@ class FastLoadsBox(VerticalScrolledFrame):
         ,CASE WHEN CRATE_TYPE = 'SKID' THEN 1 WHEN CRATE_SIZE.HEIGHT = 0 THEN 1 ELSE CONVERT(int, FLOOR(105/CRATE_SIZE.HEIGHT)) END
         ,CASE WHEN (CASE WHEN CRATE_TYPE = 'SKID' THEN 1 WHEN CRATE_SIZE.HEIGHT = 0 THEN 1 ELSE FLOOR(105/CRATE_SIZE.HEIGHT) END) = 1 THEN 0
         """ + overhang_case + """ ELSE 1 END
+        ,c.ROTATION
         FROM OTD_0_MD_D_MATERIAL as c LEFT JOIN masterdata.dbo.MD_MARA as a ON c.Material_number = a.Material_Number 
         LEFT JOIN """ + subquery + """ on c.Material_number = CRATE_SIZE.Material_Number
         LEFT JOIN [dbo].[OTD_1_P2P_F_PARAMETERS_CRATE_SKID] as SKID
@@ -456,11 +468,25 @@ class FastLoadsBox(VerticalScrolledFrame):
         # Retrieve the data
         data = sql_connect.GetSQLData(sql_query)
 
-        # Add each qty at the beginning of the good line of data and crate type after the stack limit
         for line in data:
+
+            # Adjust width and length
+            rot = line[-1]
+            if rot == 'W':
+                line[2], line[3] = line[3], line[2]  # We swap length and width
+                line[-1] = False  # Set rotation to False
+            else:  # ('A' or 'L')
+                line[-1] = (rot == 'A')
+
+            # Add quantity at the beginning
             index_of_qty = skus_list.index(line[0])
             line.insert(0, qty_list[index_of_qty])
+
+            # Set crate_type
             line.insert(7, crate_type)
+
+            # Change overhang as a bool
+            line[-2] = bool(line[-2])
 
         return pd.DataFrame(data=data, columns=columns)
 
@@ -469,7 +495,7 @@ class FastLoadsBox(VerticalScrolledFrame):
         """
         Takes the complete dataframe and split it in two
         First : [QTY | SKU |  MODEL (SIZE_CODE)] to keep track of link between SKUs and size_code
-        Second : [QTY | MODEL | LENGTH | WIDTH | HEIGHT | NUMBER_PER_CRATE | CRATE_TYPE | STACK_LIMIT | OVERHANG ]
+        Second : [QTY | MODEL | LENGTH | WIDTH | HEIGHT | NUMBER_PER_CRATE | CRATE_TYPE | STACK_LIMIT | OVERHANG | ROT ]
         The second will be group by MODEL
 
         :return: two pandas data frames
@@ -477,26 +503,33 @@ class FastLoadsBox(VerticalScrolledFrame):
 
         # We extract both dataframes needed by making copy of some parts on complete dataframe
         first_df = complete_dataframe[['QTY', 'SKU', 'MODEL']].copy()
-        second_df = complete_dataframe[['QTY', 'MODEL', 'LENGTH', 'WIDTH', 'HEIGHT', 'NBR_PER_CRATE', 'CRATE_TYPE',
-                                       'STACK_LIMIT', 'OVERHANG']].copy()
+        second_fd_columns = ['QTY', 'MODEL', 'LENGTH', 'WIDTH', 'HEIGHT', 'NBR_PER_CRATE', 'CRATE_TYPE',
+                             'STACK_LIMIT', 'OVERHANG', 'ROTATION']
+        second_df = complete_dataframe[second_fd_columns].copy()
 
         # Do a groupby on second dataframe
-        second_df = second_df.groupby(['MODEL', 'LENGTH', 'WIDTH', 'HEIGHT', 'CRATE_TYPE',
-                                       'NBR_PER_CRATE', 'STACK_LIMIT', 'OVERHANG']).sum().reset_index()
+        second_df = group_by_all_except_qty(second_df, second_fd_columns)
 
         return first_df, second_df
 
     @staticmethod
-    def tracker_initialization(sku_dataframe):
+    def tracker_initialization(sku_dataframe, original_skus_list):
         """
         Initializes a dictionary of size_code (key) with SKUsContainer as value
         :param sku_dataframe: pandas dataframe containing [QTY | SKU |  MODEL (SIZE_CODE)]
-        :return: dictionary ("tracker")
+        :param original_skus_list: list of SKUs that had quantity > 0 in the GUI at the beginning
+        :return: dictionary ("tracker") and bool indicating if we should break the process
         """
-        # We count the number of unique model
+        # We count the number of unique model and unique SKUs
         models = set(sku_dataframe['MODEL'])
+        remaining_skus = set(sku_dataframe['SKU'])
 
-        # We intialize our tracker dict and put empty SKUsContainer in it
+        # We check is some skus were not found in the sql query
+        for sku in original_skus_list:
+            if sku not in remaining_skus:
+                return {}, True
+
+        # We initialize our tracker dict and put empty SKUsContainer in it
         tracker = {}
         for model in models:
             tracker[model] = SKUsContainer()
@@ -505,7 +538,7 @@ class FastLoadsBox(VerticalScrolledFrame):
         for i in sku_dataframe.index:
             tracker[sku_dataframe['MODEL'][i]].add_sku(sku_dataframe['SKU'][i], sku_dataframe['QTY'][i])
 
-        return tracker
+        return tracker, False
 
 
 class SKUsContainer:
