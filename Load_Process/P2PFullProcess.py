@@ -38,6 +38,7 @@ dayToday = weekdays(0)  # Date to display in report
 drybox_sanity_check = True
 printLoads = False  # Print created loads
 save_log_file = True  # Save log file of process results
+good_credit_for_max = True  # If set to true, allow only wishes with good credit to be used to satisfy max
 MinWarning = False  # Add yellow filling as warning when minimum is not satisfied for a p2p
 AutomaticRun = False  # set to True to automate code
 validation = False     # set to True to validate the results received after the process
@@ -129,6 +130,9 @@ def p2p_full_process():
 
     # Creation of log file
     create_log_file(result_folder, save_log_file)
+
+    # Application of credit rule to satisfy max
+    set_good_credit_for_max(good_credit_for_max)
 
     ####################################################################################################################
     #                                                 Excel Workbook declaration

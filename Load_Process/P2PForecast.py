@@ -51,6 +51,7 @@ def forecast():
     dayToday = weekdays(0)
     printLoads = False
     drybox_sanity_check = True
+    good_credit_for_max = False  # If set to true, allow only wishes with good credit to be used to satisfy max
     save_log_file = False
     result_time_stamp = time_now_string()
     general_folder = saveFolder + 'P2P_Forecast_' + dayToday + '\\'
@@ -168,6 +169,9 @@ def forecast():
 
     # Creation of log file
     create_log_file(result_folder, save_log_file)
+
+    # Application of credit rule to satisfy max
+    set_good_credit_for_max(good_credit_for_max)
 
     ####################################################################################################################
     #                                     SQL tables declaration and cleaning
