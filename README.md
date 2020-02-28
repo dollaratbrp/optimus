@@ -1,4 +1,4 @@
-# Optimus
+# Optimus <img src=bombardier-recreational-products-brp-vector-logo-small.png width="55">
 Loading automation tool that minimizes wasted space while maximizing quality of loads composition by pairing wisely inventory available and dealers' needs.
 
 ## General informations on algorithm procedure
@@ -33,5 +33,5 @@ Optimus algorithm proceeds executing the following steps:
   Using the inventory remaining from the whole process and considering **wishes** that are still unfulfilled, we try to fill space remaining in truck trailers that are already built and ready to go
   
 ## Usage
-Program can be run by clicking on `run_optimus.py` from the following path : S:\Shared\Business_Planning\Tool\Plant_to_plant\Optimus
+Program can be run by clicking on `run_optimus.py` at the following path : S:\Shared\Business_Planning\Tool\Plant_to_plant\Optimus
 
