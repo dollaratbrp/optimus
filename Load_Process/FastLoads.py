@@ -6,7 +6,7 @@ Author : Nicolas Raymond
 from tkinter import *
 import pandas as pd
 from openpyxl import load_workbook, Workbook
-from InputOutput import SQLConnection, savexlsxFile, send_email
+from InputOutput import SQLConnection, savexlsxFile, send_email, group_by_all_except_qty
 from P2PFunctions import get_trailers_data, get_emails_list
 from LoadBuilder import LoadBuilder, set_trailer_reference
 from random import randint
@@ -375,7 +375,7 @@ class FastLoadsBox(VerticalScrolledFrame):
         """
         # Initialization of column names for data that will be sent to LoadBuilder
         columns = ['QTY', 'SKU', 'MODEL', 'LENGTH', 'WIDTH', 'HEIGHT', 'NBR_PER_CRATE',
-                   'CRATE_TYPE', 'STACK_LIMIT', 'OVERHANG']
+                   'CRATE_TYPE', 'STACK_LIMIT', 'OVERHANG', 'ROTATION']
 
         # Connection to SQL database that contains data needed
         sql_connect = SQLConnection('CAVLSQLPD2\pbi2', 'Business_Planning', 'OTD_0_MD_D_MATERIAL')
@@ -448,6 +448,7 @@ class FastLoadsBox(VerticalScrolledFrame):
         ,CASE WHEN CRATE_TYPE = 'SKID' THEN 1 WHEN CRATE_SIZE.HEIGHT = 0 THEN 1 ELSE CONVERT(int, FLOOR(105/CRATE_SIZE.HEIGHT)) END
         ,CASE WHEN (CASE WHEN CRATE_TYPE = 'SKID' THEN 1 WHEN CRATE_SIZE.HEIGHT = 0 THEN 1 ELSE FLOOR(105/CRATE_SIZE.HEIGHT) END) = 1 THEN 0
         """ + overhang_case + """ ELSE 1 END
+        ,c.ROTATION
         FROM OTD_0_MD_D_MATERIAL as c LEFT JOIN masterdata.dbo.MD_MARA as a ON c.Material_number = a.Material_Number 
         LEFT JOIN """ + subquery + """ on c.Material_number = CRATE_SIZE.Material_Number
         LEFT JOIN [dbo].[OTD_1_P2P_F_PARAMETERS_CRATE_SKID] as SKID
@@ -456,11 +457,25 @@ class FastLoadsBox(VerticalScrolledFrame):
         # Retrieve the data
         data = sql_connect.GetSQLData(sql_query)
 
-        # Add each qty at the beginning of the good line of data and crate type after the stack limit
         for line in data:
+
+            # Adjust width and length
+            rot = line[-1]
+            if rot == 'W':
+                line[2], line[3] = line[3], line[2]  # We swap length and width
+                line[-1] = False  # Set rotation to False
+            else:  # ('A' or 'L')
+                line[-1] = (rot == 'A')
+
+            # Add quantity at the beginning
             index_of_qty = skus_list.index(line[0])
             line.insert(0, qty_list[index_of_qty])
+
+            # Set crate_type
             line.insert(7, crate_type)
+
+            # Change overhang as a bool
+            line[-2] = bool(line[-2])
 
         return pd.DataFrame(data=data, columns=columns)
 
@@ -469,7 +484,7 @@ class FastLoadsBox(VerticalScrolledFrame):
         """
         Takes the complete dataframe and split it in two
         First : [QTY | SKU |  MODEL (SIZE_CODE)] to keep track of link between SKUs and size_code
-        Second : [QTY | MODEL | LENGTH | WIDTH | HEIGHT | NUMBER_PER_CRATE | CRATE_TYPE | STACK_LIMIT | OVERHANG ]
+        Second : [QTY | MODEL | LENGTH | WIDTH | HEIGHT | NUMBER_PER_CRATE | CRATE_TYPE | STACK_LIMIT | OVERHANG | ROT ]
         The second will be group by MODEL
 
         :return: two pandas data frames
@@ -477,12 +492,15 @@ class FastLoadsBox(VerticalScrolledFrame):
 
         # We extract both dataframes needed by making copy of some parts on complete dataframe
         first_df = complete_dataframe[['QTY', 'SKU', 'MODEL']].copy()
-        second_df = complete_dataframe[['QTY', 'MODEL', 'LENGTH', 'WIDTH', 'HEIGHT', 'NBR_PER_CRATE', 'CRATE_TYPE',
-                                       'STACK_LIMIT', 'OVERHANG']].copy()
+        second_fd_columns = ['QTY', 'MODEL', 'LENGTH', 'WIDTH', 'HEIGHT', 'NBR_PER_CRATE', 'CRATE_TYPE',
+                             'STACK_LIMIT', 'OVERHANG', 'ROTATION']
+        second_df = complete_dataframe[second_fd_columns].copy()
 
         # Do a groupby on second dataframe
-        second_df = second_df.groupby(['MODEL', 'LENGTH', 'WIDTH', 'HEIGHT', 'CRATE_TYPE',
-                                       'NBR_PER_CRATE', 'STACK_LIMIT', 'OVERHANG']).sum().reset_index()
+        second_df = group_by_all_except_qty(second_df, second_fd_columns)
+
+        print(first_df)
+        print(second_df)
 
         return first_df, second_df
 
