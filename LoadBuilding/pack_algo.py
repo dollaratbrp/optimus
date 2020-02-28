@@ -30,7 +30,7 @@ class PackingAlgorithm(object):
     def __iter__(self):
         return iter(self.rectangles)
 
-    def _fits_surface(self, width, height, overhang):
+    def _fits_surface(self, width, height, overhang, rect_rotation):
         """
         Test surface is big enough to place a rectangle
 
@@ -38,6 +38,7 @@ class PackingAlgorithm(object):
             width (int, float): Rectangle width
             height (int, float): Rectangle height
             overhang (bool) : Permission of rectangle to exceed surface height
+            rect_rotation (bool): indicator of rect rotation permission
 
         Returns:
             boolean: True if it could be placed, False otherwise
@@ -90,7 +91,7 @@ class PackingAlgorithm(object):
         """
         raise NotImplementedError
         
-    def add_rect(self, width, height, rid, overhang):
+    def add_rect(self, width, height, rid, overhang, rect_rotation):
         """
         Add rectangle of widthxheight dimensions.
 
@@ -99,6 +100,7 @@ class PackingAlgorithm(object):
             height (int, float): Rectangle height
             rid: Optional rectangle user id
             overhang: Boolean indicating permission of overhanging
+            rect_rotation (bool): indicator of rect rotation permission
 
         Returns:
             Rectangle: Rectangle with placemente coordinates

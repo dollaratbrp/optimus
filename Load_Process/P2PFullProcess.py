@@ -233,20 +233,20 @@ def p2p_full_process():
         # For the p2p that match with the order
         for param in [p2p for p2p in p2ps_list if (p2p.POINT_FROM == order[0] and p2p.POINT_TO == order[1])]:
 
+            # We write a line in the summary worksheet
+            summary_ws.append([param.POINT_FROM, shipping_points_names[param.POINT_FROM],
+                               param.POINT_TO, shipping_points_names[param.POINT_TO],
+                               len(param.LoadBuilder), param.get_nb_of_units()])
+
+            # If the minimum is not fulfilled we warn the user with a different background color in the output
+            if MinWarning and len(param.LoadBuilder) < param.LOADMIN:
+                summary_ws.cell(row=line_index, column=len(summary_columns)).fill = Warning_fill
+
+            # We update line index
+            line_index += 1
+
             # If some loads were created
             if len(param.LoadBuilder) > 0:
-
-                # We write a line in the summary worksheet
-                summary_ws.append([param.POINT_FROM, shipping_points_names[param.POINT_FROM],
-                                   param.POINT_TO, shipping_points_names[param.POINT_TO],
-                                   len(param.LoadBuilder), param.get_nb_of_units()])
-
-                # If the minimum is not fulfilled we warn the user with a different background color in the output
-                if MinWarning and len(param.LoadBuilder) < param.LOADMIN:
-                    summary_ws.cell(row=line_index, column=len(summary_columns)).fill = Warning_fill
-
-                # We update line index
-                line_index += 1
 
                 # We save p2p results to sql and in some lists for excel output
                 param.save_full_process_results(connection, approved_ws_data, sap_input_data,

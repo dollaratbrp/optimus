@@ -178,22 +178,25 @@ class Skyline(PackingAlgorithm):
     def _rect_fitness(self, rect, left_index, right_index):
         return rect.top
 
-    def _select_position(self, width, height, overhang):
+    def _select_position(self, width, height, overhang, rect_rotation):
         """
         Search for the placement with the bes fitness for the rectangle.
+
+        overhang (bool) : indicator of overhang permission
+        rect_rotation (bool): indicator of rect rotation permission
 
         Returns:
             tuple (Rectangle, fitness) - Rectangle placed in the fittest position
             None - Rectangle couldn't be placed
         """
         positions = self._generate_placements(width, height, overhang)
-        if self.rot and width != height:
+        if self.rot and rect_rotation and width != height:
             positions += self._generate_placements(height, width, overhang)
         if not positions:
             return None, None
         return min(((p[0], self._rect_fitness(*p))for p in positions), key=operator.itemgetter(1))
 
-    def fitness(self, width, height, overhang):
+    def fitness(self, width, height, overhang, rect_rotation):
         """Search for the best fitness 
         """
         # Compute overhang measure of the surface (Notice that it equals 0 if overhang is false)
@@ -214,10 +217,10 @@ class Skyline(PackingAlgorithm):
 
         # Get best fitness segment, for normal rectangle, and for
         # rotated rectangle if rotation is enabled.
-        rect, fitness = self._select_position(width, height, overhang)
+        rect, fitness = self._select_position(width, height, overhang, rect_rotation)
         return fitness
 
-    def add_rect(self, width, height, rid, overhang):
+    def add_rect(self, width, height, rid, overhang, rect_rotation):
         """
         Add new rectangle
         """
@@ -233,13 +236,14 @@ class Skyline(PackingAlgorithm):
             return None
 
         rect = None
+
         # If Waste management is enabled, first try to place the rectangle there
         if self._waste_management:
             rect = self._waste.add_rect(width, height, rid)
 
         # Get best possible rectangle position
         if not rect:
-            rect, _ = self._select_position(width, height, overhang)
+            rect, _ = self._select_position(width, height, overhang, rect_rotation)
             if rect:
                 self._add_skyline(rect)
 
