@@ -15,6 +15,7 @@ from InputOutput import *
 from numpy import savetxt
 DATAInclude = []
 log_file = None
+good_credit_for_max = False
 sharing_points_from = ['4100', '4125']
 shared_flatbed_53 = {'QTY': 2, 'POINT_FROM': sharing_points_from}  # Used to keep track of flat53 available
 residuals_counter = {}  # Use to keep track of the residuals of min and max among p2p with same POINT TO
@@ -27,7 +28,7 @@ class Wish:
     """
 
     def __init__(self, sdn, sin, stn, point_from, shipping_point, div, mat_num, size, length, width, height,
-                 stackability, qty, rank, mandatory, overhang, crate_type, valid_from, period_status,
+                 stackability, qty, rank, mandatory, overhang, crate_type, valid_from, period_status, credit_status,
                  rotation, is_adhoc=0):
 
         self.SALES_DOCUMENT_NUMBER = sdn
@@ -48,6 +49,7 @@ class Wish:
         self.CRATE_TYPE = crate_type
         self.VALID_FROM_DATE = valid_from
         self.PERIOD_STATUS = period_status
+        self.CREDIT_STATUS = credit_status
 
         # We initialize length, width and rotation according to ROTATION column from the query
         if rotation == 'W':
@@ -99,6 +101,7 @@ class Wish:
         return ['WISH -> ', ' FROM : ', str(self.POINT_FROM),
                 '| TO : ', str(self.SHIPPING_POINT),
                 '| MATERIAL_NUMBER : ', str(self.MATERIAL_NUMBER),
+                '| CREDIT STATUS : ', str(self.CREDIT_STATUS),
                 '| SIZE CODE : ', str(self.SIZE_DIMENSIONS),
                 '| RANK : ', str(self.RANK), '\n']
 
@@ -302,6 +305,8 @@ class Parameters:
         for wish in temporary_on_load:
             log_file.writelines(wish.get_log_details())
 
+        # We write number of loads already done and the input dataframe in the log file
+        log_file.writelines(['\n\n', 'NUMBER OF LOADS ALREADY DONE : {}'.format(str(len(self.LoadBuilder))), '\n\n'])
         log_file.writelines(['\n\n', '*** LOADBUILDER INPUT DATAFRAME *** ', '\n\n'])
         for index, row in input_dataframe.iterrows():
             log_file.write('    ')
@@ -314,7 +319,7 @@ class Parameters:
         result = self.LoadBuilder.build(input_dataframe, max_load, ranking=ranking, plot_load_done=print_loads)
 
         # We write the number of loads done
-        log_file.writelines(['\n\n', 'NUMBER OF LOADS DONE : {}'.format(str(len(self.LoadBuilder) - last_number_of_loads))])
+        log_file.writelines(['\n\n', 'NUMBER OF NEW LOADS : {}'.format(str(len(self.LoadBuilder) - last_number_of_loads))])
 
         # We update the number of common flatbed 53
         self.update_flatbed_53()
@@ -607,7 +612,9 @@ def get_wish_list(forecast=False):
                       ,[METAL_WOOD]
                       ,[valid_from_date]
                       ,[PERIOD_STATUS]
+                      ,[CREDIT_STATUS]
                       ,[ROTATION]
+
                   FROM [Business_Planning].[dbo].[OTD_1_P2P_F_PRIORITY_WITHOUT_INVENTORY]
                   WHERE [POINT_FROM] <> [SHIPPING_POINT] 
                   AND Length <> 0 and Width <> 0 AND Height <> 0 and """ + period_status + """
@@ -935,13 +942,14 @@ def satisfy_max_or_min(Wishes, Inventory, Parameters, satisfy_min=True, print_lo
     """
     Attributes wishes wisely among p2p'S in Parameters list in order to satisfy their min or their max value
 
-    :param Wishes: List of wishes (list of WishlistObj)
+    :param Wishes: List of wishes (list of Wish)
     :param Inventory: List of INVobj
     :param Parameters: List of Parameters
     :param satisfy_min: (bool) if false -> we want to satisfy the max
     :param print_loads: (bool) indicates if we plot each load or not
     """
     global residuals_counter
+    global good_credit_for_max
 
     # We look if we're distributing leftovers or processing to normal stack packing
     leftover_distribution = kwargs.get('leftovers', False)
@@ -960,6 +968,12 @@ def satisfy_max_or_min(Wishes, Inventory, Parameters, satisfy_min=True, print_lo
 
     # We update LoadBuilder class attribute plc_lb depending on the situation
     LoadBuilder.plc_lb = 0.74 * check_min + (1 - check_min) * 0.80
+
+    # We filter the wish list if we are satisfying max
+    if good_credit_for_max and not satisfy_min and not leftover_distribution:
+        filtered_wishlist = [wish for wish in Wishes if wish.CREDIT_STATUS == 1]
+    else:
+        filtered_wishlist = Wishes
 
     # For each parameters in Parameters list
     for param in Parameters:
@@ -981,7 +995,7 @@ def satisfy_max_or_min(Wishes, Inventory, Parameters, satisfy_min=True, print_lo
             ranking = {}
 
             # We loop through our wishes list
-            for wish in Wishes:
+            for wish in filtered_wishlist:
 
                 # If the wish is not fulfilled and his POINT FROM and POINT TO are corresponding with the param (p2p)
                 if wish.QUANTITY > 0 and wish.POINT_FROM == param.POINT_FROM and wish.SHIPPING_POINT == param.POINT_TO:
@@ -1271,5 +1285,14 @@ def add_separator_line(symbol='#'):
     """
     global log_file
     log_file.writelines(['\n\n'] + [symbol]*80)
+
+
+def set_good_credit_for_max(good_credit_rule_activate):
+    """
+    Sets good_credit_for_max global variable value
+    :param good_credit_rule_activate: bool indicating if we must set it to True or False
+    """
+    global good_credit_for_max
+    good_credit_for_max = good_credit_rule_activate
 
 
