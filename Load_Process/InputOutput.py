@@ -307,10 +307,11 @@ def group_by_all_except_qty(dataframe_input, columns_name):
     :return: pandas dataframe
     """
     frame = pd.DataFrame(data=dataframe_input, columns=columns_name)
-    frame = frame.groupby([column for column in columns_name if column != 'QUANTITY']).sum()
+    frame = frame.groupby([column for column in columns_name if column not in ['QUANTITY', 'QTY']]).sum()
     frame = frame.reset_index()
 
     return frame
+
 
 class SQLConnection:
 
