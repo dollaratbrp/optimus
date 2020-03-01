@@ -55,6 +55,7 @@ def forecast():
     drybox_sanity_check = True   # Activates drybox load validation
     good_credit_for_max = False  # If set to true, allow only wishes with good credit to be used to satisfy max
     save_log_file = False  # Save log file of process results
+    wish_weekdays_range = 10  # Number of weekdays to consider from departure date when we filter wishlist
     result_time_stamp = time_now_string()
     general_folder = saveFolder + 'P2P_Forecast_' + dayToday + '\\'
     result_folder = general_folder + result_time_stamp + '\\'
@@ -247,14 +248,8 @@ def forecast():
 
         # We shrink the wishlist to a 10 weekdays range
         filtered_wishes = [wish for wish in wishes if
-                           wish.VALID_FROM_DATE <= weekdays(10, officialDay=date, return_as_date=True)
+                           wish.VALID_FROM_DATE <= weekdays(wish_weekdays_range, officialDay=date, return_as_date=True)
                            or wish.PERIOD_STATUS == 'P2P']
-
-        # print('\n','ORIGINAL WISHLIST LENGTH : ', len(wishes))
-        # print('FILTERED WISHLIST LENGTH : ', len(filtered_wishes))
-        # print('DEPARTURE DATE :', date)
-        # print('15 DAYS FROM DEPARTURE :', weekdays(15, officialDay=date))
-        # print('\n')
 
         # We write the departure date in the log file
         write_departure_date(date)
