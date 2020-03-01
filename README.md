@@ -1,6 +1,10 @@
 # Optimus <img src=Readme_Pictures/bombardier-recreational-products-brp-vector-logo-small.png width="55">
 Loading automation tool that minimizes wasted space while maximizing quality of loads composition by pairing wisely inventory available and dealers' needs.
 
+<p align="center">
+<img src=Readme_Pictures/_4100_4095_1.png>
+</p>
+
 ## General informations on algorithm procedure for the main process
 Optimus algorithm proceeds executing the following steps:
 
@@ -77,9 +81,18 @@ One priority number can be use more than once.
 
 Transit is actually not considered by the algorithm
 
+### Fast Loads
+This Optimus mode offer a simple tool to the user who simply wants to build loads with items and trailers at his reach
 
+Once chosen on the **Mode selection** interface, the Fast Loads starts by opening another interface which **Crates** part will be already filled with data entered earlier by the user in `FastLoadsSKUs.xlsx` from the same directory as `run_optimus.py`
 
+<p align="center">
+<img src=Readme_Pictures/Fastloads.png>
+</p>
 
+#### **Drybox validation**
+If checked by the user, every loads built in a drybox will be compared to the same loads but packed in a flatbed 43.
+If the equivalent loads stored in the flatbed 43 don't satisfy percentage of length that must covered minimally, the load will be rejected.
 
 
     
