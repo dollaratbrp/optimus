@@ -146,10 +146,10 @@ Default values of these attributes can be change in `LoadBuilder.py`located at
 <img src=Readme_Pictures/LoadBuilder_settings.png>
 </p>
 
-Note that the default lower bound is set to **80%** but is modified in the **P2PFullprocess** and the **Forecast** via the function *satisfy_min_or_max* of `P2PFunctions.py` located at **S:\Shared\Business_Planning\Tool\Plant_to_plant\Optimus\Code\Optimus-master\Load_Process**
+Note that the default lower bound is set to **80%** but is modified during the execution of the **P2PFullprocess** and the **Forecast** via the function *satisfy_min_or_max* of `P2PFunctions.py` located at **S:\Shared\Business_Planning\Tool\Plant_to_plant\Optimus\Code\Optimus-master\Load_Process**
 
 <p align="center">
-<img src=Readme_Pictures/LoadBuilder_settings.png>
+<img src=Readme_Pictures/lowerbound_settings.png>
 </p>
 
 ## Sharing point from
