@@ -17,9 +17,9 @@ from datetime import datetime
 
 plot_loads = True
 
-workbook_path = 'U:\LoadAutomation\Optimus\FastLoadsSKUs.xlsx'
+workbook_path = 'S:\Shared\Business_Planning\Tool\Plant_to_plant\Optimus\FastLoadsSKUs.xlsx'
 
-saving_path = 'U:\LoadAutomation\Optimus\\'
+saving_path = 'S:\Shared\Business_Planning\Tool\Plant_to_plant\Optimus\P2P_excel_output\P2P_ad_hoc\\'
 
 
 class FastLoadsBox(VerticalScrolledFrame):

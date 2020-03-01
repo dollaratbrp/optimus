@@ -30,12 +30,12 @@ import os
 # OTD_1_P2P_F_TRUCK_PARAMETERS : Get data
 
 # Folder where the excel workbook is saved
-saveFolder = 'S:\Shared\Business_Planning\Personal\Raymond\P2P\\'
+saveFolder = 'S:\Shared\Business_Planning\Tool\Plant_to_plant\Optimus\P2P_excel_output\P2P_summary\\'
 
 # Parameters variables
 dayTodayComplete = pd.datetime.now().replace(second=0, microsecond=0)  # date to set in SQL for import date
 dayToday = weekdays(0)  # Date to display in report
-drybox_sanity_check = True
+drybox_sanity_check = True  # Activates drybox load validation
 printLoads = False  # Print created loads
 save_log_file = True  # Save log file of process results
 good_credit_for_max = False  # If set to true, allow only wishes with good credit to be used to satisfy max
@@ -46,7 +46,7 @@ result_time_stamp = time_now_string()
 general_folder = saveFolder+'P2P_Summary_'+dayToday+'\\'
 result_folder = general_folder+result_time_stamp+'\\'
 result_file = 'P2P_Summary_'+result_time_stamp  # Name of excel file with today's date
-history_expiration_date = dayTodayComplete - timedelta(days=365)  # Expiration date set one year ago
+history_expiration_date = dayTodayComplete - timedelta(days=365)  # Expiration date of history data set one year ago
 
 
 def p2p_full_process():
