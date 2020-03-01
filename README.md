@@ -39,7 +39,7 @@ Optimus algorithm proceeds executing the following steps:
 ## Usage
 Program can be run by clicking on `run_optimus.py` at the following path : **S:\Shared\Business_Planning\Tool\Plant_to_plant\Optimus**
 
-An interface will open and allow user to select among three different modes of operations
+An interface will show up and allow user to select among three different modes of operations
 
 1. **P2P Full Process**
 2. **Fast Loads**
@@ -84,7 +84,7 @@ Transit is actually not considered by the algorithm
 ### Fast Loads
 This Optimus mode offer a simple tool to the user who simply wants to build loads with items and trailers at his reach
 
-Once chosen on the **Mode selection** interface, the Fast Loads starts by opening another interface which **Crates** part will be already filled with data entered earlier by the user in `FastLoadsSKUs.xlsx` from the same directory as `run_optimus.py`
+Once chosen on the **Mode selection** interface, the **Fast Loads** starts by opening another interface which **Crates** part will be already filled with data entered earlier by the user in `FastLoadsSKUs.xlsx` from the same directory as `run_optimus.py`
 
 <p align="center">
 <img src=Readme_Pictures/Fastloads.png>
@@ -94,6 +94,10 @@ Once chosen on the **Mode selection** interface, the Fast Loads starts by openin
 If checked by the user, every loads built in a drybox will be compared to the same loads but packed in a flatbed 43.
 If the equivalent loads stored in the flatbed 43 don't satisfy percentage of length that must covered minimally, the load will be rejected.
 
+### Forecast
 
+Once chosen on the **Mode selection** interface, the **Forecast** starts by opening another interface which is has the same shape as the **P2P Full Process** interface.
+
+The **Forecast** will only execute the **P2P Full Process** repetively in order to mime 8 weeks of loads building planning and give an approximation of the numbers of loads that will be built for each plant to plant in the future.
     
 
