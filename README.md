@@ -10,7 +10,7 @@ Optimus algorithm proceeds executing the following steps:
 
 - #### Search of **perfect match** between orders (**wishes**) from orders' list (**wishlist**) and available inventory
     
-    We run through each **wish** beginning by the ones with lowest rank and associate it inventory if there's enough available to fulfill it. 
+    We run through each **wish** beginning by the one with lowest rank and associate it inventory if there's enough available to fulfill it. 
     
 - #### Construction of loads from the association made in the **perfect match**
 
@@ -22,13 +22,13 @@ Optimus algorithm proceeds executing the following steps:
     
 - #### Satisfaction of minimums
 
-  Using the inventory remaining from last step and considering **wishes** that are still unfulfilled, we run trough each plant to plant begining by the ones with the lowest priority number and try to build enough loads to satisfy their minimums expected if it wasn't reached earlier
+  Using the inventory remaining from last step and considering **wishes** that are still unfulfilled, we run trough each plant to plant begining by the ones with the lowest priority number and try to build enough loads to satisfy their minimum expected if it wasn't reached earlier
    
   Items that could not made it to the loads are sent back to the available inventory for the next step
   
 - #### Satisfaction of maximums
 
-  Using the inventory remaining from last step and considering **wishes** that are still unfulfilled, we run trough each plant to plant begining by the ones with the lowest priority number and try to build enough loads to satisfy their maximums expected if it wasn't reached earlier
+  Using the inventory remaining from last step and considering **wishes** that are still unfulfilled, we run trough each plant to plant begining by the ones with the lowest priority number and try to build enough loads to satisfy their maximum expected if it wasn't reached earlier
   
   Items that could not made it to the loads are sent back to the available inventory for the next step
   
@@ -113,6 +113,7 @@ Here's a list of constraints that need to be respected by the loads
 - All loads built on drybox must satisfy the validation criteria detailed earlier for **Fast Loads** (can be deactivated)
 - A **wood** crate can be stack above another only if its length in smaller and its width is equal or is maximum **6"** smaller than the other crate (can be changed)
 - A **metal** crate can be stack above another only if its length and its width is equal to the other crate (can be changed)
+- Only complete stacks are allowed to be on a load built in all step of the process except when we execute the **leftover distrbution**.
 
 
 
