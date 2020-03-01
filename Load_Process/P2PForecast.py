@@ -24,8 +24,7 @@ from tqdm import tqdm
 from copy import deepcopy
 import numpy as np
 
-# Path where the forecast results are saved
-saveFolder = 'S:\Shared\Business_Planning\Personal\Raymond\P2P\\'
+
 AutomaticRun = False  # set to True to automate code
 
 
@@ -47,12 +46,15 @@ def forecast():
     # -----------------------------------------------------------------------------------------------------------------#
     # -----------------------------------------------------------------------------------------------------------------#
 
-    dayTodayComplete = pd.datetime.now().replace(second=0, microsecond=0)
-    dayToday = weekdays(0)
-    printLoads = False
-    drybox_sanity_check = True
+    # Path where the forecast results are saved
+    saveFolder = 'S:\Shared\Business_Planning\Tool\Plant_to_plant\Optimus\P2P_excel_output\P2P_forecast\\'
+
+    dayTodayComplete = pd.datetime.now().replace(second=0, microsecond=0)  # date to set in SQL for import date
+    dayToday = weekdays(0)  # Date to display in report
+    printLoads = False  # Print created loads
+    drybox_sanity_check = True   # Activates drybox load validation
     good_credit_for_max = False  # If set to true, allow only wishes with good credit to be used to satisfy max
-    save_log_file = False
+    save_log_file = False  # Save log file of process results
     result_time_stamp = time_now_string()
     general_folder = saveFolder + 'P2P_Forecast_' + dayToday + '\\'
     result_folder = general_folder + result_time_stamp + '\\'
