@@ -102,7 +102,7 @@ The **Forecast** will only execute the **P2P Full Process** repetively in order 
 
 ## Constraints for loads building in the main process
 
-Here's a list of constraints that need to be respected by the loads
+Here's a list of constraints that needs to be respected by the loads
 
 - The minimal percentage of length that must be covered when satisfying minimums is set to **74%** (can be changed)
 - The minimal percentage of length that must be covered when satisfying maximum is set to **80%**  (can be changed)
@@ -114,6 +114,9 @@ Here's a list of constraints that need to be respected by the loads
 - A **wood** crate can be stack above another only if its length in smaller and its width is equal or is maximum **6"** smaller than the other crate (can be changed)
 - A **metal** crate can be stack above another only if its length and its width is equal to the other crate (can be changed)
 - Only complete stacks are allowed to be on a load built in all step of the process except when we execute the **leftover distrbution**.
+
+## Settings
+This section look over all sections of codes that can be changed to impact Optimus outcomes
 
 
 
