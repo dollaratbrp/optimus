@@ -96,8 +96,25 @@ If the equivalent loads stored in the flatbed 43 don't satisfy percentage of len
 
 ### Forecast
 
-Once chosen on the **Mode selection** interface, the **Forecast** starts by opening another interface which is has the same shape as the **P2P Full Process** interface.
+Once chosen on the **Mode selection** interface, the **Forecast** starts by opening another interface which has the same shape as the **P2P Full Process** interface.
 
-The **Forecast** will only execute the **P2P Full Process** repetively in order to mime 8 weeks of loads building planning and give an approximation of the numbers of loads that will be built for each plant to plant in the future.
+The **Forecast** will only execute the **P2P Full Process** repetively in order to simulate 8 weeks of loads building planning and give an approximation of the numbers of loads that will be built for each plant to plant in the future.
+
+## Constraints for loads building in the main process
+
+Here's a list of constraints that need to be respected by the loads
+
+- The minimal percentage of length that must be covered when satisfying minimums is set to **74%** (can be changed)
+- The minimal percentage of length that must be covered when satisfying maximum is set to **80%**  (can be changed)
+- The length measure used to calculate the above validation is considered as the length of the trailer which the width used is equal or greater than the smallest width accepted.
+- The smallest width accepted for a stack that has no other stack by its side is set to **55"** (can be changed)
+- Only orders with good credit status can be considered when satisfying maximums (can be deactived)
+- All crates for which overhang is allowed must have **70%** of its surface on the truck (can be changed)
+- All loads built on drybox must satisfy the validation criteria detailed earlier for **Fast Loads** (can be deactivated)
+- A **wood** crate can be stack above another only if its length in smaller and its width is equal or is maximum **6"** smaller than the other crate (can be changed)
+- A **metal** crate can be stack above another only if its length and its width is equal to the other crate (can be changed)
+
+
+
     
 
