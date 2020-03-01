@@ -118,7 +118,46 @@ Here's a list of constraints that needs to be respected by the loads
 ## Settings
 This section look over all sections of codes that can be changed to impact Optimus outcomes
 
+### P2P Full Process
+Many global variable values can be change at the beginning of `P2PFullProcess.py` located at **S:\Shared\Business_Planning\Tool\Plant_to_plant\Optimus\Code\Optimus-master\Load_Process**
+
+Purpose and impact of each variable are written in code comments as seen in the following image
+
+<p align="center">
+<img src=Readme_Pictures/p2p_settings.png>
+</p>
+
+### Forecast
+The same variables setting is also available for the Forecast in `P2PForecast.py`located at 
+**S:\Shared\Business_Planning\Tool\Plant_to_plant\Optimus\Code\Optimus-master\Load_Process**
+
+<p align="center">
+<img src=Readme_Pictures/fcst_settings.png>
+</p>
+
+### LoadBuilder class
+The LoadBuilders are the objects that has the task to create loads with crates and trailers available.
+Different values attributes of this type of object can lead to different load results.
+
+Default values of these attributes can be change in `LoadBuilder.py`located at
+**S:\Shared\Business_Planning\Tool\Plant_to_plant\Optimus\Code\Optimus-master\LoadBuilding**
+
+<p align="center">
+<img src=Readme_Pictures/LoadBuilder_settings.png>
+</p>
+
+Note that the default lower bound is set to **80%** but is modified in the **P2PFullprocess** and the **Forecast** via the function *satisfy_min_or_max* of `P2PFunctions.py` located at **S:\Shared\Business_Planning\Tool\Plant_to_plant\Optimus\Code\Optimus-master\Load_Process**
+
+<p align="center">
+<img src=Readme_Pictures/LoadBuilder_settings.png>
+</p>
+
+## Sharing point from
+All details associated to POINT FROM that are sharing flatbed 53 and that are also sharing maximums among same POINT TO can be modified via `P2PFunctions.py` located at **S:\Shared\Business_Planning\Tool\Plant_to_plant\Optimus\Code\Optimus-master\Load_Process**
+
+<p align="center">
+<img src=Readme_Pictures/sharing_point_settings.png>
+</p>
 
 
-    
 
