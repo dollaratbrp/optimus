@@ -1,4 +1,4 @@
-# Optimus <img src=bombardier-recreational-products-brp-vector-logo-small.png width="55">
+# Optimus <img src=Readme_Pictures/bombardier-recreational-products-brp-vector-logo-small.png width="55">
 Loading automation tool that minimizes wasted space while maximizing quality of loads composition by pairing wisely inventory available and dealers' needs.
 
 ## General informations on algorithm procedure for the main process
