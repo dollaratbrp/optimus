@@ -52,7 +52,7 @@ An interface will show up and allow user to select among three different modes o
 ### P2P Full process
 This Optimus mode drives all daily morning operations linked to loads buidling.
 
-Once chosen on the **Mode selection** interface, the full process starts by opening another interface leaving the user a lot of flexibility and options for the loads building of every plant to plant.
+Once chosen on the **Mode selection** interface, the full process starts by opening another interface leaving to the user a lot of flexibility and options for the loads building of every plant to plant.
 
 <p align="center">
 <img src=Readme_Pictures/p2p_param.png>
@@ -70,12 +70,12 @@ It's important to be aware of the following details:
 
 #### **Flatbed**
 
-The flatbed presented in the interface refer to the 48 feet long trailer. However, all plant to plant with **POINT FROM** that are either **4100** or **4125** share also implicitly to 53 feet long flatbed at anytime.
+The flatbed presented in the interface refer to the 48 feet long trailers. However, all plant to plant with **POINT FROM** that are either **4100** or **4125** share also implicitly two 53 feet long flatbed at anytime.
 
 #### **Priority**
 
 The priority indicates which plant to plant to consider first while satisfying maximums and minimums.
-One priority number can be use more than once.
+A priority number can be use more than once.
 
 #### **Transit**
 
@@ -98,20 +98,20 @@ If the equivalent loads stored in the flatbed 43 don't satisfy percentage of len
 
 Once chosen on the **Mode selection** interface, the **Forecast** starts by opening another interface which has the same shape as the **P2P Full Process** interface.
 
-The **Forecast** will only execute the **P2P Full Process** repetively in order to simulate 8 weeks of loads building planning and give an approximation of the numbers of loads that will be built for each plant to plant in the future.
+The **Forecast** will only execute the **P2P Full Process** repetitively in order to simulate 8 weeks of loads building planning and give an approximation of the numbers of loads that will be built for each plant to plant in the future.
 
 ## Constraints for loads building in the main process
 
-Here's a list of constraints that needs to be respected by the loads
+Here's a list of constraints that must be respected by all the loads
 
-- The minimal percentage of length that must be covered when satisfying minimums is set to **74%** (can be changed)
+- The minimal percentage of length that must be covered when satisfying minimum is set to **74%** (can be changed)
 - The minimal percentage of length that must be covered when satisfying maximum is set to **80%**  (can be changed)
 - The length measure used to calculate the above validation is considered as the length of the trailer which the width used is equal or greater than the smallest width accepted.
 - The smallest width accepted for a stack that has no other stack by its side is set to **55"** (can be changed)
 - Only orders with good credit status can be considered when satisfying maximums (can be deactived)
 - All crates for which overhang is allowed must have **70%** of its surface on the truck (can be changed)
 - All loads built on drybox must satisfy the validation criteria detailed earlier for **Fast Loads** (can be deactivated)
-- A **wood** crate can be stack above another only if its length in smaller and its width is equal or is maximum **6"** smaller than the other crate (can be changed)
+- A **wood** crate can be stack above another only if its length is smaller and its width is equal or is maximum **6"** smaller than the other crate (can be changed)
 - A **metal** crate can be stack above another only if its length and its width is equal to the other crate (can be changed)
 - Only complete stacks are allowed to be on a load built in all step of the process except when we execute the **leftover distrbution**.
 
@@ -119,7 +119,7 @@ Here's a list of constraints that needs to be respected by the loads
 This section look over all sections of codes that can be changed to impact Optimus outcomes
 
 ### P2P Full Process
-Many global variable values can be change at the beginning of `P2PFullProcess.py` located at **S:\Shared\Business_Planning\Tool\Plant_to_plant\Optimus\Code\Optimus-master\Load_Process**
+Many global variable values can be changed at the beginning of `P2PFullProcess.py` located at **S:\Shared\Business_Planning\Tool\Plant_to_plant\Optimus\Code\Optimus-master\Load_Process**
 
 Purpose and impact of each variable are written in code comments as seen in the following image
 
@@ -137,7 +137,7 @@ The same variables setting is also available for the Forecast in `P2PForecast.py
 
 ### LoadBuilder class
 The LoadBuilders are the objects that has the task to create loads with crates and trailers available.
-Different values attributes of this type of object can lead to different load results.
+Different values attributes of these object can lead to different load results.
 
 Default values of these attributes can be change in `LoadBuilder.py`located at
 **S:\Shared\Business_Planning\Tool\Plant_to_plant\Optimus\Code\Optimus-master\LoadBuilding**
@@ -146,7 +146,7 @@ Default values of these attributes can be change in `LoadBuilder.py`located at
 <img src=Readme_Pictures/LoadBuilder_settings.png>
 </p>
 
-Note that the default lower bound is set to **80%** but is modified during the execution of the **P2PFullprocess** and the **Forecast** via the function *satisfy_min_or_max* of `P2PFunctions.py` located at **S:\Shared\Business_Planning\Tool\Plant_to_plant\Optimus\Code\Optimus-master\Load_Process**
+Note that the default lower bound is set to **80%** but is modified during the execution of the **P2PFullprocess** and the **Forecast** via the function *satisfy_max_or_min* of `P2PFunctions.py` located at **S:\Shared\Business_Planning\Tool\Plant_to_plant\Optimus\Code\Optimus-master\Load_Process**
 
 <p align="center">
 <img src=Readme_Pictures/lowerbound_settings.png>
