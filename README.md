@@ -137,9 +137,9 @@ The same variables setting is also available for the Forecast in `P2PForecast.py
 
 ### LoadBuilder class
 The LoadBuilders are the objects that has the task to create loads with crates and trailers available.
-Different values attributes of these object can lead to different load results.
+Different attribute values of these object can lead to different load results.
 
-Default values of these attributes can be change in `LoadBuilder.py`located at
+Default values of these attributes can be changed in `LoadBuilder.py`located at
 **S:\Shared\Business_Planning\Tool\Plant_to_plant\Optimus\Code\Optimus-master\LoadBuilding**
 
 <p align="center">
