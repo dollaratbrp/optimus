@@ -6,7 +6,7 @@ Loading automation tool that minimizes wasted space while maximizing quality of 
 </p>
 
 ## General informations on algorithm procedure for the main process
-Optimus algorithm proceeds executing the following steps:
+Optimus algorithm proceeds by executing the following steps:
 
 - #### Search of **perfect match** between orders (**wishes**) from orders' list (**wishlist**) and available inventory
     
